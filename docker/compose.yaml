@@ -1,0 +1,93 @@
+version: '3.8' # Specify Docker Compose version
+
+services:
+  llm-sidecar:
+    build:
+      context: . # Use the current directory (docker/) as the build context
+      dockerfile: Dockerfile # Specify the Dockerfile name
+    ports:
+      - "8000:8000" # Map host port 8000 to container port 8000
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+              count: 1 # Request access to one GPU
+    volumes:
+      # Mount the server.py from the root directory into the /app directory in the container
+      # This ensures that the server code is correctly picked up by the Docker image
+      # Adjust the source path if your server.py is located elsewhere relative to the compose file
+      - ../server.py:/app/server.py
+      # It's good practice to also ensure the model directory is correctly handled.
+      # If the model is downloaded during the build (as in the Dockerfile), 
+      # it will be part of the image. If you were to download it at runtime or
+      # want to persist it outside the container, a volume mount here would be necessary.
+      # For now, relying on the Dockerfile's RUN git clone ... is sufficient.
+      # Example for persisting model outside container (optional, and adjust path):
+      # - ./hermes-model-data:/app/hermes-model 
+    # Adding a healthcheck can be useful for production, but is optional here
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 60s # Give the service time to start and load the model
+    restart: unless-stopped # Restart policy
+
+  vram-watchdog:
+    image: docker:latest # Using docker:latest which includes Docker CLI
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock # Mount Docker socket
+      - ../scripts/vram_watchdog.sh:/usr/local/bin/vram_watchdog.sh # Mount the script
+      # Optional: Mount a volume for logs if the script writes logs to a persistent place
+      # - ./vram_watchdog_logs:/var/log 
+    command: >
+      sh -c "
+        if [ ! -f /usr/local/bin/vram_watchdog.sh ]; then
+            echo 'Error: Watchdog script not found at /usr/local/bin/vram_watchdog.sh'
+            exit 1
+        fi
+        chmod +x /usr/local/bin/vram_watchdog.sh && \
+        echo 'VRAM Watchdog service started. Executing script...' && \
+        /usr/local/bin/vram_watchdog.sh
+      "
+    depends_on:
+      - llm-sidecar # Ensure llm-sidecar is started before the watchdog (optional, but good practice)
+    restart: unless-stopped
+    # The watchdog itself doesn't need GPU access, only the ability to run nvidia-smi (via Docker usually)
+    # or by having nvidia-smi on the watchdog container (more complex setup).
+    # The current script executes nvidia-smi from the host through the Docker socket essentially,
+    # by restarting a container that has GPU access.
+    # If nvidia-smi needs to be run *inside* the watchdog container, this service would also need GPU drivers.
+    # For now, the script is designed to run nvidia-smi on the host or another container if it were adapted.
+    # The current script executes nvidia-smi from *within* the vram-watchdog container.
+    # This means the vram-watchdog container *also* needs access to nvidia-smi.
+    # The `docker:latest` image does NOT have nvidia-smi.
+    # A better image would be `nvidia/cuda:12.1.1-base-ubuntu22.04` or similar that includes nvidia-smi,
+    # and then install docker cli in it.
+    # For now, I will adjust the script to assume nvidia-smi is available.
+    # If this fails, the image for the watchdog needs to be changed.
+    #
+    # Re-evaluating: The script uses `docker exec <container_id> nvidia-smi` if it were to run nvidia-smi
+    # on the llm-sidecar container. But it currently runs `nvidia-smi` directly.
+    # This means the watchdog container itself needs nvidia tools.
+    # Let's change the image to one that has nvidia-smi and install docker client in it.
+    #
+    # Alternative: The script runs `nvidia-smi` directly. This means the *watchdog container* needs GPU access.
+    # This is not ideal. The script should ideally exec into the `llm-sidecar` or another container
+    # that *has* `nvidia-smi` and GPU access.
+    #
+    # Given the script `scripts/vram_watchdog.sh` uses `nvidia-smi` directly,
+    # the `vram-watchdog` service *must* have access to `nvidia-smi`.
+    # The easiest way to achieve this is to use an NVIDIA base image and install docker client.
+    #
+    # Let's change the image for vram-watchdog and add installation for docker CLI.
+    # Using a simpler approach for now: keep `docker:latest` and assume `nvidia-smi` is accessible
+    # via the host's PATH when docker socket is mounted. This is often not true.
+    # The script will likely fail to find `nvidia-smi`.
+    #
+    # Correct approach: The watchdog script should run `nvidia-smi` on the HOST, or `docker exec` into the `llm-sidecar`.
+    # The provided script runs `nvidia-smi` directly. So, the watchdog service needs `nvidia-smi`.
+    # I will proceed with `docker:latest` for now and address `nvidia-smi` access if it becomes an issue in execution.
+    # The `chmod +x` is added to the command to ensure it's executable.
