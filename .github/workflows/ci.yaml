@@ -7,15 +7,59 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build:
+  build-and-test-llm-sidecar:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-      - name: Install deps
-        run: pip install -r requirements.txt
-      - name: List files
-        run: ls -la
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub (Optional - if pushing image)
+        # if: github.event_name != 'pull_request' # Example: Only push on merge to main
+        # uses: docker/login-action@v3
+        # with:
+        #   username: ${{ secrets.DOCKERHUB_USERNAME }}
+        #   password: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: echo "Skipping Docker login for now."
+
+
+      - name: Build llm-sidecar Docker image
+        run: |
+          docker compose -f docker/compose.yaml build llm-sidecar
+          echo "Image build complete."
+
+      - name: Run llm-sidecar container
+        run: |
+          docker compose -f docker/compose.yaml up -d llm-sidecar
+          echo "llm-sidecar container started in detached mode."
+
+      - name: Wait for health endpoint
+        run: |
+          echo "Waiting for service to become healthy..."
+          timeout 60s bash -c ' \
+            until curl -sf http://localhost:8000/health; do \
+              echo "Health endpoint not yet available, sleeping..."; \
+              sleep 5; \
+            done \
+          '
+          echo "Health endpoint responded successfully."
+
+      - name: Check container status and logs
+        run: |
+          docker ps -a
+          echo "---- llm-sidecar logs ----"
+          docker compose -f docker/compose.yaml logs llm-sidecar
+          echo "---- vram-watchdog logs (if running) ----"
+          docker compose -f docker/compose.yaml logs vram-watchdog || echo "vram-watchdog not running or no logs."
+
+
+      - name: Bring down services
+        if: always() # Ensure services are brought down even if previous steps fail
+        run: |
+          docker compose -f docker/compose.yaml down
+          echo "Services brought down."
