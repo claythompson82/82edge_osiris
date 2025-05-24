@@ -1,0 +1,35 @@
+diff --git a/.gitattributes b/.gitattributes
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/.gitattributes
+@@
++models/** filter=lfs diff=lfs merge=lfs -text
+
+diff --git a/.github/workflows/ci.yaml b/.github/workflows/ci.yaml
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/.github/workflows/ci.yaml
+@@
++name: CI
++on:
++  push:
++    branches: [ "main" ]
++  pull_request:
++    branches: [ "main" ]
++jobs:
++  build:
++    runs-on: ubuntu-latest
++    steps:
++    - uses: actions/checkout@v3
++    - name: Setup Python
++      uses: actions/setup-python@v4
++      with:
++        python-version: '3.11'
++    - name: Install deps
++      run: |
++        pip install -r requirements.txt
++    - name: Check repo layout
++      run: |
++        ls -la
