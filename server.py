@@ -1,8 +1,11 @@
 import os
 import torch
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException # Added HTTPException
 from pydantic import BaseModel
+from typing import Optional, Dict, Any # Added for FeedbackItem
 import json # Ensure json is imported
+import datetime
+import uuid
 
 from llm_sidecar.loader import (
     load_hermes_model,
@@ -19,10 +22,26 @@ import traceback # For detailed error logging
 # Define the FastAPI app
 app = FastAPI()
 
+# Log file path
+PHI3_FEEDBACK_LOG_FILE = "/app/phi3_feedback_log.jsonl"
+PHI3_FEEDBACK_DATA_FILE = "/app/phi3_feedback_data.jsonl" # For storing submitted feedback
+
 # Define the request body model
 class PromptRequest(BaseModel):
     prompt: str
     max_length: int = 256
+
+# Define the new request body model for the unified endpoint
+class UnifiedPromptRequest(PromptRequest):
+    model_id: str = "hermes"
+
+# --- Feedback Model ---
+class FeedbackItem(BaseModel):
+    transaction_id: str
+    feedback_type: str  # E.g., "correction", "rating", "qualitative_comment"
+    feedback_content: Any  # Flexible: could be a dict for corrections, str for comments/ratings
+    timestamp: str       # ISO format timestamp, likely generated at feedback submission
+    corrected_proposal: Optional[Dict[str, Any]] = None # For providing a full corrected version of a proposal
 
 # JSON Schema for guided generation (remains global)
 json_schema_str = """
@@ -52,6 +71,35 @@ load_hermes_model()
 load_phi3_model()
 print("Model initialization complete.")
 
+# --- Helper Function to Load Recent Feedback ---
+def load_recent_feedback(max_examples: int = 3) -> list[dict]:
+    if not os.path.exists(PHI3_FEEDBACK_DATA_FILE):
+        print(f"Feedback file {PHI3_FEEDBACK_DATA_FILE} not found. No feedback to load.")
+        return []
+
+    recent_feedback_items = []
+    try:
+        with open(PHI3_FEEDBACK_DATA_FILE, "r") as f:
+            for line in f:
+                try:
+                    feedback_item = json.loads(line.strip())
+                    if (feedback_item.get("feedback_type") == "correction" and
+                            isinstance(feedback_item.get("corrected_proposal"), dict)):
+                        recent_feedback_items.append(feedback_item)
+                except json.JSONDecodeError as e:
+                    print(f"Error decoding JSON from feedback file: {e} - Line: {line.strip()}")
+                except Exception as e: # Catch other potential errors like missing keys if not validated by Pydantic model previously
+                    print(f"Error processing feedback item: {e} - Item: {line.strip()}")
+        
+        # Return the most recent max_examples
+        return recent_feedback_items[-max_examples:]
+    except IOError as e:
+        print(f"Error reading feedback file {PHI3_FEEDBACK_DATA_FILE}: {e}")
+        return []
+    except Exception as e: # Catch any other unexpected errors during file processing
+        print(f"An unexpected error occurred while loading feedback: {e}\n{traceback.format_exc()}")
+        return []
+
 # --- Helper Function for Phi-3 JSON Generation ---
 async def _generate_phi3_json(prompt: str, max_length: int, phi3_model, phi3_tokenizer) -> dict:
     if not phi3_model or not phi3_tokenizer:
@@ -60,9 +108,37 @@ async def _generate_phi3_json(prompt: str, max_length: int, phi3_model, phi3_tok
         if phi3_model is None or phi3_tokenizer is None: # Should be caught by above, but defensive
             raise RuntimeError("Phi-3 model or tokenizer is None after loading check.")
 
-        print(f"Generating JSON with Phi-3 for prompt: '{prompt}' with schema.")
-        effective_prompt = prompt # Keep original prompt as per previous logic
+        # Load recent feedback and augment prompt
+        feedback_prompt_augmentation = ""
+        try:
+            recent_feedback = load_recent_feedback(max_examples=3)
+            if recent_feedback:
+                augmentation_parts = ["Based on past feedback, here are examples of desired JSON outputs:"]
+                for i, fb_item in enumerate(recent_feedback):
+                    # corrected_proposal is already validated to be a dict in load_recent_feedback
+                    try:
+                        corrected_json_str = json.dumps(fb_item["corrected_proposal"], indent=2)
+                        augmentation_parts.append(f"Example {i+1} (Corrected Output):\n{corrected_json_str}")
+                    except TypeError as e: # Should not happen if corrected_proposal is a dict, but defensive
+                        print(f"Error serializing corrected_proposal for feedback item: {fb_item.get('transaction_id')}, error: {e}")
+                
+                if len(augmentation_parts) > 1: # Only add if there are actual examples
+                    feedback_prompt_augmentation = "\n\n".join(augmentation_parts) + "\n\nNow, considering the above, please process the following request:\n"
+        except Exception as e:
+            print(f"Error during feedback loading or prompt augmentation: {e}\n{traceback.format_exc()}")
+            # Proceed with original prompt if feedback processing fails
+
+        effective_prompt = feedback_prompt_augmentation + prompt
         
+        # For debugging, print the effective prompt
+        # print(f"--- Effective Prompt for Phi-3 ---")
+        # print(effective_prompt)
+        # print(f"--- End of Effective Prompt ---")
+
+        print(f"Generating JSON with Phi-3. Original prompt: '{prompt}'. Schema guided generation.")
+        if feedback_prompt_augmentation:
+            print(f"Prompt augmented with {len(recent_feedback)} feedback example(s).")
+
         json_generator = outlines_generate.json(phi3_model, json_schema_str, tokenizer=phi3_tokenizer)
         generated_json_obj = json_generator(effective_prompt, max_tokens=max_length)
         
@@ -161,9 +237,65 @@ async def propose_trade_adjustments(request: PromptRequest):
                  "phi3_proposal": phi3_json_proposal, 
                  "hermes_details": hermes_assessment}
 
-    # Step 4: Return both Phi-3 proposal and Hermes's assessment
+    # Step 4: Log the data
+    try:
+        transaction_id = str(uuid.uuid4())
+        timestamp = datetime.datetime.utcnow().isoformat()
+        log_entry = {
+            "transaction_id": transaction_id,
+            "timestamp": timestamp,
+            "phi3_proposal": phi3_json_proposal,
+            "hermes_assessment": hermes_assessment
+        }
+        with open(PHI3_FEEDBACK_LOG_FILE, "a") as f:
+            json.dump(log_entry, f)
+            f.write('\n')
+    except IOError as e:
+        print(f"Error writing to log file {PHI3_FEEDBACK_LOG_FILE}: {e}")
+        # Not returning an error to the client, just logging the issue.
+
+    # Step 5: Return both Phi-3 proposal and Hermes's assessment
     return {"phi3_proposal": phi3_json_proposal, "hermes_assessment": hermes_assessment}
 
+
+# --- Endpoint for Submitting Feedback ---
+@app.post("/feedback/phi3/")
+async def submit_phi3_feedback(feedback: FeedbackItem):
+    feedback.timestamp = datetime.datetime.utcnow().isoformat()
+    feedback_dict = feedback.model_dump()
+
+    try:
+        with open(PHI3_FEEDBACK_DATA_FILE, "a") as f:
+            json.dump(feedback_dict, f)
+            f.write('\n')
+        return {"message": "Feedback received successfully", "transaction_id": feedback.transaction_id}
+    except IOError as e:
+        print(f"Error writing feedback to {PHI3_FEEDBACK_DATA_FILE}: {e}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Failed to store feedback. Error: {str(e)}")
+
+
+# --- New Unified Generate Endpoint ---
+@app.post("/generate/")
+async def generate_unified(request: UnifiedPromptRequest):
+    if request.model_id == "phi3":
+        phi3_model, phi3_tokenizer = get_phi3_model_and_tokenizer()
+        if not phi3_model or not phi3_tokenizer:
+            return {"error": "Phi-3 ONNX model not loaded. Please check server logs."}
+        # Call the existing helper function for Phi-3
+        json_result = await _generate_phi3_json(request.prompt, request.max_length, phi3_model, phi3_tokenizer)
+        return json_result
+    elif request.model_id == "hermes":
+        hermes_model, hermes_tokenizer = get_hermes_model_and_tokenizer()
+        if not hermes_model or not hermes_tokenizer:
+            return {"error": "Hermes model not loaded. Please check server logs."}
+        # Call the existing helper function for Hermes
+        generated_text = await _generate_hermes_text(request.prompt, request.max_length, hermes_model, hermes_tokenizer)
+        if generated_text.startswith("Error:"):
+            return {"error": generated_text}
+        return {"generated_text": generated_text}
+    else:
+        # Handle invalid model_id
+        return {"error": "Invalid model_id specified. Choose 'hermes' or 'phi3'.", "specified_model_id": request.model_id}
 
 @app.get("/health")
 async def health_check():
