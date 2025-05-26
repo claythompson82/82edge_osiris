@@ -46,13 +46,59 @@ This project includes a `vram_watchdog.sh` script that monitors the GPU VRAM usa
 
 The `llm-sidecar` service exposes the following API endpoints, implemented in `server.py`:
 
-*   **POST `/generate/`**
-    *   **Description:** Accepts a prompt and generates text using the Hermes-3 model.
+*   **POST `/generate/`** (Unified Endpoint)
+    *   **Description:** Accepts a prompt and an optional `model_id` to generate text using either Hermes or Phi-3. Defaults to Hermes if `model_id` is not specified. Phi-3 generation will use the predefined JSON schema for structured output.
     *   **Request Body (JSON):**
         ```json
         {
           "prompt": "Your text prompt here",
-          "max_length": 128 // Optional, defaults to 128
+          "max_length": 256, // Optional, defaults to 256
+          "model_id": "hermes" // Optional, "hermes" or "phi3". Defaults to "hermes".
+        }
+        ```
+    *   **Response (JSON for Hermes - success):**
+        ```json
+        {
+          "generated_text": "The model's response..."
+        }
+        ```
+    *   **Response (JSON for Phi-3 - success, example assumes the schema output):**
+        ```json
+        {
+          // Example output based on the schema in server.py
+          "ticker": "XYZ",
+          "action": "adjust",
+          "side": "LONG",
+          "new_stop_pct": 5.0,
+          "new_target_pct": 10.0,
+          "confidence": 0.85,
+          "rationale": "Price action suggests upward trend."
+        }
+        ```
+    *   **Response (JSON for error - e.g., invalid model_id):**
+        ```json
+        {
+          "error": "Invalid model_id specified. Choose 'hermes' or 'phi3'.",
+          "specified_model_id": "your_invalid_id"
+        }
+        ```
+    *   **Response (JSON for error - e.g., model not loaded):**
+        ```json
+        {
+          "error": "Hermes model not loaded. Please check server logs." 
+          // Or: "Phi-3 ONNX model not loaded. Please check server logs."
+        }
+        ```
+
+    *Note: Model-specific endpoints (`/generate/hermes/` and `/generate/phi3/`) are also available for direct access if you prefer to target a specific model directly.*
+
+*   **POST `/generate/hermes/`**
+    *   **Description:** Accepts a prompt and generates text using the Hermes-3 model. This is a dedicated endpoint for the Hermes model.
+    *   **Request Body (JSON):**
+        ```json
+        {
+          "prompt": "Your text prompt here",
+          "max_length": 256 // Optional, defaults to 256
         }
         ```
     *   **Response (JSON):**
@@ -61,25 +107,54 @@ The `llm-sidecar` service exposes the following API endpoints, implemented in `s
           "generated_text": "The model's response..."
         }
         ```
+    *   **Response (JSON for error - e.g., model not loaded):**
+        ```json
+        {
+          "error": "Hermes model not loaded. Please check server logs."
+        }
+        ```
+
+*   **POST `/generate/phi3/`**
+    *   **Description:** Accepts a prompt and generates a structured JSON output using the Phi-3 model based on a predefined schema. This is a dedicated endpoint for the Phi-3 model.
+    *   **Request Body (JSON):**
+        ```json
+        {
+          "prompt": "Your text prompt here",
+          "max_length": 256 // Optional, defaults to 256
+        }
+        ```
+    *   **Response (JSON - success, example assumes the schema output):**
+        ```json
+        {
+          // Example output based on the schema in server.py
+          "ticker": "XYZ",
+          "action": "adjust",
+          // ... other fields as per schema
+          "rationale": "Rationale for the action."
+        }
+        ```
+    *   **Response (JSON for error - e.g., model not loaded):**
+        ```json
+        {
+          "error": "Phi-3 ONNX model not loaded. Please check server logs."
+        }
+        ```
 
 *   **GET `/health`**
-    *   **Description:** Provides a health check for the service. It indicates if the model is loaded and on which device it's running.
+    *   **Description:** Provides a health check for the service. It indicates if the models are loaded, if the Phi-3 model file exists, and on which device the service is running.
     *   **Response (JSON on success):**
         ```json
         {
-          "status": "ok",
-          "model_loaded": true,
-          "device": "cuda:0" // Or "cpu" if CUDA is not available
+          "status": "ok", // or "partial_error" if one model failed, or "error" if both failed
+          "hermes_loaded": true, // boolean
+          "phi3_loaded": true, // boolean
+          "phi3_model_file_exists": true, //boolean
+          "device": "cuda" // Or "cpu"
         }
         ```
-    *   **Response (JSON on failure/model not loaded):**
-        ```json
-        {
-          "status": "error",
-          "model_loaded": false,
-          "message": "Model or tokenizer not loaded."
-        }
-        ```
+    *   **Response (JSON on failure/model not loaded):** 
+        This structure is now more detailed, see above. An "error" status implies both models failed to load.
+        "partial_error" implies one of them failed.
 
 ## CI Pipeline
 

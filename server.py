@@ -24,6 +24,10 @@ class PromptRequest(BaseModel):
     prompt: str
     max_length: int = 256
 
+# Define the new request body model for the unified endpoint
+class UnifiedPromptRequest(PromptRequest):
+    model_id: str = "hermes"
+
 # JSON Schema for guided generation (remains global)
 json_schema_str = """
 {
@@ -164,6 +168,28 @@ async def propose_trade_adjustments(request: PromptRequest):
     # Step 4: Return both Phi-3 proposal and Hermes's assessment
     return {"phi3_proposal": phi3_json_proposal, "hermes_assessment": hermes_assessment}
 
+# --- New Unified Generate Endpoint ---
+@app.post("/generate/")
+async def generate_unified(request: UnifiedPromptRequest):
+    if request.model_id == "phi3":
+        phi3_model, phi3_tokenizer = get_phi3_model_and_tokenizer()
+        if not phi3_model or not phi3_tokenizer:
+            return {"error": "Phi-3 ONNX model not loaded. Please check server logs."}
+        # Call the existing helper function for Phi-3
+        json_result = await _generate_phi3_json(request.prompt, request.max_length, phi3_model, phi3_tokenizer)
+        return json_result
+    elif request.model_id == "hermes":
+        hermes_model, hermes_tokenizer = get_hermes_model_and_tokenizer()
+        if not hermes_model or not hermes_tokenizer:
+            return {"error": "Hermes model not loaded. Please check server logs."}
+        # Call the existing helper function for Hermes
+        generated_text = await _generate_hermes_text(request.prompt, request.max_length, hermes_model, hermes_tokenizer)
+        if generated_text.startswith("Error:"):
+            return {"error": generated_text}
+        return {"generated_text": generated_text}
+    else:
+        # Handle invalid model_id
+        return {"error": "Invalid model_id specified. Choose 'hermes' or 'phi3'.", "specified_model_id": request.model_id}
 
 @app.get("/health")
 async def health_check():
