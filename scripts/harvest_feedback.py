@@ -25,6 +25,12 @@ def main():
         default=None,
         help="Maximum number of records to output.",
     )
+    parser.add_argument(
+        "--schema-version",
+        type=str,
+        default="1.0",
+        help="Schema version to filter records by.",
+    )
     args = parser.parse_args()
 
     db_path = "/app/lancedb_data"
@@ -61,7 +67,10 @@ def main():
     # A robust way is to convert cutoff_date to the same format as stored in 'when'.
     # If 'when' is stored as Arrow timestamp (nanoseconds):
     cutoff_timestamp_ns = int(cutoff_date.timestamp() * 1_000_000_000)
-    where_clause = f"feedback_type = 'correction' AND corrected_proposal IS NOT NULL AND corrected_proposal != '' AND \"when\" >= {cutoff_timestamp_ns}"
+    # where_clause = f"feedback_type = 'correction' AND corrected_proposal IS NOT NULL AND corrected_proposal != '' AND \"when\" >= {cutoff_timestamp_ns}"
+    # Updated where_clause to include schema_version
+    where_clause = f"feedback_type = 'correction' AND corrected_proposal IS NOT NULL AND corrected_proposal != '' AND \"when\" >= {cutoff_timestamp_ns} AND schema_version = '{args.schema_version}'"
+
 
     query = table.search().where(where_clause)
 

@@ -29,6 +29,7 @@ except FileNotFoundError: # LanceDB raises FileNotFoundError if table doesn't ex
         timestamp: str
         feedback_type: str
         feedback_content: str
+        schema_version: str # Added this line
         # corrected_proposal: Optional[dict] # This makes it more complex with LanceDB schema if not always present
                                          # For simplicity, and matching the test, let's keep it to the 4 fields.
                                          # If corrected_proposal is needed, its type needs to be defined carefully.
