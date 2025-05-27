@@ -12,9 +12,11 @@ import traceback
 from typing import Optional, Dict, Any, List
 
 import torch
+import redis.asyncio as redis # Import redis
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
+from llm_sidecar.event_bus import publish
 from llm_sidecar.loader import (
     load_hermes_model,
     load_phi3_model,
@@ -211,6 +213,8 @@ async def propose_trade(req: PromptRequest):
     if "error" in phi3_json:
         return {"error": "Phi-3 failed.", "details": phi3_json}
 
+    await publish("phi3.proposal.generated", phi3_json) # Added event publishing
+
     hermes_prompt = (
         "Assess the following JSON trade proposal and provide a brief critique:\n\n"
         f"{json.dumps(phi3_json, indent=2)}\n\nAssessment:"
@@ -218,6 +222,8 @@ async def propose_trade(req: PromptRequest):
     hermes_text = await _generate_hermes_text(
         hermes_prompt, req.max_length * 2, hermes_model, hermes_tok
     )
+
+    await publish("hermes.assessment.generated", {"assessment": hermes_text}) # Added event publishing
 
     # log
     try:
@@ -240,6 +246,7 @@ async def propose_trade(req: PromptRequest):
 async def submit_phi3_feedback(feedback: FeedbackItem): # Renamed from submit_feedback to submit_phi3_feedback as per issue
     feedback.timestamp = datetime.datetime.utcnow().isoformat()
     append_feedback(feedback.model_dump()) # Use model_dump() as specified
+    await publish("feedback.received", feedback.model_dump()) # Added event publishing
     return {
         "message": "Feedback stored in LanceDB",
         "transaction_id": feedback.transaction_id,
@@ -258,6 +265,16 @@ async def health():
     elif not hermes_ok or not phi3_ok:
         status = "partial_error"
 
+    redis_connected = False
+    try:
+        # Use connection details from event_bus.py or make them globally accessible
+        r = await redis.Redis(host="localhost", port=6379, socket_connect_timeout=1) # Short timeout
+        await r.ping()
+        redis_connected = True
+        await r.close()
+    except Exception:
+        redis_connected = False
+
     return {
         "status": status,
         "hermes_loaded": hermes_ok,
@@ -265,6 +282,7 @@ async def health():
         "phi3_model_file_exists": phi3_file,
         "device": DEVICE,
         "phi3_adapter_date": phi3_adapter_date,
+        "redis_connected": redis_connected, # New flag
     }
 
 

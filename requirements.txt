@@ -6,3 +6,6 @@ outlines-dev
 lancedb>=0.4.9
 pyarrow
 pytest
+redis
+fakeredis[aioredis]
+pytest-asyncio
