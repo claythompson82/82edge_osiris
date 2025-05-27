@@ -72,6 +72,7 @@ class FeedbackItem(BaseModel):
     feedback_content: Any
     timestamp: str
     corrected_proposal: Optional[Dict[str, Any]] = None
+    schema_version: str = "1.0"
 
 
 # ---------------------------------------------------------------------
