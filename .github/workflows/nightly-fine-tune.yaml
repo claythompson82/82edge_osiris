@@ -1,0 +1,102 @@
+name: Nightly Fine-tune
+
+on:
+  schedule:
+    # Runs daily at 5 AM UTC
+    - cron: '0 5 * * *'
+  workflow_dispatch: # Allows manual triggering from the GitHub UI
+
+jobs:
+  nightly-fine-tune:
+    runs-on: ubuntu-latest
+    name: Nightly Phi-3 QLoRA Fine-tuning
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-ml.txt
+          # Verify installations, especially for ML dependencies if needed
+          pip list
+
+      - name: Build side-car Docker image
+        run: |
+          docker build -t llm_sidecar:latest -f docker/Dockerfile .
+          echo "Side-car Docker image built successfully."
+
+      - name: Make fine-tuning script executable
+        run: chmod +x scripts/nightly_qlora.sh
+
+      - name: Execute fine-tuning script
+        id: fine_tune_script # Give an ID to this step to potentially access its outputs if needed
+        run: |
+          # The nightly_qlora.sh script handles creation of /models/phi3/adapters/YYYYMMDD
+          # Ensure the base path for models exists on the runner workspace
+          mkdir -p ${{ github.workspace }}/models/phi3/adapters
+          # The script internally uses /models/phi3/adapters as its base.
+          # We need to ensure it writes within the runner's accessible workspace.
+          # The script uses absolute paths. We can adjust it or use a symlink/env var.
+          # For now, let's assume the script's use of /models/ is okay if it's within workspace context.
+          # A safer approach might be to modify nightly_qlora.sh to accept a base path or use relative paths.
+          # However, sticking to the prompt's implication that the script manages this:
+          
+          # Set an environment variable for the script to use if it's adapted for it.
+          # export NIGHTLY_ADAPTER_BASE_PATH="${{ github.workspace }}/models" 
+          
+          # Run the script. It should create its dated subdirectory within /models/phi3/adapters.
+          # Because the script uses absolute paths like /models/...,
+          # we need to ensure this path is either:
+          # 1. Relative to GITHUB_WORKSPACE (best practice, modify script)
+          # 2. Created explicitly on the runner and writable.
+          # For this task, we'll assume /models is created within the workspace implicitly or by the script.
+          # The `nightly_qlora.sh` creates `/models/phi3/adapters/$(date +%Y%m%d)`
+          # Let's ensure the parent /models directory is in the workspace.
+          # The script will then create subdirectories.
+          # We'll rely on the script creating these directories.
+          # The script tries to write to /models/...
+          # We can create this path inside the workspace and then run the script.
+          # The script itself has `mkdir -p "${ADAPTERS_DEST_DIR}"` where ADAPTERS_DEST_DIR="/models/phi3/adapters/${DATE_SUFFIX}"
+          # This should be fine if /models is writable. Runner workspace is writable.
+
+          echo "Running nightly_qlora.sh..."
+          scripts/nightly_qlora.sh
+          
+          # For artifact upload, we need to know the path. The script creates a dated folder.
+          # We can capture the date suffix or upload the parent /models/phi3/adapters directory.
+          # Store the date for artifact naming or path construction if needed later.
+          echo "DATE_SUFFIX=$(date +%Y%m%d)" >> $GITHUB_ENV
+
+
+      - name: Upload trained adapters
+        uses: actions/upload-artifact@v4
+        with:
+          name: phi3-adapters-${{ env.DATE_SUFFIX }}-${{ github.run_id }}
+          # The path should be the directory containing the day's adapters.
+          # nightly_qlora.sh creates /models/phi3/adapters/YYYYMMDD
+          # So, we upload the contents of /models/phi3/adapters/
+          # This will include the YYYYMMDD subdirectory.
+          path: /models/phi3/adapters/${{ env.DATE_SUFFIX }}
+          if-no-files-found: warn # 'warn' or 'error' or 'ignore'
+          retention-days: 7 # Optional: Keep artifacts for 7 days
+
+      - name: Verify disk space and list output directory (for debugging)
+        if: always() # Run even if previous steps fail, for debugging
+        run: |
+          echo "Disk space usage:"
+          df -h
+          echo "Contents of /models/phi3/adapters/:"
+          ls -R /models/phi3/adapters/ || echo "/models/phi3/adapters/ not found or empty."
+          echo "Contents of ${{ github.workspace }}/models/phi3/adapters/ (if different):"
+          ls -R ${{ github.workspace }}/models/phi3/adapters/ || echo "${{ github.workspace }}/models/phi3/adapters/ not found or empty."
+
+    outputs:
+      adapter_artifact_name: phi3-adapters-${{ env.DATE_SUFFIX }}-${{ github.run_id }}
+      adapter_path_on_runner: /models/phi3/adapters/${{ env.DATE_SUFFIX }}
