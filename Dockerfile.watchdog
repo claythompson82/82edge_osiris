@@ -1,0 +1,13 @@
+FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04
+
+# Install NVIDIA tools + bash
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    bash \
+    pciutils \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY scripts/vram_watchdog.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/vram_watchdog.sh
+
+ENTRYPOINT ["/usr/local/bin/vram_watchdog.sh"]
