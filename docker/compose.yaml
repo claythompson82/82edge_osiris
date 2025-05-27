@@ -25,7 +25,8 @@ services:
       # want to persist it outside the container, a volume mount here would be necessary.
       # For now, relying on the Dockerfile's RUN git clone ... is sufficient.
       # Example for persisting model outside container (optional, and adjust path):
-      # - ./hermes-model-data:/app/hermes-model 
+      # - ./hermes-model-data:/app/hermes-model
+      - ./lancedb_data:/app/lancedb_data
     # Adding a healthcheck can be useful for production, but is optional here
     # healthcheck:
     #   test: ["CMD", "curl", "-f", "http://localhost:8000/health"]

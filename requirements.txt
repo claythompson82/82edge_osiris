@@ -3,3 +3,4 @@ uvicorn[standard]
 pydantic
 python-dotenv
 outlines-dev
+lancedb>=0.4.9
