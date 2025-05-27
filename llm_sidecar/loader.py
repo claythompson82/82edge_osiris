@@ -4,12 +4,14 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from optimum.onnxruntime import ORTModelForCausalLM
 from typing import Optional
 from datetime import datetime
+from peft import PeftModel
 
 # Global variables for models and tokenizers
 hermes_model = None
 hermes_tokenizer = None
 phi3_model = None
 phi3_tokenizer = None
+phi3_adapter_date = None
 
 # Model and Tokenizer Paths
 # The MICRO_LLM_MODEL_PATH should point to the directory containing the ONNX model file (e.g., model.onnx)
@@ -99,6 +101,39 @@ def load_phi3_model():
         )
         # No explicit .to(device) for ORTModelForCausalLM, provider handles it.
         # Inputs to generate will need .to(device)
+
+        # Load PEFT adapter if available
+        global phi3_adapter_date # Ensure we are updating the global variable
+        adapter_base_path = "/app/models/phi3/adapters/"
+        latest_adapter_path = get_latest_adapter_dir(adapter_base_path)
+
+        if latest_adapter_path:
+            print(f"Loading PEFT adapter for Phi-3 from: {latest_adapter_path}")
+            try:
+                # Assuming phi3_model is the base model loaded by ORTModelForCausalLM
+                # and it's compatible with PeftModel.from_pretrained's first argument.
+                # This might need adjustment if ORTModelForCausalLM's output isn't directly usable.
+                # For now, we proceed assuming it is.
+                phi3_model = PeftModel.from_pretrained(phi3_model, latest_adapter_path)
+                
+                # Extract date string from path and format it
+                adapter_dir_name = os.path.basename(latest_adapter_path) # e.g., "20231022"
+                try:
+                    date_obj = datetime.strptime(adapter_dir_name, "%Y%m%d")
+                    phi3_adapter_date = date_obj.strftime("%Y-%m-%d")
+                    print(f"Successfully loaded PEFT adapter {latest_adapter_path} with date {phi3_adapter_date}")
+                except ValueError as ve:
+                    print(f"Warning: Could not parse date from adapter directory name {adapter_dir_name}: {ve}. Adapter date will not be set.")
+                    phi3_adapter_date = None # Reset if parsing fails
+
+            except Exception as peft_e:
+                print(f"Error loading PEFT adapter from {latest_adapter_path}: {peft_e}")
+                print("Proceeding with the base Phi-3 model without adapter.")
+                phi3_adapter_date = None # Ensure it's None if adapter loading fails
+        else:
+            print("No PEFT adapter found for Phi-3, using base model.")
+            phi3_adapter_date = None # Explicitly set to None
+
         print("Phi-3 ONNX model and tokenizer loaded successfully.")
     except Exception as e:
         print(f"Error loading Phi-3 ONNX model or tokenizer: {e}")
