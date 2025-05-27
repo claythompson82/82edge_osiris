@@ -25,6 +25,7 @@ from llm_sidecar.loader import (
 
 # outlines (schema-guided generation for Phi-3)
 from outlines import generate as outlines_generate
+from llm_sidecar.db import append_feedback
 
 # ---------------------------------------------------------------------
 # Constants & paths
@@ -234,15 +235,13 @@ async def propose_trade(req: PromptRequest):
 
 
 @app.post("/feedback/phi3/", tags=["feedback"])
-async def submit_feedback(item: FeedbackItem):
-    item.timestamp = datetime.datetime.utcnow().isoformat()
-    try:
-        with open(PHI3_FEEDBACK_DATA_FILE, "a") as f:
-            json.dump(item.model_dump(), f)
-            f.write("\n")
-        return {"message": "Feedback received", "transaction_id": item.transaction_id}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to store feedback: {e}")
+async def submit_phi3_feedback(feedback: FeedbackItem): # Renamed from submit_feedback to submit_phi3_feedback as per issue
+    feedback.timestamp = datetime.datetime.utcnow().isoformat()
+    append_feedback(feedback.model_dump()) # Use model_dump() as specified
+    return {
+        "message": "Feedback stored in LanceDB",
+        "transaction_id": feedback.transaction_id,
+    }
 
 
 @app.get("/health", tags=["meta"])
