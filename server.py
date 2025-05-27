@@ -21,6 +21,7 @@ from llm_sidecar.loader import (
     get_hermes_model_and_tokenizer,
     get_phi3_model_and_tokenizer,
     MICRO_LLM_MODEL_PATH,
+    phi3_adapter_date,
 )
 
 # outlines (schema-guided generation for Phi-3)
@@ -262,6 +263,7 @@ async def health():
         "phi3_loaded": phi3_ok,
         "phi3_model_file_exists": phi3_file,
         "device": DEVICE,
+        "phi3_adapter_date": phi3_adapter_date,
     }
 
 
