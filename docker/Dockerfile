@@ -22,8 +22,7 @@ RUN pip3 install --no-cache-dir \
     accelerate==0.27.2 \
     huggingface-hub \
     onnxruntime-gpu \
-    onnxruntime-extensions \
-    outlines-dev
+    onnxruntime-extensions
 
 # Copy scripts
 COPY ./scripts /app/scripts
