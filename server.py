@@ -10,9 +10,11 @@ import uuid
 import datetime
 import traceback
 from typing import Optional, Dict, Any, List
+import asyncio # Added import
 
 import torch
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request # Added Request
+from fastapi.responses import StreamingResponse # Added StreamingResponse
 from pydantic import BaseModel
 
 from llm_sidecar.loader import (
@@ -27,6 +29,7 @@ from llm_sidecar.loader import (
 # outlines (schema-guided generation for Phi-3)
 from outlines import generate as outlines_generate
 from llm_sidecar.db import append_feedback
+from llm_sidecar.redis_bus import publish, subscribe # Added imports
 
 # ---------------------------------------------------------------------
 # Constants & paths
@@ -266,6 +269,38 @@ async def health():
         "device": DEVICE,
         "phi3_adapter_date": phi3_adapter_date,
     }
+
+
+@app.post("/publish/", tags=["redis"])
+async def publish_event(request: Request):
+    try:
+        data = await request.json()
+        await publish(channel="events", msg_json=json.dumps(data))
+        return {"message": "Event published successfully"}
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON data")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/stream/", tags=["redis"])
+async def stream_events():
+    async def event_generator():
+        try:
+            async for message in subscribe(channel="events"):
+                yield f"data: {json.dumps(message)}\n\n"
+                await asyncio.sleep(0.1) # Small delay to prevent overwhelming client
+        except asyncio.CancelledError:
+            print("[Stream] Client disconnected.")
+        except Exception as e:
+            print(f"[Stream] Error: {e}")
+            # Optionally, you could yield an error message to the client here
+            # yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        finally:
+            print("[Stream] Closing subscription.")
+            # Clean up subscription if necessary, though subscribe should handle it
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 # Local dev entry-point

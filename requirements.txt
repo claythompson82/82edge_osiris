@@ -2,7 +2,8 @@ fastapi
 uvicorn[standard]
 pydantic
 python-dotenv
-outlines-dev
+outlines==0.0.36
 lancedb>=0.4.9
 pyarrow
 pytest
+fakeredis-py

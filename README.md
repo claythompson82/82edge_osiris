@@ -135,6 +135,60 @@ Returns:
 
 ---
 
+## Real-time Event Bus
+
+The LLM sidecar includes a real-time event bus powered by Redis, enabling clients to publish messages and subscribe to streams of events.
+
+Events are published to a Redis channel named `"events"`.
+
+### Publishing Events
+
+You can publish an event to the bus using the `/publish/` endpoint.
+
+**Example `curl` command:**
+
+```bash
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"message": "hello world", "timestamp": "2024-07-30T12:00:00Z"}' \
+  http://localhost:8000/publish/
+```
+
+This will send the JSON payload to the `"events"` channel in Redis.
+
+### Consuming Events (Server-Sent Events - SSE)
+
+Clients can subscribe to the event stream using the `/stream/` endpoint, which uses Server-Sent Events (SSE).
+
+**Sample JavaScript client:**
+
+```javascript
+const eventSource = new EventSource("http://localhost:8000/stream/");
+
+eventSource.onmessage = function(event) {
+    const data = JSON.parse(event.data);
+    console.log("New event:", data);
+    // Process the event data here
+};
+
+eventSource.onerror = function(err) {
+    console.error("EventSource failed:", err);
+    eventSource.close(); // Important to close on error to prevent constant retries
+};
+```
+
+### Event Flow Diagram
+
+The following diagram illustrates the flow of an event from a publishing client to a subscribing UI:
+
+```
++--------+     +-----------------+     +-------+     +-----------------+     +----+
+| Client | --> | POST /publish/  | --> | Redis | --> | GET /stream/    | --> | UI |
++--------+     +-----------------+     +-------+     +-----------------+     +----+
+               (FastAPI endpoint)      (Channel: "events") (SSE endpoint)
+```
+
+---
+
 ## Phi-3 Feedback Loop (Nightly)
 
 1. **Logging** – every `/propose_trade_adjustments/` call appends to `/app/phi3_feedback_log.jsonl`.

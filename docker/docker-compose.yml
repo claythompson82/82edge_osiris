@@ -7,3 +7,9 @@ services:
       - "8101:8101"        # REST / HTTP
     volumes:
       - ./lancedb_data:/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
