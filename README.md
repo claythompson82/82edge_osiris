@@ -1,5 +1,7 @@
 # LLM Sidecar with Hermes-3 8B GPTQ & Phi-3-mini
 
+[![E2E Orchestrator Smoke Test](https://github.com/OWNER/REPO/actions/workflows/e2e-orchestrator.yaml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/e2e-orchestrator.yaml)
+
 ## Project Overview
 
 This project provides a Dockerised side-car service for running two local Large-Language-Models:
@@ -8,6 +10,15 @@ This project provides a Dockerised side-car service for running two local Large-
 * **Phi-3-mini-4k-instruct (int8 ONNX)** – a lightweight JSON-planning head that is continuously improved by a nightly QLoRA / DPO feedback loop.
 
 The container exposes a small REST API (FastAPI) and ships with a GPU-VRAM watchdog so your 4070 Super never OOM-crashes.
+
+---
+
+## Architecture v2
+
+(Placeholder for new architecture diagram - `docs/arch_v2.png` will be here)
+
+A detailed description of the v2 architecture, including components and interaction flows, can be found here:
+[Link to diagram description](docs/arch_v2_description.txt)
 
 ---
 

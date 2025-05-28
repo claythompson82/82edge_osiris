@@ -1,0 +1,88 @@
+name: E2E Orchestrator Smoke Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15 # Add a timeout for the job
+
+    services:
+      redis:
+        image: redis:latest
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11' # Using Python 3.11
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          # requirements-ml.txt installs requirements.txt again, which is fine.
+          # It might be better to have a combined requirements-dev.txt or similar in the future.
+          if [ -f requirements-ml.txt ]; then
+            pip install -r requirements-ml.txt
+          fi
+          # fakeredis is needed because EventBus is initialized by the sidecar server.py
+          # and EventBus itself tries to import redis.asyncio even if fakeredis is used later.
+          # The EventBus constructor itself calls redis.from_url.
+          # For tests, EventBus is often re-wired, but for running server.py, it needs its imports.
+          pip install fakeredis[pyaio]
+
+      - name: Build Docker Image for LLM Sidecar
+        run: |
+          docker compose -f docker/compose.yaml build llm-sidecar
+        # Add environment variables if build needs them (e.g. for pulling models from private repos)
+        # env:
+        #   HF_TOKEN: ${{ secrets.HF_TOKEN }} # Example
+
+      - name: Run LLM Sidecar Docker Container
+        run: |
+          # Ensure Redis is accessible for the EventBus in the sidecar
+          # The sidecar's EventBus Redis URL is hardcoded to redis://localhost:6379/0
+          # The `services` block in the job already sets up Redis on localhost:6379 from the runner's perspective.
+          # For Docker container to reach host's localhost, special networking might be needed,
+          # or better, use service name `redis` if they are on the same Docker network.
+          # Docker compose usually creates a default network.
+          # If sidecar is run with docker compose, it can find 'redis' if redis is also in compose.
+          # Here, Redis is a job service. The container needs to reach it at `host.docker.internal:6379`
+          # or the runner's IP.
+          # For simplicity, let's assume the default EventBus URL "redis://localhost:6379/0"
+          # will work if the docker container uses host networking or if the runner's localhost
+          # is accessible. This is often true on GitHub Actions Linux runners.
+          # If not, we'd need to pass REDIS_URL as env var and use `host.docker.internal`.
+          docker compose -f docker/compose.yaml up -d llm-sidecar
+          echo "Waiting for LLM Sidecar to start..."
+          sleep 45 # Increased sleep time to allow models to load
+
+      - name: Run Orchestrator Smoke Test
+        run: |
+          python -m osiris_policy.orchestrator "CI smoke test query for basic proposal generation"
+        # Add environment variables if the orchestrator needs them
+        # env:
+        #   REDIS_URL: redis://localhost:6379/0 # If orchestrator needs to connect to Redis directly
+
+      - name: Stop Docker Container
+        if: always() # Ensure this step runs even if previous steps fail
+        run: |
+          echo "Stopping LLM Sidecar..."
+          docker compose -f docker/compose.yaml down
