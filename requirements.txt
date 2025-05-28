@@ -8,3 +8,4 @@ pyarrow
 pytest
 langgraph
 requests
+redis[asyncio]>=5.0.0
