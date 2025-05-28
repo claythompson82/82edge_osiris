@@ -23,7 +23,12 @@ except FileNotFoundError: # LanceDB raises FileNotFoundError if table doesn't ex
     # Based on test_db.py: transaction_id, timestamp, feedback_type, feedback_content
     # Based on server.py FeedbackItem: transaction_id, feedback_type, feedback_content, timestamp, corrected_proposal
     # The example row in test_db.py is simpler. Let's use a schema that accommodates the test.
-    from pydantic import BaseModel
+    from pydantic import BaseModel, Field
+    from typing import Optional, Dict, Any, List
+    import datetime
+    import uuid # For OrchestratorRunLog run_id
+    import json # For CLI output
+
     class FeedbackSchema(BaseModel):
         transaction_id: str
         timestamp: str
@@ -39,3 +44,85 @@ except FileNotFoundError: # LanceDB raises FileNotFoundError if table doesn't ex
 
 def append_feedback(row: dict) -> None:
     feedback_tbl.add([row])
+
+# --- Orchestrator Run Logs ---
+
+class OrchestratorRunLog(BaseModel):
+    run_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    timestamp: str = Field(default_factory=lambda: datetime.datetime.utcnow().isoformat())
+    input_query: str
+    final_output: Optional[Dict[str, Any]] = None # Storing as dict, LanceDB can handle nested dicts
+    status: str  # e.g., "SUCCESS", "FAILURE"
+    error_message: Optional[str] = None
+
+try:
+    osiris_runs_tbl = _db.open_table("osiris_runs")
+except FileNotFoundError:
+    osiris_runs_tbl = _db.create_table("osiris_runs", schema=OrchestratorRunLog)
+
+def log_run(run_data: OrchestratorRunLog) -> None:
+    """Adds a new orchestrator run log to the osiris_runs table."""
+    try:
+        osiris_runs_tbl.add([run_data.model_dump()])
+    except Exception as e:
+        # Basic error handling, consider more sophisticated logging for production
+        print(f"Error logging run to LanceDB: {e}")
+        # Potentially re-raise or handle more gracefully depending on requirements
+
+def cli_main(argv: Optional[List[str]] = None):
+    import argparse # Moved import here
+    parser = argparse.ArgumentParser(description="LLM Sidecar DB CLI")
+    subparsers = parser.add_subparsers(dest="command", help="Available commands", required=False) # Made command optional for help
+
+    # Subparser for query-runs
+    query_parser = subparsers.add_parser("query-runs", help="Query and display orchestrator run logs.")
+    query_parser.add_argument(
+        "--last",
+        type=int,
+        default=5,
+        help="Number of recent runs to retrieve (default: 5)."
+    )
+
+    args = parser.parse_args(argv) # Use passed argv or sys.argv if None
+
+    if args.command == "query-runs":
+        if 'osiris_runs_tbl' not in globals() or osiris_runs_tbl is None:
+            print("Error: osiris_runs table is not initialized.")
+            return 
+        
+        try:
+            all_runs_ds = osiris_runs_tbl.to_lance()
+            all_runs_list = all_runs_ds.to_table().to_pylist()
+            
+            sorted_runs = sorted(all_runs_list, key=lambda x: x.get("timestamp", ""), reverse=True)
+            
+            num_to_show = args.last
+            # If --last is 0 or negative, show all runs (after sorting)
+            # If positive, show at most that many.
+            if num_to_show <= 0:
+                 runs_to_display = sorted_runs
+            else:
+                 runs_to_display = sorted_runs[:num_to_show]
+
+            if not runs_to_display:
+                print("No run logs found.")
+                return
+
+            for run_log in runs_to_display:
+                print(json.dumps(run_log, indent=2, default=str))
+                print("-" * 20)
+
+        except Exception as e:
+            print(f"Error querying runs: {e}")
+            # Consider logging the traceback for debug purposes
+            # import traceback
+            # traceback.print_exc()
+
+    elif args.command is None: # No subcommand was provided
+        parser.print_help()
+    else: # Unknown command
+        parser.print_help()
+
+
+if __name__ == "__main__":
+    cli_main() # Calls the new cli_main function

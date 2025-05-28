@@ -10,6 +10,8 @@ import uuid
 import datetime
 import traceback
 from typing import Optional, Dict, Any, List
+import asyncio # Added for event handlers, though not strictly necessary if not using complex async logic within them beyond print
+import logging # Added for consistency
 
 import torch
 from fastapi import FastAPI, HTTPException
@@ -26,7 +28,10 @@ from llm_sidecar.loader import (
 
 # outlines (schema-guided generation for Phi-3)
 from outlines import generate as outlines_generate
-from llm_sidecar.db import append_feedback
+from llm_sidecar.db import append_feedback # db module itself
+import llm_sidecar.db as db # alias for explicit calls like db.append_feedback
+from llm_sidecar.event_bus import EventBus
+
 
 # ---------------------------------------------------------------------
 # Constants & paths
@@ -79,6 +84,8 @@ class FeedbackItem(BaseModel):
 # FastAPI initialisation
 # ---------------------------------------------------------------------
 app = FastAPI()
+event_bus = EventBus(redis_url="redis://localhost:6379/0") # Global EventBus instance
+logger = logging.getLogger(__name__) # For event handler logging
 
 print("[Side-car] loading models …")
 load_hermes_model()
@@ -105,6 +112,66 @@ def _load_recent_feedback(max_examples: int = 3) -> List[Dict[str, Any]]:
     return items[-max_examples:]
 
 
+# ---------------------------------------------------------------------
+# Event Handlers
+# ---------------------------------------------------------------------
+async def handle_proposal_created(payload: str):
+    logger.info(f"EVENT [phi3.proposal.created]: {payload}")
+    print(f"EVENT [phi3.proposal.created]: {payload}")
+
+async def handle_proposal_assessed(payload: str):
+    logger.info(f"EVENT [phi3.proposal.assessed]: {payload}")
+    print(f"EVENT [phi3.proposal.assessed]: {payload}")
+
+async def handle_feedback_submitted_event(payload: str):
+    logger.info(f"EVENT [phi3.feedback.submitted]: Received payload: {payload[:200]}...") # Log snippet
+    try:
+        feedback_data = json.loads(payload)
+        # Ensure db.append_feedback is called correctly.
+        # The db module was imported as `import llm_sidecar.db as db`
+        # and also `from llm_sidecar.db import append_feedback`
+        # Using the aliased import for clarity here.
+        db.append_feedback(feedback_data)
+        logger.info(f"EVENT [phi3.feedback.submitted]: Feedback {feedback_data.get('transaction_id')} processed and stored.")
+        print(f"EVENT [phi3.feedback.submitted]: Feedback {feedback_data.get('transaction_id')} processed and stored.")
+    except json.JSONDecodeError as e:
+        logger.error(f"EVENT [phi3.feedback.submitted]: ERROR - Could not decode JSON payload: {payload}. Error: {e}")
+        print(f"EVENT [phi3.feedback.submitted]: ERROR - Could not decode JSON payload: {payload}. Error: {e}")
+    except Exception as e:
+        logger.error(f"EVENT [phi3.feedback.submitted]: ERROR - processing feedback: {e}")
+        print(f"EVENT [phi3.feedback.submitted]: ERROR - processing feedback: {e}")
+
+# ---------------------------------------------------------------------
+# FastAPI Event Lifecycle
+# ---------------------------------------------------------------------
+@app.on_event("startup")
+async def startup_event_handler():
+    logger.info("FastAPI startup: Connecting EventBus and subscribing to channels...")
+    print("FastAPI startup: Connecting EventBus and subscribing to channels...")
+    try:
+        await event_bus.connect()
+        await event_bus.subscribe("phi3.proposal.created", handle_proposal_created)
+        await event_bus.subscribe("phi3.proposal.assessed", handle_proposal_assessed)
+        await event_bus.subscribe("phi3.feedback.submitted", handle_feedback_submitted_event)
+        logger.info("EventBus connected and subscriptions active.")
+        print("EventBus connected and subscriptions active.")
+    except Exception as e:
+        logger.error(f"Error during startup: {e}")
+        print(f"Error during startup: {e}")
+        # Depending on the severity, you might want to raise the exception
+        # or prevent the app from starting fully.
+
+@app.on_event("shutdown")
+async def shutdown_event_handler():
+    logger.info("FastAPI shutdown: Closing EventBus...")
+    print("FastAPI shutdown: Closing EventBus...")
+    await event_bus.close()
+    logger.info("EventBus closed.")
+    print("EventBus closed.")
+
+# ---------------------------------------------------------------------
+# Helpers (existing)
+# ---------------------------------------------------------------------
 async def _generate_phi3_json(
     prompt: str, max_length: int, model, tokenizer
 ) -> Dict[str, Any]:
@@ -218,11 +285,12 @@ async def propose_trade(req: PromptRequest):
     hermes_text = await _generate_hermes_text(
         hermes_prompt, req.max_length * 2, hermes_model, hermes_tok
     )
+    transaction_id = str(uuid.uuid4()) # Define transaction_id once for logging and events
 
     # log
     try:
         entry = {
-            "transaction_id": str(uuid.uuid4()),
+            "transaction_id": transaction_id,
             "timestamp": datetime.datetime.utcnow().isoformat(),
             "phi3_proposal": phi3_json,
             "hermes_assessment": hermes_text,
@@ -230,20 +298,46 @@ async def propose_trade(req: PromptRequest):
         with open(PHI3_FEEDBACK_LOG_FILE, "a") as f:
             json.dump(entry, f)
             f.write("\n")
-    except Exception as e:
-        print("[Log] write error:", e)
+        
+        # Publish events
+        await event_bus.publish("phi3.proposal.created", json.dumps(phi3_json))
+        # For assessment, let's include the proposal's transaction_id for context
+        assessment_event_payload = {
+            "proposal_transaction_id": transaction_id, # Correlate with the proposal
+            "assessment_text": hermes_text,
+            "timestamp": entry["timestamp"] # Use the same timestamp
+        }
+        await event_bus.publish("phi3.proposal.assessed", json.dumps(assessment_event_payload))
 
-    return {"phi3_proposal": phi3_json, "hermes_assessment": hermes_text}
+    except Exception as e:
+        print("[Log/Event Publish] write error or event publish error:", e)
+        logger.error(f"[Log/Event Publish] write error or event publish error: {e}")
+
+
+    return {"transaction_id": transaction_id, "phi3_proposal": phi3_json, "hermes_assessment": hermes_text}
 
 
 @app.post("/feedback/phi3/", tags=["feedback"])
 async def submit_phi3_feedback(feedback: FeedbackItem): # Renamed from submit_feedback to submit_phi3_feedback as per issue
     feedback.timestamp = datetime.datetime.utcnow().isoformat()
-    append_feedback(feedback.model_dump()) # Use model_dump() as specified
-    return {
-        "message": "Feedback stored in LanceDB",
-        "transaction_id": feedback.transaction_id,
-    }
+    feedback_dict = feedback.model_dump()
+    
+    try:
+        # Original append_feedback call
+        db.append_feedback(feedback_dict) # Using aliased db module
+        
+        # Publish event after successful storage
+        await event_bus.publish("phi3.feedback.submitted", feedback.model_dump_json())
+        
+        return {
+            "message": "Feedback stored in LanceDB and event published",
+            "transaction_id": feedback.transaction_id,
+        }
+    except Exception as e:
+        logger.error(f"Error submitting feedback or publishing event for {feedback.transaction_id}: {e}")
+        # Decide if you want to raise HTTPException for client, or just log
+        # For now, let's return an error message to the client as well.
+        raise HTTPException(status_code=500, detail=f"Failed to process feedback: {e}")
 
 
 @app.get("/health", tags=["meta"])
@@ -271,5 +365,7 @@ async def health():
 # Local dev entry-point
 if __name__ == "__main__":
     import uvicorn
+    # Setup basic logging for dev environment if not configured elsewhere
+    logging.basicConfig(level=logging.INFO) 
 
     uvicorn.run(app, host="0.0.0.0", port=8000)
