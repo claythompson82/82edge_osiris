@@ -8,3 +8,5 @@ pyarrow
 pytest
 langgraph
 requests
+tenacity
+docker

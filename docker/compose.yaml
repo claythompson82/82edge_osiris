@@ -1,12 +1,26 @@
 version: '3.8' # Specify Docker Compose version
 
 services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   llm-sidecar:
     build:
       context: . # Use the current directory (docker/) as the build context
       dockerfile: Dockerfile # Specify the Dockerfile name
     ports:
       - "8000:8000" # Map host port 8000 to container port 8000
+    depends_on:
+      redis:
+        condition: service_healthy # Wait for Redis to be healthy
     deploy:
       resources:
         reservations:
@@ -35,6 +49,21 @@ services:
     #   retries: 3
     #   start_period: 60s # Give the service time to start and load the model
     restart: unless-stopped # Restart policy
+
+  orchestrator:
+    build:
+      context: .. # Relative to this compose.yaml, so project root
+      dockerfile: osiris_policy/Dockerfile # Path to Dockerfile relative to context
+    depends_on:
+      llm-sidecar:
+        condition: service_started # Or service_healthy if llm-sidecar implements a healthcheck
+      redis:
+        condition: service_healthy
+    volumes:
+      # Mount lancedb_data from project root to /app/lancedb_data in the container
+      # This ensures it shares the same database as llm-sidecar
+      - ../lancedb_data:/app/lancedb_data
+    restart: unless-stopped
 
   vram-watchdog:
     image: docker:latest # Using docker:latest which includes Docker CLI
