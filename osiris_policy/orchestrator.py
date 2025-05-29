@@ -13,6 +13,8 @@ from llm_sidecar.event_bus import EventBus, RedisError
 
 # Database for logging runs
 from llm_sidecar.db import log_run, OrchestratorRunLog
+from advisor.risk_gate import accept as risk_gate_accept, log_decision as log_risk_advice, AdviceLog, init_advice_table
+import datetime
 
 
 # Configure basic logging
@@ -25,6 +27,12 @@ TICK_BUFFER: List[Dict[str, Any]] = []
 MARKET_TICKS_CHANNEL = "market.ticks" # Default, can be overridden by CLI
 # REDIS_URL will be set by CLI args
 
+RISK_GATE_CONFIG = {
+    "max_position_size_pct": 0.01,  # 1% of NAV
+    "max_daily_loss_pct": 0.02,     # 2% of NAV
+    "lancedb_path": "/app/lancedb_data" # Align with llm_sidecar.db DB_ROOT
+}
+
 # --- State Definition ---
 class WorkflowState(TypedDict):
     query: str # This will now be the stringified tick buffer or a summary
@@ -35,6 +43,9 @@ class WorkflowState(TypedDict):
     final_output: Optional[str]
     error: Optional[str]
     run_id: Optional[str] # To track individual workflow runs triggered by ticks
+    current_nav: Optional[float] # Current Net Asset Value
+    daily_pnl: Optional[float]   # Current Daily Profit and Loss
+    risk_gate_decision: Optional[Dict[str, Any]] # Output from risk_gate_accept
 
 
 # --- Node Implementations ---
@@ -172,129 +183,193 @@ async def evaluate_proposal_node(state: WorkflowState) -> WorkflowState:
 async def publish_events_node(state: WorkflowState) -> WorkflowState:
     run_id = state.get('run_id', 'N/A')
     logger.info(f"Executing PublishEvents node for run_id: {run_id}...")
-    if state.get("error"):
-        logger.warning(f"Skipping event publication for run_id {run_id} due to previous error in workflow.")
-        final_output = state.get("final_output")
-        if not final_output: # Ensure error is captured if no other output was set
-            final_output = json.dumps({"status": "error", "run_id": run_id, "details": state["error"]})
-        return {**state, "final_output": final_output }
+
+    event_bus = EventBus(redis_url="redis://localhost:6379/0") # TODO: Make this configurable
+    
+    phi3_proposal_from_state = state.get("phi3_response", {"error": "Original proposal not found in state."})
+    if not isinstance(phi3_proposal_from_state, dict):
+        logger.warning(f"Run_id {run_id}: phi3_response was not a dict: {type(phi3_proposal_from_state)}. Replacing with error dict.")
+        phi3_proposal_from_state = {"error": f"Original proposal was not a valid dictionary, type: {type(phi3_proposal_from_state)}."}
+        if not state.get("error"): state["error"] = phi3_proposal_from_state["error"]
+
+    risk_gate_verdict = state.get("risk_gate_decision")
+    if not risk_gate_verdict:
+        logger.error(f"Run_id {run_id}: risk_gate_decision critically missing in publish_events_node. Defaulting to rejection.")
+        risk_gate_verdict = {"accepted": False, "reason": "Risk gate decision critically missing in state at publish node."}
+        if not state.get("error"): state["error"] = risk_gate_verdict["reason"]
+    
+    advice_event_payload = {
+        "run_id": run_id,
+        "timestamp": datetime.datetime.utcnow().isoformat(),
+        "proposal": phi3_proposal_from_state,
+        "risk_gate_verdict": risk_gate_verdict,
+        "hermes_assessment": None 
+    }
 
     pta_response = state.get("propose_trade_adjustments_response")
-    if not pta_response or "phi3_proposal" not in pta_response or "hermes_assessment" not in pta_response:
-        error_message = f"Response from /propose_trade_adjustments is missing or malformed in state for run_id {run_id}. Cannot publish events."
-        logger.error(error_message)
-        output_data = pta_response if pta_response else state.get("phi3_response", {"error": "No valid proposal or assessment found"})
-        output_data["run_id"] = run_id # Add run_id to the output
-        return {**state, "error": error_message, "final_output": json.dumps(output_data)}
+    hermes_assessment_text = None
+    transaction_id = f"tx_run_{run_id}" # Default, updated if pta_response is available
 
-    phi3_proposal_for_event = pta_response["phi3_proposal"]
-    hermes_assessment_for_event = pta_response["hermes_assessment"]
-    transaction_id = pta_response.get("transaction_id", f"unknown_tx_for_run_{run_id}") # Ensure tx_id is somewhat unique if missing
-
-    # TODO: Use a shared EventBus instance if possible, or pass redis_url from main args
-    event_bus = EventBus(redis_url="redis://localhost:6379/0") 
     try:
         await event_bus.connect()
+        logger.info(f"Event bus connected for run_id {run_id} in publish_events_node.")
 
-        if isinstance(phi3_proposal_for_event, dict):
-            # Add run_id to the event payload for better traceability
-            event_phi3_proposal = {**phi3_proposal_for_event, "orchestrator_run_id": run_id}
-            await event_bus.publish("phi3.proposal.created", json.dumps(event_phi3_proposal))
-            logger.info(f"Published 'phi3.proposal.created' for transaction {transaction_id} (run_id {run_id})")
-        else:
-            logger.warning(f"Could not publish 'phi3.proposal.created' for run_id {run_id}: phi3_proposal data is not a dict.")
+        # --- Conditional: Hermes Evaluation and related events (if risk accepted AND no preceding error) ---
+        # Check state["error"] *before* deciding to process PTA-related events
+        current_workflow_error = state.get("error")
+        if risk_gate_verdict.get("accepted") and not current_workflow_error:
+            if pta_response and isinstance(pta_response, dict) and "hermes_assessment" in pta_response:
+                logger.info(f"Run_id {run_id}: Proposal was risk-accepted and evaluated by Hermes.")
+                hermes_assessment_text = pta_response["hermes_assessment"]
+                advice_event_payload["hermes_assessment"] = hermes_assessment_text
+                transaction_id = pta_response.get("transaction_id", transaction_id)
 
-        assessment_payload = {
-            "proposal_transaction_id": transaction_id, 
-            "assessment_text": hermes_assessment_for_event,
-            "orchestrator_run_id": run_id 
-        }
-        await event_bus.publish("phi3.proposal.assessed", json.dumps(assessment_payload))
-        logger.info(f"Published 'phi3.proposal.assessed' for transaction {transaction_id} (run_id {run_id})")
+                phi3_proposal_from_pta = pta_response.get("phi3_proposal")
+                if isinstance(phi3_proposal_from_pta, dict):
+                    event_phi3_proposal_pta = {**phi3_proposal_from_pta, "orchestrator_run_id": run_id, "transaction_id": transaction_id}
+                    await event_bus.publish("phi3.proposal.created", json.dumps(event_phi3_proposal_pta))
+                    logger.info(f"Published 'phi3.proposal.created' (from PTA) for tx {transaction_id} (run_id {run_id})")
 
-    except RedisError as e:
-        error_message = f"RedisError during event publishing for run_id {run_id}: {e}"
-        logger.error(error_message)
-        current_error = state.get("error")
-        updated_error = f"{current_error}\n{error_message}" if current_error else error_message
-        state = {**state, "error": updated_error}
-    except Exception as e:
-        error_message = f"Unexpected error during event publishing for run_id {run_id}: {e}"
-        logger.error(error_message)
-        current_error = state.get("error")
-        updated_error = f"{current_error}\n{error_message}" if current_error else error_message
-        state = {**state, "error": updated_error}
-    finally:
-        if event_bus.redis_client and await event_bus.is_connected(): # Check before closing
-            await event_bus.close()
-            logger.info(f"EventBus connection closed for run_id {run_id}.")
-
-    final_output_data = {"status": "success", "run_id": run_id, "data": pta_response}
-    
-    hermes_assessment_text = hermes_assessment_for_event
-    if isinstance(hermes_assessment_text, str) and hermes_assessment_text.strip():
-        tts_text = hermes_assessment_text.split('.')[0] + "."
-        if len(tts_text) > 150: tts_text = tts_text[:150] + "..."
-        
-        logger.info(f"Requesting TTS for run_id {run_id}: '{tts_text}'")
-        tts_payload = {"text": tts_text, "exaggeration": 0.5}
-        
-        try:
-            # Reconnect event_bus if it was closed after previous event publications
-            if not (event_bus.redis_client and await event_bus.is_connected()):
-                await event_bus.connect()
-
-            tts_response = requests.post(
-                "http://localhost:8000/speak", # TODO: Make sidecar URL configurable
-                json=tts_payload,
-                timeout=30,
-                headers={"Accept": "audio/wav"}
-            )
-            tts_response.raise_for_status()
-            logger.info(f"TTS request successful for run_id {run_id}. Received {len(tts_response.content)} bytes.")
+                assessment_payload = {"proposal_transaction_id": transaction_id, "assessment_text": hermes_assessment_text, "orchestrator_run_id": run_id}
+                await event_bus.publish("phi3.proposal.assessed", json.dumps(assessment_payload))
+                logger.info(f"Published 'phi3.proposal.assessed' for tx {transaction_id} (run_id {run_id})")
             
-            if event_bus.redis_client and await event_bus.is_connected():
-                tts_event_payload = {
-                    "transaction_id": transaction_id, # This is from pta_response
-                    "text_spoken": tts_text,
-                    "status": "success",
-                    "audio_length_bytes": len(tts_response.content),
-                    "orchestrator_run_id": run_id
-                }
+            elif not pta_response: # Risk accepted, no error, but pta_response is missing
+                logger.warning(f"Run_id {run_id}: Risk accepted, no workflow error, but pta_response missing. Assessment events skipped.")
+                state["error"] = f"{state.get('error', '')} Missing pta_response after risk acceptance.".strip()
+        
+        elif risk_gate_verdict.get("accepted") and current_workflow_error:
+             logger.warning(f"Run_id {run_id}: Risk accepted, but an error occurred ('{current_workflow_error}'). Skipping Hermes/PTA related event publishing.")
+
+
+        # --- Always publish 'advice.generated' event ---
+        logger.info(f"Publishing 'advice.generated' for run_id {run_id}. Accepted: {risk_gate_verdict.get('accepted')}, Reason: {risk_gate_verdict.get('reason')}")
+        await event_bus.publish("advice.generated", json.dumps(advice_event_payload))
+        logger.info(f"Successfully published 'advice.generated' for run_id {run_id}.")
+
+        # --- Conditional: TTS for Hermes assessment (if hermes_assessment_text is available) ---
+        if hermes_assessment_text and isinstance(hermes_assessment_text, str) and hermes_assessment_text.strip():
+            tts_text = hermes_assessment_text.split('.')[0] + "."
+            if len(tts_text) > 150: tts_text = tts_text[:150] + "..."
+            logger.info(f"Requesting TTS for Hermes assessment, run_id {run_id}: '{tts_text}'")
+            tts_payload = {"text": tts_text, "exaggeration": 0.5}
+            
+            try:
+                tts_http_response = requests.post("http://localhost:8000/speak", json=tts_payload, timeout=30, headers={"Accept": "audio/wav"})
+                tts_http_response.raise_for_status()
+                logger.info(f"TTS request successful for run_id {run_id}. Received {len(tts_http_response.content)} bytes.")
+                
+                tts_event_payload = {"transaction_id": transaction_id, "text_spoken": tts_text, "status": "success", "audio_length_bytes": len(tts_http_response.content), "orchestrator_run_id": run_id}
                 await event_bus.publish("hermes.assessment.spoken", json.dumps(tts_event_payload))
-                logger.info(f"Published 'hermes.assessment.spoken' for transaction {transaction_id} (run_id {run_id})")
-            else:
-                logger.warning(f"EventBus not connected, skipping 'hermes.assessment.spoken' event for run_id {run_id}.")
+                logger.info(f"Published 'hermes.assessment.spoken' for tx {transaction_id} (run_id {run_id})")
 
-        except requests.exceptions.RequestException as e:
-            tts_error_message = f"TTS request failed for run_id {run_id}: {e}"
-            logger.error(tts_error_message)
-            current_error = state.get("error", "")
-            state = {**state, "error": f"{current_error}\n{tts_error_message}".strip()}
-            final_output_data["tts_error"] = tts_error_message
-        except Exception as e:
-            unexpected_tts_error = f"Unexpected error during TTS processing for run_id {run_id}: {e}"
-            logger.error(unexpected_tts_error)
-            current_error = state.get("error", "")
-            state = {**state, "error": f"{current_error}\n{unexpected_tts_error}".strip()}
-            final_output_data["tts_unexpected_error"] = unexpected_tts_error
-        finally:
-            # Close event_bus connection if it was opened specifically for TTS event
-            if event_bus.redis_client and await event_bus.is_connected():
-                 await event_bus.close()
-                 logger.info(f"EventBus connection closed after TTS attempt for run_id {run_id}.")
-
-
-    if state.get("error"):
-        final_output_data["status"] = "partial_success_with_errors"
-        if "workflow_errors" not in final_output_data and "tts_error" not in final_output_data and "tts_unexpected_error" not in final_output_data :
-             final_output_data["workflow_errors"] = state["error"]
+            except requests.exceptions.RequestException as e_tts_req:
+                tts_error_msg = f"TTS request failed for run_id {run_id}: {e_tts_req}"
+                logger.error(tts_error_msg)
+                state["error"] = f"{state.get('error', '')} {tts_error_msg}".strip()
+            except Exception as e_tts_other:
+                tts_error_msg = f"Unexpected error in TTS processing for run_id {run_id}"
+                logger.exception(tts_error_msg) # Log with stack trace
+                state["error"] = f"{state.get('error', '')} {tts_error_msg}: {e_tts_other}".strip()
     
-    # Log the final output string to the state. This is what gets printed/returned by the graph.
+    except RedisError as e_redis:
+        error_message = f"RedisError during event publishing for run_id {run_id}"
+        logger.exception(error_message)
+        state["error"] = f"{state.get('error', '')} {error_message}: {e_redis}".strip()
+    except Exception as e_general:
+        error_message = f"Unexpected error during event publishing for run_id {run_id}"
+        logger.exception(error_message)
+        state["error"] = f"{state.get('error', '')} {error_message}: {e_general}".strip()
+    finally:
+        if event_bus.redis_client and await event_bus.is_connected(): # Check if client exists before checking connection
+            await event_bus.close()
+            logger.info(f"EventBus connection closed for publish_events_node run_id {run_id}.")
+
+    # --- Construct Final Output ---
+    final_output_data = {
+        "run_id": run_id,
+        "status": "success", 
+        "risk_gate_verdict": risk_gate_verdict,
+        "phi3_proposal": phi3_proposal_from_state,
+        "hermes_assessment": hermes_assessment_text 
+    }
+
+    if not risk_gate_verdict.get("accepted"):
+        final_output_data["status"] = "success_risk_rejected"
+        final_output_data["details"] = f"Proposal rejected by risk gate: {risk_gate_verdict.get('reason')}"
+    
+    current_final_error = state.get("error")
+    if current_final_error:
+        final_output_data["workflow_errors"] = current_final_error
+        if final_output_data["status"] == "success":
+            final_output_data["status"] = "partial_success_with_errors"
+        elif final_output_data["status"] == "success_risk_rejected": 
+             final_output_data["status"] = "error_risk_rejected" 
+        else: 
+            final_output_data["status"] = "error" 
+
+        logger.error(f"Workflow for run_id {run_id} completed with errors: {current_final_error}")
+    
     state_final_output_str = json.dumps(final_output_data, indent=2)
     logger.info(f"Final output for run_id {run_id}: {state_final_output_str}")
     return {**state, "final_output": state_final_output_str}
 
+
+async def risk_management_node(state: WorkflowState) -> WorkflowState:
+    run_id = state.get('run_id', 'N/A')
+    logger.info(f"Executing RiskManagement node for run_id: {run_id}...")
+
+    current_error = state.get("error")
+    if current_error: 
+        logger.warning(f"Skipping risk management for run_id {run_id} due to previous error: {current_error}")
+        return {**state, "risk_gate_decision": {"accepted": False, "reason": f"Skipped due to prior error: {current_error}"}}
+
+    phi3_response = state.get("phi3_response")
+    current_nav = state.get("current_nav")
+    daily_pnl = state.get("daily_pnl")
+
+    if not isinstance(phi3_response, dict) or not phi3_response:
+        error_message = f"Phi-3 proposal (phi3_response) is missing or invalid for run_id {run_id}."
+        logger.error(error_message)
+        return {**state, "error": error_message, "risk_gate_decision": {"accepted": False, "reason": error_message}}
+
+    if "error" in phi3_response: # Check if the proposal itself is an error object
+        error_message = f"Phi-3 proposal itself contains an error for run_id {run_id}: {phi3_response['error']}"
+        logger.error(error_message)
+        return {**state, "error": error_message, "risk_gate_decision": {"accepted": False, "reason": error_message}}
+
+    if current_nav is None or daily_pnl is None:
+        error_message = f"NAV or P&L not provided in state for run_id {run_id}. Cannot perform risk assessment."
+        logger.error(error_message)
+        return {**state, "error": error_message, "risk_gate_decision": {"accepted": False, "reason": error_message}}
+
+    try:
+        logger.info(f"Calling risk_gate_accept for run_id {run_id} with NAV: {current_nav}, P&L: {daily_pnl}, Proposal: {json.dumps(phi3_response)}")
+        decision_result = risk_gate_accept(
+            proposal=phi3_response,
+            current_nav=current_nav,
+            daily_pnl=daily_pnl,
+            risk_config=RISK_GATE_CONFIG
+        )
+        logger.info(f"Risk gate decision for run_id {run_id}: {decision_result}")
+
+        advice_entry = AdviceLog(
+            run_id=run_id,
+            proposal=phi3_response,
+            accepted=decision_result["accepted"],
+            reason=decision_result["reason"],
+            nav_before_trade=current_nav,
+            daily_pnl_before_trade=daily_pnl
+        )
+        log_risk_advice(advice_log_entry=advice_entry, db_path_str=RISK_GATE_CONFIG["lancedb_path"])
+        logger.info(f"Logged risk advice for run_id {run_id} (advice_id: {advice_entry.advice_id}).")
+        
+        return {**state, "risk_gate_decision": decision_result}
+
+    except Exception as e:
+        error_message = f"Error during risk_gate_accept or logging for run_id {run_id}"
+        logger.exception(error_message) # Automatically includes exception info
+        return {**state, "error": f"{error_message}: {e}", "risk_gate_decision": {"accepted": False, "reason": f"{error_message}: {e}"}}
 
 # --- Graph Assembly ---
 def build_graph():
@@ -319,13 +394,47 @@ def build_graph():
     # Synchronous nodes are automatically wrapped by LangGraph to be compatible with `ainvoke`.
 
     workflow.add_node("generate_proposal", generate_proposal_node) # Will be wrapped by LangGraph for ainvoke
+    workflow.add_node("risk_management", risk_management_node) # Add new node
     workflow.add_node("evaluate_proposal", evaluate_proposal_node) # Will be wrapped
     workflow.add_node("publish_events", publish_events_node) # Already async
 
     # Define edges
     workflow.set_entry_point("query_market")
     workflow.add_edge("query_market", "generate_proposal")
-    workflow.add_edge("generate_proposal", "evaluate_proposal")
+    # workflow.add_edge("generate_proposal", "evaluate_proposal") # This is replaced
+    workflow.add_edge("generate_proposal", "risk_management")
+
+
+    def should_evaluate_proposal(state: WorkflowState) -> str:
+        run_id = state.get('run_id', 'N/A')
+        
+        current_error = state.get("error")
+        if current_error: 
+             logger.warning(f"Conditional edge for run_id {run_id}: Error in state ('{current_error}'), proceeding to publish_events.")
+             return "publish_events"
+
+        risk_decision = state.get("risk_gate_decision")
+        if not risk_decision: 
+            logger.error(f"Conditional edge for run_id {run_id}: risk_gate_decision is missing in state. This is unexpected. Proceeding to publish_events to report.")
+            # Accumulate error
+            state["error"] = f"{state.get('error', '')} Critical: risk_gate_decision missing at conditional edge.".strip()
+            return "publish_events"
+
+        if risk_decision.get("accepted"):
+            logger.info(f"Conditional edge for run_id {run_id}: Risk gate accepted. Proceeding to 'evaluate_proposal'.")
+            return "evaluate_proposal"
+        else:
+            logger.info(f"Conditional edge for run_id {run_id}: Risk gate rejected (Reason: {risk_decision.get('reason', 'Unknown')}). Skipping 'evaluate_proposal', proceeding to 'publish_events'.")
+            return "publish_events"
+
+    workflow.add_conditional_edges(
+        "risk_management",
+        should_evaluate_proposal,
+        {
+            "evaluate_proposal": "evaluate_proposal", 
+            "publish_events": "publish_events"    
+        }
+    )
     workflow.add_edge("evaluate_proposal", "publish_events")
     workflow.add_edge("publish_events", END)
     
@@ -372,10 +481,13 @@ async def market_tick_listener(
                     "propose_trade_adjustments_response": None,
                     "final_output": None,
                     "error": None,
-                    "run_id": current_run_id # Include run_id in the state
+                    "run_id": current_run_id, # Include run_id in the state
+                    "current_nav": 100000.0, 
+                    "daily_pnl": 0.0,        
+                    "risk_gate_decision": None 
                 }
                 
-                logger.info(f"Invoking workflow for run_id: {current_run_id} with {len(TICK_BUFFER)} ticks.")
+                logger.info(f"Invoking workflow for run_id: {current_run_id} with {len(TICK_BUFFER)} ticks. Using placeholder NAV={initial_state['current_nav']}, PNL={initial_state['daily_pnl']}.")
                 # Asynchronously invoke the graph. Does not block further ticks if graph runs long.
                 # Be mindful of resource limits if many graph instances run concurrently.
                 asyncio.create_task(process_workflow_run(graph_app, initial_state))
@@ -459,6 +571,14 @@ async def process_workflow_run(graph_app: StateGraph, initial_state: WorkflowSta
 async def main_async(args):
     # Build the graph application once
     graph_app = build_graph()
+
+    logger.info(f"Initializing LanceDB 'advice' table at {RISK_GATE_CONFIG['lancedb_path']}...")
+    try:
+        init_advice_table(db_path_str=RISK_GATE_CONFIG["lancedb_path"])
+        logger.info("'advice' table initialized successfully.")
+    except Exception as e:
+        logger.critical(f"CRITICAL: Failed to initialize 'advice' table: {e}. The application may not function correctly. Exiting.", exc_info=True)
+        return 
     
     logger.info(f"Starting Osiris Policy Orchestrator in event-driven mode.")
     logger.info(f"Listening to Redis channel '{args.market_channel}' on {args.redis_url}")
