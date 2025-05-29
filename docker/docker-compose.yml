@@ -6,4 +6,4 @@ services:
       - "8100:8100"        # gRPC
       - "8101:8101"        # REST / HTTP
     volumes:
-      - ./lancedb_data:/data
+      - ./lancedb_data:/app/lancedb_data

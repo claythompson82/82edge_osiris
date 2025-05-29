@@ -1,0 +1,210 @@
+name: Chaos Smoke Test
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  chaos_test:
+    runs-on: ubuntu-latest
+    env:
+      CHAOS_MODE: "1"
+      PYTHONUNBUFFERED: "1"
+      LANCEDB_URI: "./lancedb_data" # Path used by orchestrator and sidecar if they read this env var
+      # Note: The actual LanceDB server inside Docker will use /app/lancedb_data due to volume mapping.
+      # Clients (orchestrator, ci_check_advice.py) running on the host will use ./lancedb_data.
+      # Ensure osiris_policy/orchestrator.py and llm_sidecar/db.py are configured to use
+      # LANCEDB_URI or a path that correctly resolves to /app/lancedb_data when running in Docker
+      # and ./lancedb_data when running as a host process (like orchestrator in this CI).
+
+    services:
+      redis:
+        image: redis:latest
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10' # Or your project's Python version
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements-ml.txt ]; then
+            pip install -r requirements-ml.txt
+          fi
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            echo "requirements.txt not found!"
+            exit 1
+          fi
+          # Ensure lancedb and redis client are installed for CI scripts
+          pip install lancedb redis pandas # pandas might be needed by lancedb or for data handling
+
+      - name: Create LanceDB data directory
+        run: mkdir -p ${{ env.LANCEDB_URI }} # Create ./lancedb_data
+
+      - name: Start Docker Compose services (LanceDB, LLM Sidecar)
+        run: |
+          docker-compose -f docker/docker-compose.yml up -d lancedb
+          docker-compose -f docker/compose.yaml up -d llm-sidecar
+        # docker/compose.yaml is the one for llm-sidecar, etc.
+        # docker/docker-compose.yml is the one for lancedb (as per original file structure)
+
+      - name: Wait for services to be healthy
+        run: |
+          echo "Waiting for services to start..."
+          sleep 5 # Initial short wait
+
+          echo "Checking Redis..."
+          counter=0
+          until docker exec ${{ job.services.redis.id }} redis-cli ping | grep PONG; do
+            sleep 5
+            counter=$((counter+1))
+            if [ $counter -ge 12 ]; then
+              echo "Redis did not start in time."
+              docker ps -a
+              docker logs ${{ job.services.redis.id }}
+              exit 1
+            fi
+          done
+          echo "Redis is up."
+
+          echo "Checking LanceDB service..."
+          counter=0
+          # Check lancedb container health (if defined in its Dockerfile) or just container running state
+          until docker ps -q --filter name=lancedb --filter health=healthy | grep .; do
+            # If no healthcheck defined, check if it's running
+            if ! docker ps -q --filter name=lancedb | grep .; then
+                 echo "LanceDB container 'lancedb' not found or not running."
+                 docker ps -a
+                 docker logs lancedb || echo "No logs for lancedb container."
+                 exit 1
+            fi
+            # If it's running but not healthy yet (and has a healthcheck)
+            if docker ps -q --filter name=lancedb --filter status=running --filter health=unhealthy | grep .; then
+                echo "LanceDB container is running but unhealthy. Check logs."
+                docker logs lancedb || echo "No logs for lancedb container."
+                # Depending on strictness, one might exit here or wait longer
+            fi
+            echo "LanceDB not healthy or not fully started yet (attempt $counter/24)..."
+            sleep 5
+            counter=$((counter+1))
+            if [ $counter -ge 24 ]; then # Wait up to 2 minutes for lancedb
+              echo "LanceDB service (lancedb container) did not become healthy in time."
+              docker ps -a
+              docker logs lancedb || echo "No logs for lancedb container."
+              exit 1
+            fi
+          done
+          echo "LanceDB service appears to be up and healthy."
+          
+          echo "Checking LLM Sidecar service..."
+          counter=0
+          # Assuming llm-sidecar is defined in docker/compose.yaml and named 'llm-sidecar'
+          # Check for health if defined, otherwise just running state
+          LLM_SIDECAR_CONTAINER_NAME=$(docker-compose -f docker/compose.yaml ps -q llm-sidecar)
+          until docker ps -q --filter id=${LLM_SIDECAR_CONTAINER_NAME} --filter health=healthy | grep .; do
+             if ! docker ps -q --filter id=${LLM_SIDECAR_CONTAINER_NAME} | grep .; then
+                 echo "LLM Sidecar container '${LLM_SIDECAR_CONTAINER_NAME}' (llm-sidecar service) not found or not running."
+                 docker-compose -f docker/compose.yaml ps
+                 docker-compose -f docker/compose.yaml logs llm-sidecar || echo "No logs for llm-sidecar."
+                 exit 1
+             fi
+             if docker ps -q --filter id=${LLM_SIDECAR_CONTAINER_NAME} --filter status=running --filter health=unhealthy | grep .; then
+                echo "LLM Sidecar container is running but unhealthy. Check logs."
+                docker-compose -f docker/compose.yaml logs llm-sidecar || echo "No logs for llm-sidecar."
+             fi
+             echo "LLM Sidecar not healthy or not fully started yet (attempt $counter/24)..."
+             sleep 5
+             counter=$((counter+1))
+             if [ $counter -ge 24 ]; then # Wait up to 2 minutes
+                echo "LLM Sidecar service did not become healthy in time."
+                docker-compose -f docker/compose.yaml ps
+                docker-compose -f docker/compose.yaml logs llm-sidecar || echo "No logs for llm-sidecar."
+                exit 1
+             fi
+          done
+          echo "LLM Sidecar service appears to be up and healthy."
+          echo "All services seem to be ready."
+          sleep 10 # Extra buffer
+
+      - name: Start Orchestrator in background
+        run: |
+          echo "Starting orchestrator..."
+          python osiris_policy/orchestrator.py --redis_url redis://localhost:6379/0 --ticks_per_proposal 3 --db_path ${{ env.LANCEDB_URI }} &
+          sleep 5 # Give orchestrator a moment to start
+
+      - name: Make chaos script executable
+        run: chmod +x scripts/chaos_restarts.py
+
+      - name: Start chaos script in background
+        run: |
+          echo "Starting chaos script..."
+          ./scripts/chaos_restarts.py &
+          sleep 5 # Give chaos script a moment to start and potentially do its first restart
+
+      - name: Start CI Tick Publisher in background
+        run: |
+          echo "Starting CI tick publisher..."
+          python scripts/ci_tick_publisher.py --duration 70 & # Run for 70s, main test waits 80s
+          sleep 5 # Give tick publisher a moment to start
+
+      - name: Wait for test duration (chaos + operations)
+        run: |
+          echo "Running test cycle for 80 seconds..."
+          sleep 80
+
+      - name: Stop chaos script
+        run: |
+          echo "Stopping chaos script..."
+          pkill -f scripts/chaos_restarts.py || echo "Chaos script already stopped or not found."
+          sleep 2
+
+      - name: Stop tick publisher
+        run: |
+          echo "Stopping tick publisher..."
+          pkill -f scripts/ci_tick_publisher.py || echo "Tick publisher already stopped or not found."
+          sleep 2
+      
+      - name: Stop orchestrator
+        run: |
+          echo "Stopping orchestrator..."
+          pkill -f osiris_policy/orchestrator.py || echo "Orchestrator already stopped or not found."
+          sleep 5 # Give it time to shut down gracefully and flush any data
+
+      - name: Check for advice in LanceDB
+        run: |
+          echo "Checking for advice generated in LanceDB..."
+          python scripts/ci_check_advice.py --db-path ${{ env.LANCEDB_URI }} --retries 3 --retry-delay 5
+
+      - name: Cleanup Docker services
+        if: always() # Always run this step
+        run: |
+          echo "Cleaning up Docker services..."
+          docker-compose -f docker/compose.yaml logs # Log output before shutdown
+          docker-compose -f docker/docker-compose.yml logs # Log output before shutdown
+          docker-compose -f docker/compose.yaml down -v --remove-orphans || echo "Failed to shutdown app docker-compose, or already down."
+          docker-compose -f docker/docker-compose.yml down -v --remove-orphans || echo "Failed to shutdown lancedb docker-compose, or already down."
+          # -v to remove volumes, --remove-orphans for cleanup
+
+      - name: Check Docker disk space and running containers
+        if: always()
+        run: |
+          echo "Docker disk usage:"
+          docker system df
+          echo "Running containers:"
+          docker ps -a
