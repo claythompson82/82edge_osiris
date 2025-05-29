@@ -309,5 +309,26 @@ The console uses Server-Sent Events (SSE) to connect to the `/stream/audio` endp
 - **`.github/workflows/ci-audio-smoke.yaml`**: Performs a smoke test on the TTS audio generation by calling `/speak` and verifying the WAV output.
 - **`.github/workflows/e2e-orchestrator.yaml`**: (Assumed from badge) Runs an end-to-end test of the orchestrator loop.
 
+### Chaos Testing
+
+To ensure system resilience and validate graceful restart capabilities, a chaos testing mode and an automated CI workflow have been implemented.
+
+**`CHAOS_MODE` Environment Variable:**
+
+Setting the environment variable `CHAOS_MODE=1` activates the chaos script (`scripts/chaos_restarts.py`). When enabled, this script will periodically and randomly restart the `llm-sidecar` and `orchestrator` Docker services. This helps simulate unstable conditions and verify that the system can recover and continue processing without data loss.
+
+**Chaos Smoke Test CI Workflow:**
+
+The `chaos-smoke.yaml` workflow (located in `.github/workflows/`) automates chaos testing. This CI job performs the following:
+1. Sets `CHAOS_MODE=1`.
+2. Starts all services using Docker Compose (including Redis, LLM Sidecar, and Orchestrator).
+3. Runs the `chaos_restarts.py` script in the background to randomly restart services.
+4. Simulates market tick data being sent to the system using `scripts/publish_ticks.py`.
+5. After a period of chaotic activity and data simulation, it verifies that critical data (specifically, "advice" entries in LanceDB) has been successfully processed and logged using `scripts/verify_advice.py`.
+6. Cleans up all services by stopping and removing Docker containers and volumes.
+
+This workflow helps to continuously ensure the robustness of the system against unexpected service interruptions.
+
+---
 
 Patience Profits!

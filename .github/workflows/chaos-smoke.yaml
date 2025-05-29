@@ -1,0 +1,96 @@
+name: Chaos Smoke Test
+
+on:
+  push:
+    branches: [ main ] # Or your specific branches
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  chaos-test:
+    runs-on: ubuntu-latest
+    env:
+      CHAOS_MODE: 1
+      DOCKER_COMPOSE_FILE: docker/compose.yaml # Define once for easy reference
+      LANCEDB_DATA_DIR: ./lancedb_data # Define LanceDB data directory path
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10' # Match a version that supports your dependencies
+
+      - name: Install dependencies (for scripts)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt # Installs docker, lancedb, redis etc. for scripts
+
+      - name: Ensure LanceDB data directory exists and has correct permissions
+        run: |
+          mkdir -p ${{ env.LANCEDB_DATA_DIR }}
+          sudo chown -R $USER:$USER ${{ env.LANCEDB_DATA_DIR }} # Ensure runner user owns it for Docker volume mount
+
+      - name: Start services with Docker Compose
+        run: docker-compose -f ${{ env.DOCKER_COMPOSE_FILE }} up -d --build
+      
+      - name: Wait for services to initialize
+        run: |
+          echo "Waiting for services to become healthy..."
+          # Simple sleep for now. More robust checks would query health endpoints.
+          # llm-sidecar has /health. Orchestrator might need one.
+          # Redis has a healthcheck in compose.yaml now.
+          # The depends_on conditions in compose.yaml also help.
+          sleep 45 # Increased sleep to allow model loading and orchestrator recovery
+
+      - name: Start chaos script in background
+        run: |
+          echo "Starting chaos_restarts.py script..."
+          python scripts/chaos_restarts.py > chaos_script.log 2>&1 &
+          echo "Chaos script running in background. Log: chaos_script.log"
+
+      - name: Simulate market tick data
+        run: |
+          echo "Simulating market ticks..."
+          # Using default redis_url which should be localhost:6379 as per Redis service in compose
+          python scripts/publish_ticks.py --duration 45 --interval 0.5 
+          echo "Finished simulating market ticks."
+
+      - name: Run chaos test for specified duration
+        run: |
+          echo "Chaos test running alongside tick simulation. Total active test duration: 60 seconds."
+          sleep 60 
+          # This means chaos script and tick publisher run, then an additional 15s of chaos.
+          # (Publish ticks runs for 45s, chaos runs for 60s total after its start)
+
+      - name: Stop chaos script
+        run: |
+          echo "Stopping chaos_restarts.py script..."
+          # pkill is effective. Ensure it targets the correct Python script.
+          # Using pgrep to find PID then kill, can be more precise.
+          CHAOS_PID=$(pgrep -f "python scripts/chaos_restarts.py")
+          if [ -n "$CHAOS_PID" ]; then
+            sudo kill $CHAOS_PID || echo "Failed to kill chaos script with PID $CHAOS_PID. It might have already exited."
+          else
+            echo "Chaos script process not found."
+          fi
+          echo "Waiting for chaos script to terminate..."
+          sleep 5 # Give it a moment to shut down gracefully
+
+      - name: Verify chaos script log (optional debug)
+        run: |
+          echo "Contents of chaos_script.log:"
+          cat chaos_script.log || echo "chaos_script.log not found."
+      
+      - name: Verify advice entries
+        run: python scripts/verify_advice.py
+
+      - name: Stop and remove Docker services
+        if: always() # Ensure cleanup even if previous steps fail
+        run: |
+          echo "Stopping Docker services..."
+          docker-compose -f ${{ env.DOCKER_COMPOSE_FILE }} down -v
+          echo "Docker services stopped and volumes removed."

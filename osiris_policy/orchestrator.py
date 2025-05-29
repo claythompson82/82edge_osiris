@@ -4,6 +4,8 @@ import requests
 import logging
 import asyncio # Added for new event-driven model
 from typing import TypedDict, Dict, Any, Optional, List
+import redis.asyncio as redis # For persistent tick buffer
+from tenacity import retry, stop_after_attempt, wait_exponential, RetryError, retry_if_exception_type
 
 # LangGraph
 from langgraph.graph import StateGraph, END
@@ -22,7 +24,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 # --- Global Variables & Constants ---
-TICK_BUFFER: List[Dict[str, Any]] = [] 
+# TICK_BUFFER: List[Dict[str, Any]] = []  # Replaced by Redis-based buffer
+ORCHESTRATOR_TICK_BUFFER_KEY = "orchestrator_tick_buffer"
 # TICKS_PER_PROPOSAL will be set by CLI args
 MARKET_TICKS_CHANNEL = "market.ticks" # Default, can be overridden by CLI
 # REDIS_URL will be set by CLI args
@@ -50,6 +53,31 @@ class WorkflowState(TypedDict):
 
 # --- Node Implementations ---
 
+# Helper for TTS with retry
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception_type(requests.exceptions.RequestException)
+)
+async def _send_tts_request_with_retry(tts_payload: dict, run_id: str, sidecar_url: str = "http://localhost:8000"): # TODO: Make sidecar URL configurable
+    logger.info(f"Requesting TTS (attempt via retry logic) for run_id {run_id}: '{tts_payload.get('text')[:50]}...'")
+    try:
+        # Run synchronous requests.post in a thread to avoid blocking asyncio event loop
+        response = await asyncio.to_thread(
+            requests.post,
+            f"{sidecar_url}/speak", 
+            json=tts_payload,
+            timeout=30,
+            headers={"Accept": "audio/wav"}
+        )
+        response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
+        logger.info(f"TTS request successful for run_id {run_id}. Received {len(response.content)} bytes.")
+        return response
+    except requests.exceptions.RequestException as e:
+        logger.warning(f"TTS request attempt failed for run_id {run_id}: {e}. Retrying if attempts left...")
+        raise # Re-raise to trigger tenacity retry
+
+
 def query_market_node(state: WorkflowState) -> WorkflowState:
     logger.info(f"Executing QueryMarket node for run_id: {state.get('run_id', 'N/A')}...")
     # The 'query' field in the state now contains the stringified list of buffered ticks.
@@ -59,6 +87,30 @@ def query_market_node(state: WorkflowState) -> WorkflowState:
     market_query_result = f"Processed market data based on recent ticks: {raw_tick_data_str}"
     logger.info(f"Market query result for run_id {state.get('run_id', 'N/A')}: {market_query_result}")
     return {**state, "market_query_result": market_query_result}
+
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception_type(requests.exceptions.RequestException)
+)
+def _generate_proposal_http_call(phi3_payload: dict, run_id: str, sidecar_url: str = "http://localhost:8000"): # TODO: Make sidecar URL configurable
+    logger.info(f"Attempting HTTP call to /generate?model_id=phi3 for run_id {run_id}")
+    try:
+        response = requests.post(
+            f"{sidecar_url}/generate?model_id=phi3", 
+            json=phi3_payload,
+            timeout=60
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        logger.warning(f"HTTP call to /generate?model_id=phi3 failed for run_id {run_id}: {e}. Retrying if attempts left...")
+        raise
+    except json.JSONDecodeError as e: # Added this to show it's not retried by default by above
+        logger.error(f"Non-retryable JSON decode error for run_id {run_id} from /generate: {e}. Response text: {response.text if 'response' in locals() else 'No response object'}")
+        # This exception will propagate, not be retried by this specific tenacity setup
+        raise
 
 
 async def generate_proposal_node(state: WorkflowState) -> WorkflowState:
@@ -71,9 +123,6 @@ async def generate_proposal_node(state: WorkflowState) -> WorkflowState:
         logger.warning(f"No market data in state for run_id: {state.get('run_id', 'N/A')}. Using default.")
         market_data = "No market data available (warning)."
     
-    # Construct prompt for Phi-3
-    # Example: "Based on the market context 'Favorable conditions.', generate a trade proposal."
-    # This prompt structure is an example; actual prompt engineering would be more complex.
     prompt_text = (
         f"Market Context: {market_data}\n\n"
         "Please generate a detailed JSON trade proposal based on this context. "
@@ -84,36 +133,61 @@ async def generate_proposal_node(state: WorkflowState) -> WorkflowState:
     
     phi3_payload = {
         "prompt": prompt_text,
-        "max_length": 512 # Adjust as needed
+        "max_length": 512 
     }
-    logger.info(f"Sending to /generate?model_id=phi3 for run_id {state.get('run_id', 'N/A')}: {json.dumps(phi3_payload)}")
+    run_id = state.get('run_id', 'N/A')
+    logger.info(f"Preparing to send to /generate?model_id=phi3 for run_id {run_id}: {json.dumps(phi3_payload)}")
 
     try:
-        response = requests.post(
-            "http://localhost:8000/generate?model_id=phi3", # TODO: Make sidecar URL configurable
-            json=phi3_payload,
-            timeout=60
-        )
-        response.raise_for_status()
-        phi3_response_json = response.json()
-        logger.info(f"Received from /generate?model_id=phi3 for run_id {state.get('run_id', 'N/A')}: {json.dumps(phi3_response_json)}")
+        # Note: LangGraph runs sync functions in a thread pool when using ainvoke.
+        # So, this sync _generate_proposal_http_call is fine.
+        phi3_response_json = _generate_proposal_http_call(phi3_payload, run_id)
+        logger.info(f"Received from /generate?model_id=phi3 for run_id {run_id}: {json.dumps(phi3_response_json)}")
         
         if isinstance(phi3_response_json, dict) and "error" not in phi3_response_json:
             return {**state, "phi3_raw_proposal_request": phi3_payload, "phi3_response": phi3_response_json}
         else:
-            error_message = f"Phi-3 generation failed for run_id {state.get('run_id', 'N/A')}. Response: {json.dumps(phi3_response_json)}"
+            error_message = f"Phi-3 generation failed for run_id {run_id}. Response: {json.dumps(phi3_response_json)}"
             logger.error(error_message)
             return {**state, "error": error_message, "phi3_response": phi3_response_json}
 
-    except requests.exceptions.RequestException as e:
-        error_message = f"HTTP request to Phi-3 failed for run_id {state.get('run_id', 'N/A')}: {e}"
+    except RetryError as e: # Catch error after all retries are exhausted
+        error_message = f"HTTP request to Phi-3 failed after multiple retries for run_id {run_id}: {e}"
         logger.error(error_message)
         return {**state, "error": error_message}
-    except json.JSONDecodeError as e:
-        error_message = f"Failed to decode JSON response from Phi-3 for run_id {state.get('run_id', 'N/A')}: {e}. Response text: {response.text if response else 'No response'}"
+    except requests.exceptions.RequestException as e: # Should be caught by RetryError if retries fail
+        error_message = f"HTTP request to Phi-3 failed (should have been caught by RetryError if retries occurred) for run_id {run_id}: {e}"
         logger.error(error_message)
+        return {**state, "error": error_message}
+    except json.JSONDecodeError as e: # Catch JSON errors not handled by retry
+        # The error is already logged by _generate_proposal_http_call
+        error_message = f"Failed to decode JSON response from Phi-3 for run_id {run_id}: {e}"
+        # phi3_response_json might not be defined if json() failed.
+        # The actual response text is logged in the helper.
         return {**state, "error": error_message}
 
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception_type(requests.exceptions.RequestException)
+)
+def _evaluate_proposal_http_call(pta_payload: dict, run_id: str, sidecar_url: str = "http://localhost:8000"): # TODO: Make sidecar URL configurable
+    logger.info(f"Attempting HTTP call to /propose_trade_adjustments for run_id {run_id}")
+    try:
+        response = requests.post(
+            f"{sidecar_url}/propose_trade_adjustments", 
+            json=pta_payload,
+            timeout=120 
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        logger.warning(f"HTTP call to /propose_trade_adjustments failed for run_id {run_id}: {e}. Retrying if attempts left...")
+        raise
+    except json.JSONDecodeError as e:
+        logger.error(f"Non-retryable JSON decode error for run_id {run_id} from /propose_trade_adjustments: {e}. Response text: {response.text if 'response' in locals() else 'No response object'}")
+        raise
 
 async def evaluate_proposal_node(state: WorkflowState) -> WorkflowState:
     logger.info(f"Executing EvaluateProposal node for run_id: {state.get('run_id', 'N/A')}...")
@@ -125,58 +199,36 @@ async def evaluate_proposal_node(state: WorkflowState) -> WorkflowState:
         error_message = f"Phi-3 proposal is missing or invalid in state for evaluation for run_id: {state.get('run_id', 'N/A')}."
         logger.error(error_message)
         return {**state, "error": error_message}
-
-    # Construct prompt for /propose_trade_adjustments
-    # This endpoint internally calls Phi-3 again and then Hermes for assessment.
-    # The prompt for this endpoint should be the "user query" that leads to the proposal.
-    # Let's use the original query or market data, as this endpoint regenerates phi3 proposal.
-    # The subtask says: "Constructs a prompt using the Phi-3 response for the /propose_trade_adjustments endpoint."
-    # This is a bit ambiguous. The /propose_trade_adjustments endpoint takes a general "prompt" (user query)
-    # and then internally generates a phi3 proposal AND a hermes assessment.
-    # If we pass the phi3_proposal *as the prompt*, it might try to *critique the critique*.
-    # Let's assume the intent is to get an assessment on the *original need* or *market data*.
-    # However, the endpoint's current implementation in server.py has hermes assess the *phi3_json* it generated.
-    # So, the "prompt" to /propose_trade_adjustments should be the one that *generates* the proposal.
-    # Let's use the original user query or a derivative.
-    # The `phi3_raw_proposal_request` contains the prompt we sent to phi3. Let's use that.
     
-    # The 'query' in the state is now the stringified tick data.
-    # The /propose_trade_adjustments endpoint expects a "prompt" that is a user query or market context.
-    # We should use the `market_query_result` from the previous node, or the original `query` (tick data string).
-    # Let's use `state["query"]` which is the stringified ticks, as per current /propose_trade_adjustments logic
-    # which internally generates a phi3 proposal based on this prompt.
     prompt_for_pta = state["query"] 
-
     pta_payload = {
         "prompt": prompt_for_pta, 
         "max_length": 512 
     }
-    logger.info(f"Sending to /propose_trade_adjustments for run_id {state.get('run_id', 'N/A')}: {json.dumps(pta_payload)}")
+    run_id = state.get('run_id', 'N/A')
+    logger.info(f"Preparing to send to /propose_trade_adjustments for run_id {run_id}: {json.dumps(pta_payload)}")
 
     try:
-        response = requests.post(
-            "http://localhost:8000/propose_trade_adjustments", # TODO: Make sidecar URL configurable
-            json=pta_payload,
-            timeout=120 
-        )
-        response.raise_for_status()
-        pta_response_json = response.json()
-        logger.info(f"Received from /propose_trade_adjustments for run_id {state.get('run_id', 'N/A')}: {json.dumps(pta_response_json)}")
+        pta_response_json = _evaluate_proposal_http_call(pta_payload, run_id)
+        logger.info(f"Received from /propose_trade_adjustments for run_id {run_id}: {json.dumps(pta_response_json)}")
         
         if isinstance(pta_response_json, dict) and "error" not in pta_response_json:
             return {**state, "propose_trade_adjustments_response": pta_response_json}
         else:
-            error_message = f"Call to /propose_trade_adjustments failed for run_id {state.get('run_id', 'N/A')}. Response: {json.dumps(pta_response_json)}"
+            error_message = f"Call to /propose_trade_adjustments failed for run_id {run_id}. Response: {json.dumps(pta_response_json)}"
             logger.error(error_message)
             return {**state, "error": error_message, "propose_trade_adjustments_response": pta_response_json}
 
-    except requests.exceptions.RequestException as e:
-        error_message = f"HTTP request to /propose_trade_adjustments failed for run_id {state.get('run_id', 'N/A')}: {e}"
+    except RetryError as e: # Catch error after all retries are exhausted
+        error_message = f"HTTP request to /propose_trade_adjustments failed after multiple retries for run_id {run_id}: {e}"
+        logger.error(error_message)
+        return {**state, "error": error_message}
+    except requests.exceptions.RequestException as e: # Should be caught by RetryError
+        error_message = f"HTTP request to /propose_trade_adjustments failed (should have been caught by RetryError if retries occurred) for run_id {run_id}: {e}"
         logger.error(error_message)
         return {**state, "error": error_message}
     except json.JSONDecodeError as e:
-        error_message = f"Failed to decode JSON response from /propose_trade_adjustments for run_id {state.get('run_id', 'N/A')}: {e}. Response text: {response.text if response else 'No response'}"
-        logger.error(error_message)
+        error_message = f"Failed to decode JSON response from /propose_trade_adjustments for run_id {run_id}: {e}"
         return {**state, "error": error_message}
 
 
@@ -184,7 +236,9 @@ async def publish_events_node(state: WorkflowState) -> WorkflowState:
     run_id = state.get('run_id', 'N/A')
     logger.info(f"Executing PublishEvents node for run_id: {run_id}...")
 
-    event_bus = EventBus(redis_url="redis://localhost:6379/0") # TODO: Make this configurable
+    # TODO: Make EventBus redis_url configurable via args, like market_tick_listener
+    event_bus_redis_url = "redis://localhost:6379/0" 
+    event_bus = EventBus(redis_url=event_bus_redis_url)
     
     phi3_proposal_from_state = state.get("phi3_response", {"error": "Original proposal not found in state."})
     if not isinstance(phi3_proposal_from_state, dict):
@@ -251,24 +305,26 @@ async def publish_events_node(state: WorkflowState) -> WorkflowState:
         if hermes_assessment_text and isinstance(hermes_assessment_text, str) and hermes_assessment_text.strip():
             tts_text = hermes_assessment_text.split('.')[0] + "."
             if len(tts_text) > 150: tts_text = tts_text[:150] + "..."
-            logger.info(f"Requesting TTS for Hermes assessment, run_id {run_id}: '{tts_text}'")
+            # logger.info(f"Requesting TTS for Hermes assessment, run_id {run_id}: '{tts_text}'") # Moved to helper
             tts_payload = {"text": tts_text, "exaggeration": 0.5}
             
             try:
-                tts_http_response = requests.post("http://localhost:8000/speak", json=tts_payload, timeout=30, headers={"Accept": "audio/wav"})
-                tts_http_response.raise_for_status()
-                logger.info(f"TTS request successful for run_id {run_id}. Received {len(tts_http_response.content)} bytes.")
+                # Call the new helper function with retry logic
+                # TODO: The sidecar URL for TTS should also be configurable
+                tts_http_response = await _send_tts_request_with_retry(tts_payload, run_id) 
+                # logger.info(f"TTS request successful for run_id {run_id}. Received {len(tts_http_response.content)} bytes.") # Moved to helper
                 
                 tts_event_payload = {"transaction_id": transaction_id, "text_spoken": tts_text, "status": "success", "audio_length_bytes": len(tts_http_response.content), "orchestrator_run_id": run_id}
                 await event_bus.publish("hermes.assessment.spoken", json.dumps(tts_event_payload))
                 logger.info(f"Published 'hermes.assessment.spoken' for tx {transaction_id} (run_id {run_id})")
 
-            except requests.exceptions.RequestException as e_tts_req:
-                tts_error_msg = f"TTS request failed for run_id {run_id}: {e_tts_req}"
+            except RetryError as e_retry_tts: # Catch error after all TTS retries are exhausted
+                tts_error_msg = f"TTS request failed after multiple retries for run_id {run_id}: {e_retry_tts}"
                 logger.error(tts_error_msg)
                 state["error"] = f"{state.get('error', '')} {tts_error_msg}".strip()
-            except Exception as e_tts_other:
-                tts_error_msg = f"Unexpected error in TTS processing for run_id {run_id}"
+            # No longer need to catch requests.exceptions.RequestException here for TTS, as _send_tts_request_with_retry handles it.
+            except Exception as e_tts_other: # Catch other unexpected errors during TTS processing
+                tts_error_msg = f"Unexpected error in TTS processing (after retry logic if applicable) for run_id {run_id}"
                 logger.exception(tts_error_msg) # Log with stack trace
                 state["error"] = f"{state.get('error', '')} {tts_error_msg}: {e_tts_other}".strip()
     
@@ -450,69 +506,167 @@ async def market_tick_listener(
     ticks_per_proposal: int, 
     graph_app: StateGraph # Compiled LangGraph app
 ):
-    global TICK_BUFFER # Use the global buffer
+    # Initialize a separate Redis client for managing the tick buffer
+    redis_client = redis.Redis.from_url(redis_url, decode_responses=True)
+    logger.info(f"Orchestrator tick buffer connected to Redis at {redis_url}")
 
+    # --- Tick Recovery on Startup ---
+    try:
+        recovered_ticks_json = await redis_client.lrange(ORCHESTRATOR_TICK_BUFFER_KEY, 0, -1)
+        if recovered_ticks_json:
+            recovered_ticks = [json.loads(t) for t in recovered_ticks_json]
+            # Reverse to process oldest first, as lrange gives newest first from lpush
+            recovered_ticks.reverse() 
+            logger.info(f"Recovered {len(recovered_ticks)} ticks from Redis buffer '{ORCHESTRATOR_TICK_BUFFER_KEY}'. Processing them...")
+
+            # Process recovered ticks in batches
+            for i in range(0, len(recovered_ticks), ticks_per_proposal):
+                batch = recovered_ticks[i:i + ticks_per_proposal]
+                if not batch: continue
+
+                logger.info(f"Processing recovered batch of {len(batch)} ticks.")
+                current_run_id = f"run_recovered_{int(asyncio.get_running_loop().time())}_{i}"
+                workflow_query = json.dumps(batch) # Batch of recovered ticks
+                initial_state: WorkflowState = {
+                    "query": workflow_query, "market_query_result": None,
+                    "phi3_raw_proposal_request": None, "phi3_response": None,
+                    "propose_trade_adjustments_response": None, "final_output": None,
+                    "error": None, "run_id": current_run_id,
+                    "current_nav": 100000.0, "daily_pnl": 0.0, "risk_gate_decision": None
+                }
+                asyncio.create_task(process_workflow_run(graph_app, initial_state))
+            
+            # Clear the Redis buffer after processing recovered ticks
+            await redis_client.delete(ORCHESTRATOR_TICK_BUFFER_KEY)
+            logger.info(f"Cleared Redis tick buffer '{ORCHESTRATOR_TICK_BUFFER_KEY}' after recovery.")
+        else:
+            logger.info(f"No ticks found in Redis buffer '{ORCHESTRATOR_TICK_BUFFER_KEY}' on startup.")
+    except Exception as e: # Catch generic Exception for Redis operations
+        logger.error(f"Error during tick recovery from Redis: {e}", exc_info=True)
+        # Depending on policy, might halt or continue. For now, continue.
+
+    # Initialize EventBus for new ticks
     event_bus = EventBus(redis_url=redis_url)
-    await event_bus.connect()
-    logger.info(f"Connected to Redis for market ticks on channel '{market_channel}'. Waiting for data...")
+    try:
+        await event_bus.connect()
+        logger.info(f"Connected to Redis for market ticks on channel '{market_channel}'. Waiting for data...")
+    except RedisError as e:
+        logger.critical(f"Failed to connect EventBus to Redis: {e}. Orchestrator cannot listen for market ticks. Exiting.", exc_info=True)
+        await redis_client.close() # Close the tick buffer client
+        return # Exit market_tick_listener
 
     async def tick_handler(message_data: str):
-        global TICK_BUFFER # Ensure modification of global buffer
         try:
             tick = json.loads(message_data)
-            TICK_BUFFER.append(tick)
-            logger.info(f"Received tick #{len(TICK_BUFFER)}: {tick.get('timestamp', 'N/A')}, Close: {tick.get('close', 'N/A')}")
+            
+            # Push tick to Redis list (buffer)
+            await redis_client.lpush(ORCHESTRATOR_TICK_BUFFER_KEY, json.dumps(tick))
+            current_buffer_size = await redis_client.llen(ORCHESTRATOR_TICK_BUFFER_KEY)
+            logger.info(f"Pushed tick to Redis buffer '{ORCHESTRATOR_TICK_BUFFER_KEY}'. Timestamp: {tick.get('timestamp', 'N/A')}, Close: {tick.get('close', 'N/A')}. Buffer size: {current_buffer_size}")
 
-            if len(TICK_BUFFER) >= ticks_per_proposal:
-                logger.info(f"Buffer limit of {ticks_per_proposal} ticks reached. Triggering workflow.")
+            if current_buffer_size >= ticks_per_proposal:
+                logger.info(f"Redis buffer limit of {ticks_per_proposal} reached. Triggering workflow.")
                 
-                # Create a unique run ID for this workflow invocation
+                # Retrieve the oldest N ticks for the workflow
+                # LRANGE 0 to N-1 gets the N most recently pushed items (if LPUSH is used)
+                # To get the oldest, we need to range from the other end.
+                # Or, simpler: get N items, then trim, then reverse the retrieved list.
+                # LPUSH adds to head. LRANGE 0 (head) to ticks_per_proposal-1 gets newest items.
+                # We want oldest. So LRANGE -ticks_per_proposal to -1.
+                ticks_to_process_json = await redis_client.lrange(ORCHESTRATOR_TICK_BUFFER_KEY, -ticks_per_proposal, -1)
+                
+                # Trim the list: keep elements from index 0 up to -(ticks_per_proposal + 1)
+                # This means removing the last 'ticks_per_proposal' elements which we just read.
+                # LTRIM list_key start_index end_index. Keeps elements within start and end.
+                # If we LPUSH, newest is at left (index 0). Oldest is at right (index -1).
+                # We want to process oldest ticks. So we get ticks from the right end (oldest).
+                # And then trim them from the right end.
+                # So, ticks_to_process_json = await redis_client.lrange(ORCHESTRATOR_TICK_BUFFER_KEY, -ticks_per_proposal, -1)
+                # And then trim: await redis_client.ltrim(ORCHESTRATOR_TICK_BUFFER_KEY, 0, -(ticks_per_proposal + 1))
+                
+                # Let's use the common pattern: RPUSH to add to tail, LPOP to remove from head.
+                # This way, LPOP always gives the oldest.
+                # For this, we'd change LPUSH to RPUSH.
+                # Then, to get a batch: LRANGE 0, ticks_per_proposal-1. Then LTRIM 0, ticks_per_proposal-1.
+                # This is more standard. Let's adjust:
+                # 1. Change lpush to rpush in this handler.
+                # 2. In recovery, lrange gives from oldest. No reverse needed.
+                # 3. Here, lrange 0 to N-1 gives oldest. Then ltrim N to -1 removes them.
+
+                # Re-adjusting based on initial choice of LPUSH:
+                # LPUSH adds to left (head). LRANGE 0..N-1 gets N newest.
+                # We want to process a batch of N ticks. The problem doesn't strictly say "oldest N" or "newest N".
+                # Let's assume "any N ticks that form a batch".
+                # The current code with global TICK_BUFFER.append() and then processing json.dumps(TICK_BUFFER)
+                # processes ticks in the order they arrived.
+                # To maintain this with Redis:
+                # RPUSH to add to the right (tail).
+                # LRANGE 0 to ticks_per_proposal-1 to get the oldest.
+                # LTRIM ticks_per_proposal to -1 to remove them.
+                # This seems like the most natural translation.
+                # So, I will change the `lpush` above to `rpush`.
+                # And adjust recovery: `recovered_ticks_json` from `lrange 0 -1` will be oldest to newest. No reverse needed.
+
+                # *** Let's stick to the implemented LPUSH and reverse for now, as per my detailed plan ***
+                # Ticks are LPUSHed. Newest are at the 'left' (index 0).
+                # To get the oldest N ticks: LRANGE -N to -1.
+                # Then trim them: LTRIM 0 to -(N+1). (keep elements from head up to excluding the last N)
+                
+                # The prompt said:
+                // `ticks_to_process_json = redis_client.lrange(ORCHESTRATOR_TICK_BUFFER_KEY, 0, ticks_per_proposal - 1)` (Get the oldest N ticks)
+                // `redis_client.ltrim(ORCHESTRATOR_TICK_BUFFER_KEY, ticks_per_proposal, -1)` (Remove these N ticks from the list)
+                // `ticks_to_process = [json.loads(t) for t in ticks_to_process_json]`
+                // Reverse `ticks_to_process` because `LPUSH` adds to the left, and `LRANGE 0 to N-1` gets them in reverse order of arrival.
+                # This is what I'll implement.
+
+                ticks_json_from_redis = await redis_client.lrange(ORCHESTRATOR_TICK_BUFFER_KEY, 0, ticks_per_proposal - 1)
+                await redis_client.ltrim(ORCHESTRATOR_TICK_BUFFER_KEY, ticks_per_proposal, -1)
+                
+                ticks_to_process = [json.loads(t) for t in ticks_json_from_redis]
+                ticks_to_process.reverse() # Reverse to maintain original arrival order
+
                 current_run_id = f"run_{int(asyncio.get_running_loop().time())}"
-                
-                # Prepare query for the graph: stringified version of current buffer
-                # Could also be a summary, or just the latest N ticks. For now, whole buffer.
-                workflow_query = json.dumps(TICK_BUFFER)
+                workflow_query = json.dumps(ticks_to_process)
                 
                 initial_state: WorkflowState = {
-                    "query": workflow_query,
-                    "market_query_result": None,
-                    "phi3_raw_proposal_request": None,
-                    "phi3_response": None,
-                    "propose_trade_adjustments_response": None,
-                    "final_output": None,
-                    "error": None,
-                    "run_id": current_run_id, # Include run_id in the state
-                    "current_nav": 100000.0, 
-                    "daily_pnl": 0.0,        
-                    "risk_gate_decision": None 
+                    "query": workflow_query, "market_query_result": None,
+                    "phi3_raw_proposal_request": None, "phi3_response": None,
+                    "propose_trade_adjustments_response": None, "final_output": None,
+                    "error": None, "run_id": current_run_id,
+                    "current_nav": 100000.0, "daily_pnl": 0.0, "risk_gate_decision": None
                 }
                 
-                logger.info(f"Invoking workflow for run_id: {current_run_id} with {len(TICK_BUFFER)} ticks. Using placeholder NAV={initial_state['current_nav']}, PNL={initial_state['daily_pnl']}.")
-                # Asynchronously invoke the graph. Does not block further ticks if graph runs long.
-                # Be mindful of resource limits if many graph instances run concurrently.
+                logger.info(f"Invoking workflow for run_id: {current_run_id} with {len(ticks_to_process)} ticks from Redis. NAV={initial_state['current_nav']}, PNL={initial_state['daily_pnl']}.")
                 asyncio.create_task(process_workflow_run(graph_app, initial_state))
-                
-                TICK_BUFFER = [] # Clear buffer after triggering
-                logger.info("Tick buffer cleared.")
+                logger.info(f"Redis buffer processed. Remaining size: {await redis_client.llen(ORCHESTRATOR_TICK_BUFFER_KEY)}")
 
         except json.JSONDecodeError:
             logger.error(f"Failed to parse tick data as JSON: {message_data}")
+        except RedisError as e: # More specific Redis error
+            logger.error(f"Redis error in tick_handler: {e}", exc_info=True)
         except Exception as e:
-            logger.error(f"Error in tick_handler: {e}")
+            logger.error(f"Error in tick_handler: {e}", exc_info=True)
 
     await event_bus.subscribe(market_channel, tick_handler)
     
-    # Keep the listener running indefinitely (or until an external signal)
+    # Keep the listener running indefinitely
     try:
         while True:
             await asyncio.sleep(1) # Keep alive, actual work happens in tick_handler via EventBus
     except KeyboardInterrupt:
         logger.info("Market tick listener stopped by user.")
+    except RedisError as e: # Catch Redis errors during subscribe or keep-alive
+        logger.error(f"Market tick listener Redis connection error: {e}", exc_info=True)
     except Exception as e:
-        logger.error(f"Market tick listener faced an unexpected error: {e}")
+        logger.error(f"Market tick listener faced an unexpected error: {e}", exc_info=True)
     finally:
-        logger.info("Closing EventBus connection for market tick listener.")
-        await event_bus.close()
+        logger.info("Closing connections for market tick listener.")
+        if event_bus.redis_client and await event_bus.is_connected():
+            await event_bus.close()
+            logger.info("EventBus connection closed.")
+        if redis_client: # Ensure redis_client for tick buffer is also closed
+            await redis_client.close()
+            logger.info("Orchestrator tick buffer Redis connection closed.")
 
 async def process_workflow_run(graph_app: StateGraph, initial_state: WorkflowState):
     """
