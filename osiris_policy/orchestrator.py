@@ -2,7 +2,8 @@ import argparse
 import json
 import requests
 import logging
-from typing import TypedDict, Dict, Any, Optional
+import asyncio # Added for new event-driven model
+from typing import TypedDict, Dict, Any, Optional, List
 
 # LangGraph
 from langgraph.graph import StateGraph, END
@@ -18,36 +19,46 @@ from llm_sidecar.db import log_run, OrchestratorRunLog
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# --- Global Variables & Constants ---
+TICK_BUFFER: List[Dict[str, Any]] = [] 
+# TICKS_PER_PROPOSAL will be set by CLI args
+MARKET_TICKS_CHANNEL = "market.ticks" # Default, can be overridden by CLI
+# REDIS_URL will be set by CLI args
+
 # --- State Definition ---
 class WorkflowState(TypedDict):
-    query: str
-    market_query_result: Optional[str]
-    phi3_raw_proposal_request: Optional[Dict[str, Any]] # What we send to phi3
-    phi3_response: Optional[Dict[str, Any]] # What phi3 returns (parsed JSON)
-    # propose_trade_adjustments_request: Optional[Dict[str, Any]] # What we send to propose_trade_adjustments
-    # This is implicitly the hermes_prompt in EvaluateProposal
-    propose_trade_adjustments_response: Optional[Dict[str, Any]] # Full response from /propose_trade_adjustments
-    final_output: Optional[str] # For CLI output
-    error: Optional[str] # To capture any errors in the workflow
+    query: str # This will now be the stringified tick buffer or a summary
+    market_query_result: Optional[str] # Result of processing the query/ticks
+    phi3_raw_proposal_request: Optional[Dict[str, Any]]
+    phi3_response: Optional[Dict[str, Any]]
+    propose_trade_adjustments_response: Optional[Dict[str, Any]]
+    final_output: Optional[str]
+    error: Optional[str]
+    run_id: Optional[str] # To track individual workflow runs triggered by ticks
 
 
 # --- Node Implementations ---
 
 def query_market_node(state: WorkflowState) -> WorkflowState:
-    logger.info("Executing QueryMarket node...")
-    query = state["query"]
-    # Mock implementation
-    market_query_result = f"Market query processed for: '{query}'. Result: Favorable conditions."
-    logger.info(f"Market query result: {market_query_result}")
+    logger.info(f"Executing QueryMarket node for run_id: {state.get('run_id', 'N/A')}...")
+    # The 'query' field in the state now contains the stringified list of buffered ticks.
+    # This node will transform it into a "market_query_result".
+    # For now, let's just pass it through or add a simple message.
+    raw_tick_data_str = state["query"]
+    market_query_result = f"Processed market data based on recent ticks: {raw_tick_data_str}"
+    logger.info(f"Market query result for run_id {state.get('run_id', 'N/A')}: {market_query_result}")
     return {**state, "market_query_result": market_query_result}
 
 
 async def generate_proposal_node(state: WorkflowState) -> WorkflowState:
-    logger.info("Executing GenerateProposal node...")
-    if state.get("error"): # If there was an error in a previous step, skip
+    logger.info(f"Executing GenerateProposal node for run_id: {state.get('run_id', 'N/A')}...")
+    if state.get("error"):
         return state
 
     market_data = state.get("market_query_result", "No market data available.")
+    if not market_data: # Should not happen if query_market_node ran
+        logger.warning(f"No market data in state for run_id: {state.get('run_id', 'N/A')}. Using default.")
+        market_data = "No market data available (warning)."
     
     # Construct prompt for Phi-3
     # Example: "Based on the market context 'Favorable conditions.', generate a trade proposal."
@@ -64,47 +75,43 @@ async def generate_proposal_node(state: WorkflowState) -> WorkflowState:
         "prompt": prompt_text,
         "max_length": 512 # Adjust as needed
     }
-    logger.info(f"Sending to /generate?model_id=phi3: {json.dumps(phi3_payload)}")
+    logger.info(f"Sending to /generate?model_id=phi3 for run_id {state.get('run_id', 'N/A')}: {json.dumps(phi3_payload)}")
 
     try:
-        # Using requests.post for synchronous call as langgraph nodes are typically synchronous
-        # If async HTTP client is needed, the graph execution itself would need to be async.
-        # For now, standard requests will be used. Consider httpx for async if required later.
         response = requests.post(
-            "http://localhost:8000/generate?model_id=phi3",
+            "http://localhost:8000/generate?model_id=phi3", # TODO: Make sidecar URL configurable
             json=phi3_payload,
-            timeout=60  # seconds
+            timeout=60
         )
-        response.raise_for_status()  # Raises HTTPError for bad responses (4XX or 5XX)
+        response.raise_for_status()
         phi3_response_json = response.json()
-        logger.info(f"Received from /generate?model_id=phi3: {json.dumps(phi3_response_json)}")
+        logger.info(f"Received from /generate?model_id=phi3 for run_id {state.get('run_id', 'N/A')}: {json.dumps(phi3_response_json)}")
         
-        # Validate if the response is the expected JSON object, not another error structure
         if isinstance(phi3_response_json, dict) and "error" not in phi3_response_json:
             return {**state, "phi3_raw_proposal_request": phi3_payload, "phi3_response": phi3_response_json}
         else:
-            error_message = f"Phi-3 generation failed. Response: {json.dumps(phi3_response_json)}"
+            error_message = f"Phi-3 generation failed for run_id {state.get('run_id', 'N/A')}. Response: {json.dumps(phi3_response_json)}"
             logger.error(error_message)
             return {**state, "error": error_message, "phi3_response": phi3_response_json}
 
     except requests.exceptions.RequestException as e:
-        error_message = f"HTTP request to Phi-3 failed: {e}"
+        error_message = f"HTTP request to Phi-3 failed for run_id {state.get('run_id', 'N/A')}: {e}"
         logger.error(error_message)
         return {**state, "error": error_message}
     except json.JSONDecodeError as e:
-        error_message = f"Failed to decode JSON response from Phi-3: {e}. Response text: {response.text if response else 'No response'}"
+        error_message = f"Failed to decode JSON response from Phi-3 for run_id {state.get('run_id', 'N/A')}: {e}. Response text: {response.text if response else 'No response'}"
         logger.error(error_message)
         return {**state, "error": error_message}
 
 
 async def evaluate_proposal_node(state: WorkflowState) -> WorkflowState:
-    logger.info("Executing EvaluateProposal node...")
+    logger.info(f"Executing EvaluateProposal node for run_id: {state.get('run_id', 'N/A')}...")
     if state.get("error"):
         return state
 
     phi3_proposal = state.get("phi3_response")
     if not phi3_proposal or not isinstance(phi3_proposal, dict):
-        error_message = "Phi-3 proposal is missing or invalid in state for evaluation."
+        error_message = f"Phi-3 proposal is missing or invalid in state for evaluation for run_id: {state.get('run_id', 'N/A')}."
         logger.error(error_message)
         return {**state, "error": error_message}
 
@@ -122,133 +129,171 @@ async def evaluate_proposal_node(state: WorkflowState) -> WorkflowState:
     # Let's use the original user query or a derivative.
     # The `phi3_raw_proposal_request` contains the prompt we sent to phi3. Let's use that.
     
-    raw_phi3_prompt_info = state.get("phi3_raw_proposal_request")
-    if not raw_phi3_prompt_info or "prompt" not in raw_phi3_prompt_info:
-        error_message = "Original prompt for Phi-3 is missing, cannot call /propose_trade_adjustments."
-        logger.error(error_message)
-        return {**state, "error": error_message}
-
-    # The prompt for /propose_trade_adjustments should be the *initial user query* or something similar
-    # that the sidecar can use to generate its own Phi-3 proposal and then assess it.
-    # The existing server.py /propose_trade_adjustments takes a "prompt" which is a user query.
-    # Let's use the initial query from the state.
-    user_query_for_endpoint = state["query"]
+    # The 'query' in the state is now the stringified tick data.
+    # The /propose_trade_adjustments endpoint expects a "prompt" that is a user query or market context.
+    # We should use the `market_query_result` from the previous node, or the original `query` (tick data string).
+    # Let's use `state["query"]` which is the stringified ticks, as per current /propose_trade_adjustments logic
+    # which internally generates a phi3 proposal based on this prompt.
+    prompt_for_pta = state["query"] 
 
     pta_payload = {
-        "prompt": user_query_for_endpoint, # This is the "user query" it expects
-        "max_length": 512 # This is for the internal Phi-3 call within the endpoint.
+        "prompt": prompt_for_pta, 
+        "max_length": 512 
     }
-    logger.info(f"Sending to /propose_trade_adjustments: {json.dumps(pta_payload)}")
+    logger.info(f"Sending to /propose_trade_adjustments for run_id {state.get('run_id', 'N/A')}: {json.dumps(pta_payload)}")
 
     try:
         response = requests.post(
-            "http://localhost:8000/propose_trade_adjustments",
+            "http://localhost:8000/propose_trade_adjustments", # TODO: Make sidecar URL configurable
             json=pta_payload,
-            timeout=120  # This endpoint does two LLM calls, so longer timeout
+            timeout=120 
         )
         response.raise_for_status()
         pta_response_json = response.json()
-        logger.info(f"Received from /propose_trade_adjustments: {json.dumps(pta_response_json)}")
+        logger.info(f"Received from /propose_trade_adjustments for run_id {state.get('run_id', 'N/A')}: {json.dumps(pta_response_json)}")
         
         if isinstance(pta_response_json, dict) and "error" not in pta_response_json:
-             # The response should contain "phi3_proposal" and "hermes_assessment"
             return {**state, "propose_trade_adjustments_response": pta_response_json}
         else:
-            error_message = f"Call to /propose_trade_adjustments failed. Response: {json.dumps(pta_response_json)}"
+            error_message = f"Call to /propose_trade_adjustments failed for run_id {state.get('run_id', 'N/A')}. Response: {json.dumps(pta_response_json)}"
             logger.error(error_message)
             return {**state, "error": error_message, "propose_trade_adjustments_response": pta_response_json}
 
-
     except requests.exceptions.RequestException as e:
-        error_message = f"HTTP request to /propose_trade_adjustments failed: {e}"
+        error_message = f"HTTP request to /propose_trade_adjustments failed for run_id {state.get('run_id', 'N/A')}: {e}"
         logger.error(error_message)
         return {**state, "error": error_message}
     except json.JSONDecodeError as e:
-        error_message = f"Failed to decode JSON response from /propose_trade_adjustments: {e}. Response text: {response.text if response else 'No response'}"
+        error_message = f"Failed to decode JSON response from /propose_trade_adjustments for run_id {state.get('run_id', 'N/A')}: {e}. Response text: {response.text if response else 'No response'}"
         logger.error(error_message)
         return {**state, "error": error_message}
 
 
 async def publish_events_node(state: WorkflowState) -> WorkflowState:
-    logger.info("Executing PublishEvents node...")
+    run_id = state.get('run_id', 'N/A')
+    logger.info(f"Executing PublishEvents node for run_id: {run_id}...")
     if state.get("error"):
-        # Potentially publish an error event or just log and end
-        logger.warning("Skipping event publication due to previous error in workflow.")
-        # Set final output to error if not already set by a failing node
+        logger.warning(f"Skipping event publication for run_id {run_id} due to previous error in workflow.")
         final_output = state.get("final_output")
-        if not final_output:
-            final_output = json.dumps({"status": "error", "details": state["error"]})
+        if not final_output: # Ensure error is captured if no other output was set
+            final_output = json.dumps({"status": "error", "run_id": run_id, "details": state["error"]})
         return {**state, "final_output": final_output }
-
 
     pta_response = state.get("propose_trade_adjustments_response")
     if not pta_response or "phi3_proposal" not in pta_response or "hermes_assessment" not in pta_response:
-        error_message = "Response from /propose_trade_adjustments is missing or malformed in state. Cannot publish events."
+        error_message = f"Response from /propose_trade_adjustments is missing or malformed in state for run_id {run_id}. Cannot publish events."
         logger.error(error_message)
-        # Even if events can't be published, the workflow might have produced a usable result.
-        # Let's set final_output from pta_response if available, or phi3_response.
         output_data = pta_response if pta_response else state.get("phi3_response", {"error": "No valid proposal or assessment found"})
+        output_data["run_id"] = run_id # Add run_id to the output
         return {**state, "error": error_message, "final_output": json.dumps(output_data)}
 
     phi3_proposal_for_event = pta_response["phi3_proposal"]
     hermes_assessment_for_event = pta_response["hermes_assessment"]
-    # The server.py /propose_trade_adjustments returns a "transaction_id" at the top level of its response
-    # This is useful for correlating events.
-    transaction_id = pta_response.get("transaction_id", "unknown_transaction")
+    transaction_id = pta_response.get("transaction_id", f"unknown_tx_for_run_{run_id}") # Ensure tx_id is somewhat unique if missing
 
-
-    event_bus = EventBus(redis_url="redis://localhost:6379/0")
+    # TODO: Use a shared EventBus instance if possible, or pass redis_url from main args
+    event_bus = EventBus(redis_url="redis://localhost:6379/0") 
     try:
         await event_bus.connect()
 
-        # Publish phi3.proposal.created
-        # The server already publishes this exact event with this payload structure from its own perspective.
-        # Orchestrator is re-publishing based on what it received.
-        # Payload for phi3.proposal.created is the phi3_json itself.
         if isinstance(phi3_proposal_for_event, dict):
-            await event_bus.publish("phi3.proposal.created", json.dumps(phi3_proposal_for_event))
-            logger.info(f"Published 'phi3.proposal.created' for transaction {transaction_id}")
+            # Add run_id to the event payload for better traceability
+            event_phi3_proposal = {**phi3_proposal_for_event, "orchestrator_run_id": run_id}
+            await event_bus.publish("phi3.proposal.created", json.dumps(event_phi3_proposal))
+            logger.info(f"Published 'phi3.proposal.created' for transaction {transaction_id} (run_id {run_id})")
         else:
-            logger.warning("Could not publish 'phi3.proposal.created': phi3_proposal data is not a dict.")
+            logger.warning(f"Could not publish 'phi3.proposal.created' for run_id {run_id}: phi3_proposal data is not a dict.")
 
-        # Publish phi3.proposal.assessed
-        # The server also publishes this. Orchestrator is re-publishing.
-        # Payload should be JSON string containing assessment and relevant IDs.
         assessment_payload = {
-            "proposal_transaction_id": transaction_id, # From /propose_trade_adjustments response
+            "proposal_transaction_id": transaction_id, 
             "assessment_text": hermes_assessment_for_event,
-            # Add other relevant fields if necessary from pta_response or state
+            "orchestrator_run_id": run_id 
         }
         await event_bus.publish("phi3.proposal.assessed", json.dumps(assessment_payload))
-        logger.info(f"Published 'phi3.proposal.assessed' for transaction {transaction_id}")
+        logger.info(f"Published 'phi3.proposal.assessed' for transaction {transaction_id} (run_id {run_id})")
 
     except RedisError as e:
-        error_message = f"RedisError during event publishing: {e}"
+        error_message = f"RedisError during event publishing for run_id {run_id}: {e}"
         logger.error(error_message)
-        # Update state with this error; previous data is still valuable
         current_error = state.get("error")
         updated_error = f"{current_error}\n{error_message}" if current_error else error_message
-        # Decide if this error should overwrite the final_output or just be logged.
-        # For now, let's preserve the LLM output and add this as an additional error.
         state = {**state, "error": updated_error}
-    except Exception as e: # Catch any other unexpected errors during event publishing
-        error_message = f"Unexpected error during event publishing: {e}"
+    except Exception as e:
+        error_message = f"Unexpected error during event publishing for run_id {run_id}: {e}"
         logger.error(error_message)
         current_error = state.get("error")
         updated_error = f"{current_error}\n{error_message}" if current_error else error_message
         state = {**state, "error": updated_error}
     finally:
-        await event_bus.close()
-        logger.info("EventBus connection closed.")
+        if event_bus.redis_client and await event_bus.is_connected(): # Check before closing
+            await event_bus.close()
+            logger.info(f"EventBus connection closed for run_id {run_id}.")
 
-    # Set final output for CLI
-    # The task asks to print the final JSON output (e.g. hermes_response or structured combination)
-    # The `propose_trade_adjustments_response` contains both phi3 and hermes parts.
-    final_output_data = {"status": "success", "data": pta_response}
-    if state.get("error"): # If an error occurred during event publishing but we have data
-        final_output_data["event_publishing_error"] = state["error"]
+    final_output_data = {"status": "success", "run_id": run_id, "data": pta_response}
+    
+    hermes_assessment_text = hermes_assessment_for_event
+    if isinstance(hermes_assessment_text, str) and hermes_assessment_text.strip():
+        tts_text = hermes_assessment_text.split('.')[0] + "."
+        if len(tts_text) > 150: tts_text = tts_text[:150] + "..."
         
-    return {**state, "final_output": json.dumps(final_output_data, indent=2)}
+        logger.info(f"Requesting TTS for run_id {run_id}: '{tts_text}'")
+        tts_payload = {"text": tts_text, "exaggeration": 0.5}
+        
+        try:
+            # Reconnect event_bus if it was closed after previous event publications
+            if not (event_bus.redis_client and await event_bus.is_connected()):
+                await event_bus.connect()
+
+            tts_response = requests.post(
+                "http://localhost:8000/speak", # TODO: Make sidecar URL configurable
+                json=tts_payload,
+                timeout=30,
+                headers={"Accept": "audio/wav"}
+            )
+            tts_response.raise_for_status()
+            logger.info(f"TTS request successful for run_id {run_id}. Received {len(tts_response.content)} bytes.")
+            
+            if event_bus.redis_client and await event_bus.is_connected():
+                tts_event_payload = {
+                    "transaction_id": transaction_id, # This is from pta_response
+                    "text_spoken": tts_text,
+                    "status": "success",
+                    "audio_length_bytes": len(tts_response.content),
+                    "orchestrator_run_id": run_id
+                }
+                await event_bus.publish("hermes.assessment.spoken", json.dumps(tts_event_payload))
+                logger.info(f"Published 'hermes.assessment.spoken' for transaction {transaction_id} (run_id {run_id})")
+            else:
+                logger.warning(f"EventBus not connected, skipping 'hermes.assessment.spoken' event for run_id {run_id}.")
+
+        except requests.exceptions.RequestException as e:
+            tts_error_message = f"TTS request failed for run_id {run_id}: {e}"
+            logger.error(tts_error_message)
+            current_error = state.get("error", "")
+            state = {**state, "error": f"{current_error}\n{tts_error_message}".strip()}
+            final_output_data["tts_error"] = tts_error_message
+        except Exception as e:
+            unexpected_tts_error = f"Unexpected error during TTS processing for run_id {run_id}: {e}"
+            logger.error(unexpected_tts_error)
+            current_error = state.get("error", "")
+            state = {**state, "error": f"{current_error}\n{unexpected_tts_error}".strip()}
+            final_output_data["tts_unexpected_error"] = unexpected_tts_error
+        finally:
+            # Close event_bus connection if it was opened specifically for TTS event
+            if event_bus.redis_client and await event_bus.is_connected():
+                 await event_bus.close()
+                 logger.info(f"EventBus connection closed after TTS attempt for run_id {run_id}.")
+
+
+    if state.get("error"):
+        final_output_data["status"] = "partial_success_with_errors"
+        if "workflow_errors" not in final_output_data and "tts_error" not in final_output_data and "tts_unexpected_error" not in final_output_data :
+             final_output_data["workflow_errors"] = state["error"]
+    
+    # Log the final output string to the state. This is what gets printed/returned by the graph.
+    state_final_output_str = json.dumps(final_output_data, indent=2)
+    logger.info(f"Final output for run_id {run_id}: {state_final_output_str}")
+    return {**state, "final_output": state_final_output_str}
 
 
 # --- Graph Assembly ---
@@ -289,74 +334,155 @@ def build_graph():
 
     return workflow.compile()
 
-# --- CLI ---
-async def main_async(query: str):
-    app = build_graph()
-    initial_state: WorkflowState = {
-        "query": query,
-        "market_query_result": None,
-        "phi3_raw_proposal_request": None,
-        "phi3_response": None,
-        "propose_trade_adjustments_response": None,
-        "final_output": None,
-        "error": None,
-    }
+# --- Market Tick Listener & Workflow Trigger ---
+async def market_tick_listener(
+    redis_url: str, 
+    market_channel: str, 
+    ticks_per_proposal: int, 
+    graph_app: StateGraph # Compiled LangGraph app
+):
+    global TICK_BUFFER # Use the global buffer
+
+    event_bus = EventBus(redis_url=redis_url)
+    await event_bus.connect()
+    logger.info(f"Connected to Redis for market ticks on channel '{market_channel}'. Waiting for data...")
+
+    async def tick_handler(message_data: str):
+        global TICK_BUFFER # Ensure modification of global buffer
+        try:
+            tick = json.loads(message_data)
+            TICK_BUFFER.append(tick)
+            logger.info(f"Received tick #{len(TICK_BUFFER)}: {tick.get('timestamp', 'N/A')}, Close: {tick.get('close', 'N/A')}")
+
+            if len(TICK_BUFFER) >= ticks_per_proposal:
+                logger.info(f"Buffer limit of {ticks_per_proposal} ticks reached. Triggering workflow.")
+                
+                # Create a unique run ID for this workflow invocation
+                current_run_id = f"run_{int(asyncio.get_running_loop().time())}"
+                
+                # Prepare query for the graph: stringified version of current buffer
+                # Could also be a summary, or just the latest N ticks. For now, whole buffer.
+                workflow_query = json.dumps(TICK_BUFFER)
+                
+                initial_state: WorkflowState = {
+                    "query": workflow_query,
+                    "market_query_result": None,
+                    "phi3_raw_proposal_request": None,
+                    "phi3_response": None,
+                    "propose_trade_adjustments_response": None,
+                    "final_output": None,
+                    "error": None,
+                    "run_id": current_run_id # Include run_id in the state
+                }
+                
+                logger.info(f"Invoking workflow for run_id: {current_run_id} with {len(TICK_BUFFER)} ticks.")
+                # Asynchronously invoke the graph. Does not block further ticks if graph runs long.
+                # Be mindful of resource limits if many graph instances run concurrently.
+                asyncio.create_task(process_workflow_run(graph_app, initial_state))
+                
+                TICK_BUFFER = [] # Clear buffer after triggering
+                logger.info("Tick buffer cleared.")
+
+        except json.JSONDecodeError:
+            logger.error(f"Failed to parse tick data as JSON: {message_data}")
+        except Exception as e:
+            logger.error(f"Error in tick_handler: {e}")
+
+    await event_bus.subscribe(market_channel, tick_handler)
     
-    logger.info(f"Invoking workflow with query: '{query}'")
-    # Use ainvoke because publish_events_node is async
-    final_state_dict = await app.ainvoke(initial_state) # Renamed to avoid conflict with WorkflowState type hint
+    # Keep the listener running indefinitely (or until an external signal)
+    try:
+        while True:
+            await asyncio.sleep(1) # Keep alive, actual work happens in tick_handler via EventBus
+    except KeyboardInterrupt:
+        logger.info("Market tick listener stopped by user.")
+    except Exception as e:
+        logger.error(f"Market tick listener faced an unexpected error: {e}")
+    finally:
+        logger.info("Closing EventBus connection for market tick listener.")
+        await event_bus.close()
+
+async def process_workflow_run(graph_app: StateGraph, initial_state: WorkflowState):
+    """
+    Processes a single workflow run, including logging its final state.
+    """
+    run_id = initial_state.get("run_id", "unknown_run")
+    logger.info(f"Starting background processing for workflow run_id: {run_id}")
+    final_state_dict = await graph_app.ainvoke(initial_state)
     
-    # Log the run
     status = "FAILURE" if final_state_dict.get("error") else "SUCCESS"
     final_output_str = final_state_dict.get("final_output")
     final_output_dict_for_db: Optional[Dict[str, Any]] = None
 
     if final_output_str:
         try:
+            # The final_output_str is already a JSON string from publish_events_node
             final_output_dict_for_db = json.loads(final_output_str)
         except json.JSONDecodeError:
-            logger.error(f"Failed to parse final_output for DB logging: {final_output_str}")
-            # Store the raw string or an error placeholder if parsing fails
+            logger.error(f"Failed to parse final_output for DB logging (run_id {run_id}): {final_output_str}")
             final_output_dict_for_db = {"raw_output": final_output_str, "parsing_error": "Could not decode JSON"}
+    
+    # Ensure run_id from the workflow is part of the log entry if not already in final_output_dict_for_db
+    if final_output_dict_for_db and "run_id" not in final_output_dict_for_db:
+        final_output_dict_for_db["run_id"] = run_id
+    elif not final_output_dict_for_db: # Handle cases where final_output_str might be None or unparsable
+         final_output_dict_for_db = {"run_id": run_id, "status_details": "No parsable final output string."}
+
+
+    # The input_query for the log should be the stringified tick data.
+    input_query_for_log = initial_state["query"]
 
     run_log_entry = OrchestratorRunLog(
-        input_query=query,
-        final_output=final_output_dict_for_db, # This should be a dict
+        input_query=input_query_for_log, 
+        final_output=final_output_dict_for_db, 
         status=status,
-        error_message=final_state_dict.get("error")
+        error_message=final_state_dict.get("error"),
+        run_id_override=run_id # Explicitly pass the run_id
     )
     try:
-        log_run(run_log_entry)
-        logger.info(f"Successfully logged run {run_log_entry.run_id} to LanceDB.")
+        log_run(run_log_entry) # log_run should use the run_id_override
+        logger.info(f"Successfully logged workflow run {run_id} to LanceDB.")
     except Exception as e:
-        # log_run itself prints an error, but we can log here too if needed for orchestrator context
-        logger.error(f"Failed to log run {run_log_entry.run_id} to LanceDB from orchestrator: {e}")
+        logger.error(f"Failed to log workflow run {run_id} to LanceDB: {e}")
 
-    # Output to console
+    # Output to console (optional, can be noisy in continuous mode)
     if final_state_dict.get("error"):
-        logger.error(f"Workflow completed with errors: {final_state_dict['error']}")
+        logger.error(f"Workflow run {run_id} completed with errors: {final_state_dict['error']}")
     
-    if final_output_str:
-        print(final_output_str) # Print the original string final_output
-    else:
-        # Fallback if final_output wasn't set
-        logger.warning("Final output not explicitly set in state. Dumping error or partial state.")
-        if final_state_dict.get("error"):
-            print(json.dumps({"status": "error", "details": final_state_dict["error"]}, indent=2))
-        else:
-            relevant_output = {
-                "query": final_state_dict.get("query"),
-                "market_query_result": final_state_dict.get("market_query_result"),
-                "phi3_response": final_state_dict.get("phi3_response"),
-                "propose_trade_adjustments_response": final_state_dict.get("propose_trade_adjustments_response")
-            }
-            print(json.dumps(relevant_output, indent=2))
+    # Printing final_output_str can be very verbose if running continuously.
+    # Consider logging to a file or conditional printing based on verbosity settings.
+    # For now, let's log it.
+    logger.info(f"Console output for run {run_id}: {final_output_str if final_output_str else 'No final_output string.'}")
+
+
+# --- CLI ---
+async def main_async(args):
+    # Build the graph application once
+    graph_app = build_graph()
+    
+    logger.info(f"Starting Osiris Policy Orchestrator in event-driven mode.")
+    logger.info(f"Listening to Redis channel '{args.market_channel}' on {args.redis_url}")
+    logger.info(f"Triggering proposal workflow every {args.ticks_per_proposal} ticks.")
+
+    # Start the market tick listener
+    # This function will run indefinitely until stopped (e.g., KeyboardInterrupt)
+    await market_tick_listener(
+        redis_url=args.redis_url,
+        market_channel=args.market_channel,
+        ticks_per_proposal=args.ticks_per_proposal,
+        graph_app=graph_app
+    )
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Osiris Policy Orchestrator CLI")
-    parser.add_argument("user_query", type=str, help="The user query to initiate the workflow.")
+    parser = argparse.ArgumentParser(description="Osiris Policy Orchestrator - Event-Driven Mode")
+    parser.add_argument("--redis_url", type=str, default="redis://localhost:6379/0", 
+                        help="Redis URL for market data and event bus.")
+    parser.add_argument("--market_channel", type=str, default=MARKET_TICKS_CHANNEL,
+                        help="Redis channel to listen for market ticks.")
+    parser.add_argument("--ticks_per_proposal", type=int, default=10,
+                        help="Number of market ticks to buffer before triggering a new proposal workflow.")
+    
+    # Potentially add other config args like sidecar URL if needed
+    
     args = parser.parse_args()
-
-    # Python 3.7+ for asyncio.run
-    import asyncio
-    asyncio.run(main_async(args.user_query))
+    asyncio.run(main_async(args))

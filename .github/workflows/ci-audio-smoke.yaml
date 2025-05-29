@@ -1,0 +1,88 @@
+name: CI Audio Smoke Test
+
+on:
+  pull_request:
+    branches: [ main ] # Or your relevant branches
+  push:
+    branches: [ main ] # For running on merges to main
+
+jobs:
+  build-and-test-audio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        run: |
+          docker build -t osiris-ci-app .
+        # Note: If CI=true is a build-time argument that changes the image, use:
+        # docker build --build-arg CI=true -t osiris-ci-app .
+
+      - name: Run Docker container
+        run: |
+          docker run -d -p 8000:8000 --name osiris_server -e CI=true osiris-ci-app
+          # The -e CI=true sets the environment variable in the running container.
+          # This assumes the application uses this env var to run in headless mode.
+
+      - name: Wait for server to be ready
+        run: |
+          echo "Waiting for server to start..."
+          timeout 30s bash -c 'until curl -sSf http://localhost:8000/health > /dev/null; do echo -n "."; sleep 1; done'
+          echo "Server is up!"
+        # This uses the /health endpoint. If it doesn't exist, a simple sleep might be needed,
+        # but is less reliable: sleep 20 
+
+      - name: Call /speak endpoint and check response
+        id: speak_test
+        run: |
+          STATUS_CODE=$(curl -X POST \
+            -H "Content-Type: application/json" \
+            -d '{"text": "CI test"}' \
+            http://localhost:8000/speak \
+            --output response.wav \
+            --write-out "%{http_code}")
+          
+          echo "HTTP Status Code: $STATUS_CODE"
+          echo "STATUS_CODE=$STATUS_CODE" >> $GITHUB_OUTPUT
+
+          if [ "$STATUS_CODE" -ne 200 ]; then
+            echo "Error: Expected HTTP status 200, got $STATUS_CODE"
+            exit 1
+          fi
+
+          # Check for WAV header (RIFF and WAVE format markers)
+          # RIFF is at the beginning, WAVE is typically at offset 8
+          if ! head -c 4 response.wav | grep -q "RIFF"; then
+            echo "Error: Missing 'RIFF' marker in WAV header."
+            hexdump -C response.wav | head -n 5 # Print first few lines of hexdump for debugging
+            exit 1
+          fi
+          # od -A n -t x1 -j 8 -N 4 response.wav | head -1 | tr -d ' ' | grep -iq "57415645" # Hex for "WAVE"
+          # A simpler check:
+          if ! hexdump -C response.wav | head -n 1 | grep -q "WAVE"; then
+             echo "Error: Missing 'WAVE' marker in WAV header (checked first line of hexdump)."
+             hexdump -C response.wav | head -n 5
+             exit 1
+          fi
+          echo "WAV header check passed."
+          
+      - name: Verify HTTP Status (alternative using output)
+        if: steps.speak_test.outputs.STATUS_CODE != '200'
+        run: |
+          echo "Speak test failed with HTTP status ${{ steps.speak_test.outputs.STATUS_CODE }}"
+          exit 1
+
+      - name: Stop and remove container
+        if: always() # Ensure this runs even if previous steps fail
+        run: |
+          echo "Stopping and removing Docker container..."
+          docker stop osiris_server || echo "Failed to stop container (it might have already stopped)."
+          docker rm osiris_server || echo "Failed to remove container (it might have already been removed)."
+          # No need to fail the job if cleanup commands fail, as the runner will be destroyed anyway.
+```

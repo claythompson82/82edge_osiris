@@ -146,3 +146,66 @@ def patch_model_loaders():
 # return JSONResponse(status_code=400, content={"error": ...})
 # Since it doesn't, 200 is the expected code for these error responses.
 # The tests align with this.
+
+import io
+import wave
+
+@pytest.mark.asyncio
+async def test_speak_endpoint():
+    """Test /speak endpoint for TTS"""
+    mock_audio_data = b"RIFFxxxxWAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00\x22\x56\x00\x00\x44\xac\x00\x00\x02\x00\x10\x00dataxxxx" # Dummy WAV
+    # Create a more realistic dummy WAV for duration check
+    # Parameters: 1 channel, 16-bit depth, 22050 Hz sample rate, 1 second duration
+    samplerate = 22050
+    duration_seconds = 1
+    n_channels = 1
+    sampwidth = 2 # bytes per sample (16-bit)
+    n_frames = samplerate * duration_seconds
+    comptype = "NONE"
+    compname = "not compressed"
+
+    # Create a valid WAV file in memory
+    with io.BytesIO() as wav_io:
+        with wave.open(wav_io, 'wb') as wf:
+            wf.setnchannels(n_channels)
+            wf.setsampwidth(sampwidth)
+            wf.setframerate(samplerate)
+            wf.setnframes(n_frames)
+            wf.setcomptype(comptype, compname)
+            # Write some dummy audio frames (e.g., silence)
+            wf.writeframes(b'\x00\x00' * n_frames)
+        mock_audio_data = wav_io.getvalue()
+
+
+    # Patch the tts_model.synth method within the server's context
+    # Ensure that server.tts_model is already initialized or mock its initialization if necessary
+    # For this test, we assume tts_model is an attribute of the app or otherwise accessible
+    # and its `synth` method is what we need to mock.
+    # If tts_model is initialized globally in server.py like `tts_model = ChatterboxTTS(...)`,
+    # then patching 'server.tts_model.synth' is correct.
+
+    # We also need to ensure tts_model itself is not None if server.py has logic like:
+    # if not tts_model: raise HTTPException(...)
+    # The patch_model_loaders fixture handles LLM models, but not necessarily TTS model.
+    # Let's assume tts_model is initialized. If not, we might need to patch 'server.ChatterboxTTS'.
+
+    with patch('server.tts_model.synth', return_value=mock_audio_data) as mock_synth:
+        async with AsyncClient(app=app, base_url="http://test") as client:
+            response = await client.post("/speak", json={"text": "hello world"})
+
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "audio/wav"
+        
+        # Check for WAV header
+        assert response.content.startswith(b"RIFF")
+        assert b"WAVE" in response.content[:12] # WAVE chunk ID is typically at offset 8
+
+        # Check audio duration
+        with io.BytesIO(response.content) as audio_buffer:
+            with wave.open(audio_buffer, 'rb') as wf:
+                frames = wf.getnframes()
+                rate = wf.getframerate()
+                duration = frames / float(rate)
+                assert duration >= 0.5 # Check if duration is > 0.5 seconds
+
+        mock_synth.assert_called_once_with(text="hello world", ref_wav=None, exaggeration=0.5)
