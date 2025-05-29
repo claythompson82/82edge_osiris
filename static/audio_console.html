@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Console</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; color: #333; }
+        #status { padding: 15px; border-radius: 5px; background-color: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .playing { background-color: #e6ffe6; border-left: 5px solid #4caf50; }
+        .error { background-color: #ffe6e6; border-left: 5px solid #f44336; }
+        .connecting { background-color: #e6f7ff; border-left: 5px solid #2196f3; }
+        .info { background-color: #fff9e6; border-left: 5px solid #ffc107; }
+    </style>
+</head>
+<body>
+    <h1>Live Audio Stream Console</h1>
+    <div id="status">Connecting to audio stream...</div>
+
+    <script>
+        (function() {
+            const statusDiv = document.getElementById('status');
+            let audioContext;
+            let sourceNode; // To keep track of the current playing source
+
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                console.log("AudioContext initialized.");
+                updateStatus("AudioContext initialized. Waiting for audio stream...", "info");
+            } catch (e) {
+                console.error("Error initializing AudioContext:", e);
+                updateStatus("Error initializing AudioContext: " + e.message, "error");
+                return;
+            }
+
+            function updateStatus(message, type = "info") {
+                statusDiv.textContent = message;
+                statusDiv.className = type; // Applies class for styling
+                console.log(`Status: ${message} (type: ${type})`);
+            }
+
+            // Helper function to convert base64 to ArrayBuffer
+            function base64ToArrayBuffer(base64) {
+                try {
+                    const binaryString = window.atob(base64);
+                    const len = binaryString.length;
+                    const bytes = new Uint8Array(len);
+                    for (let i = 0; i < len; i++) {
+                        bytes[i] = binaryString.charCodeAt(i);
+                    }
+                    return bytes.buffer;
+                } catch (e) {
+                    console.error("Error decoding base64 string:", e);
+                    updateStatus("Error decoding base64 string: " + e.message, "error");
+                    return null;
+                }
+            }
+
+            const eventSource = new EventSource("/stream/audio");
+
+            eventSource.onopen = function(event) {
+                console.log("SSE connection opened to /stream/audio");
+                updateStatus("Connected to audio stream. Waiting for data...", "connecting");
+            };
+
+            eventSource.onmessage = async function(event) {
+                if (event.data.startsWith(": keep-alive")) {
+                    console.log("Keep-alive received");
+                    // updateStatus("Keep-alive signal received.", "info"); // Optional: less verbose
+                    return;
+                }
+                
+                updateStatus("Received audio data chunk.", "info");
+                const base64WavData = event.data;
+
+                if (!base64WavData) {
+                    updateStatus("Received empty audio data.", "error");
+                    return;
+                }
+
+                const arrayBuffer = base64ToArrayBuffer(base64WavData);
+                if (!arrayBuffer) {
+                    return; // Error already handled by base64ToArrayBuffer
+                }
+
+                try {
+                    // Stop any currently playing audio to prevent overlap or excessive queueing
+                    if (sourceNode) {
+                        try {
+                            sourceNode.stop();
+                            console.log("Stopped previous audio source.");
+                        } catch (e) {
+                            // Ignore errors if already stopped or not playing
+                        }
+                    }
+
+                    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                    console.log("Audio data decoded successfully.");
+
+                    sourceNode = audioContext.createBufferSource();
+                    sourceNode.buffer = audioBuffer;
+                    sourceNode.connect(audioContext.destination);
+                    
+                    // Ensure AudioContext is resumed (browsers may suspend it)
+                    if (audioContext.state === 'suspended') {
+                        await audioContext.resume();
+                        console.log("AudioContext resumed.");
+                    }
+                    
+                    sourceNode.start(0);
+                    updateStatus(`Playing audio... Duration: ${audioBuffer.duration.toFixed(2)}s`, "playing");
+
+                    sourceNode.onended = () => {
+                        console.log("Audio playback finished.");
+                        if (statusDiv.className === 'playing' && statusDiv.textContent.startsWith('Playing audio...')) {
+                             updateStatus("Audio playback finished. Waiting for next chunk...", "info");
+                        }
+                    };
+
+                } catch (e) {
+                    console.error("Error decoding or playing audio data:", e);
+                    updateStatus("Error processing audio: " + e.message, "error");
+                }
+            };
+
+            eventSource.onerror = function(event) {
+                console.error("SSE connection error:", event);
+                if (eventSource.readyState === EventSource.CLOSED) {
+                    updateStatus("SSE connection closed. Attempting to reconnect if server is available.", "error");
+                } else if (eventSource.readyState === EventSource.CONNECTING) {
+                    updateStatus("SSE connection lost. Attempting to reconnect...", "error");
+                } else {
+                    updateStatus("SSE connection error.", "error");
+                }
+            };
+
+            // Optional: Close SSE connection when the page is closed/unloaded
+            window.addEventListener('beforeunload', function() {
+                if (eventSource) {
+                    eventSource.close();
+                    console.log("SSE connection closed due to page unload.");
+                }
+            });
+
+        })();
+    </script>
+</body>
+</html>

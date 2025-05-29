@@ -20,12 +20,17 @@ RUN pip3 install --no-cache-dir \
     fastapi==0.109.2 \
     uvicorn==0.27.1 \
     sentencepiece==0.1.99 \
-    accelerate==0.27.2
+    accelerate==0.27.2 \
+    huggingface-hub==0.20.3
 
 # Clone the Hermes-3 8B GPTQ model files
 # Using a specific revision known to work with auto-gptq 0.7.1
 ARG HF_TOKEN
 ENV HF_TOKEN=${HF_TOKEN}
+
+# Download Chatterbox model
+RUN mkdir -p /models/tts/chatterbox && \
+    huggingface-cli download ResembleAI/Chatterbox --local-dir /models/tts/chatterbox --local-dir-use-symlinks False
 
 # Set up the working directory
 WORKDIR /app
