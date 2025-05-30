@@ -1,0 +1,71 @@
+name: LLM Sidecar Smoke Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Ensure jq is installed
+        run: sudo apt-get update && sudo apt-get install -y jq docker-compose
+
+      - name: Copy .env template
+        run: cp .env.template .env
+
+      - name: Start services
+        run: |
+          docker compose -f docker/compose.yaml up -d
+
+      - name: Wait for services and Health Check
+        run: |
+          echo "Waiting for services to start..."
+          MAX_RETRIES=18 # 18 retries * 10 seconds = 180 seconds
+          RETRY_COUNT=0
+          HEALTH_STATUS=""
+
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            echo "Attempting health check (Attempt: $((RETRY_COUNT + 1)))..."
+            # Try to connect and get HTTP status code
+            HEALTH_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health || echo "000")
+
+            if [ "$HEALTH_RESPONSE" -eq 200 ]; then
+              # If HTTP 200, then try to get the JSON body and parse status
+              HEALTH_JSON=$(curl -s http://localhost:8000/health)
+              HEALTH_STATUS=$(echo $HEALTH_JSON | jq -r .status)
+
+              if [ "$HEALTH_STATUS" == "ok" ]; then
+                echo "Health check successful: status is ok"
+                break
+              else
+                echo "Health check returned HTTP 200, but status is '$HEALTH_STATUS'. Retrying..."
+              fi
+            else
+              echo "Health check failed with HTTP status $HEALTH_RESPONSE. Retrying..."
+            fi
+
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            sleep 10
+          done
+
+          if [ "$HEALTH_STATUS" != "ok" ]; then
+            echo "Health check failed after $MAX_RETRIES attempts or status was not 'ok'."
+            echo "Dumping logs..."
+            docker compose -f docker/compose.yaml logs
+            exit 1
+          fi
+
+      - name: Tear down services
+        if: always() # Ensure cleanup even if previous steps fail
+        run: |
+          echo "Tearing down services..."
+          docker compose -f docker/compose.yaml down --remove-orphans

@@ -1,5 +1,6 @@
-from llm_sidecar.db import append_feedback, feedback_tbl
+from llm_sidecar.db import append_feedback, feedback_tbl, Phi3FeedbackSchema
 import datetime # Added for timestamp construction
+import json # For serializing dicts in mock_run_data
 
 def test_feedback_append():
     # Ensure the table is clean before testing, or that tests account for existing data.
@@ -11,13 +12,21 @@ def test_feedback_append():
     except Exception: # Handle case where table might not exist before first append or is empty
         pass
 
-    row = {
-        "transaction_id": "test123",
-        "timestamp": datetime.datetime.utcnow().isoformat(), # Using actual timestamp
-        "feedback_type": "rating",
-        "feedback_content": "✅"
-    }
-    append_feedback(row)
+    # Create an instance of the Pydantic model
+    feedback_instance = Phi3FeedbackSchema(
+        transaction_id="test123",
+        # timestamp will use default factory
+        feedback_type="rating",
+        feedback_content="✅"
+        # schema_version will use default "1.0"
+        # corrected_proposal will use default None
+    )
+    # We can manually set timestamp if we need to control it for the test,
+    # otherwise the model's default_factory will handle it.
+    # For this test, default factory is fine. If specific timestamp needed:
+    # feedback_instance.timestamp = datetime.datetime.utcnow().isoformat()
+
+    append_feedback(feedback_instance)
     
     # Verify the row was added
     final_count = feedback_tbl.count_rows()
@@ -33,17 +42,18 @@ def test_feedback_append():
 import unittest
 from unittest.mock import patch, MagicMock
 import io
-from contextlib import redirect_stdout
+from contextlib import redirect_stdout, redirect_stderr # Added redirect_stderr
 import json
 from llm_sidecar import db as lls_db # To call lls_db.cli_main()
 
 # Sample run data for mocking
+# final_output is now a JSON string
 mock_run_data = [
-    {"run_id": "run1", "timestamp": "2023-01-01T10:00:00Z", "input_query": "query1", "status": "SUCCESS", "final_output": {"data": "output1"}},
-    {"run_id": "run2", "timestamp": "2023-01-01T11:00:00Z", "input_query": "query2", "status": "FAILURE", "error_message": "err2", "final_output": {"data": "output2"}},
-    {"run_id": "run3", "timestamp": "2023-01-01T12:00:00Z", "input_query": "query3", "status": "SUCCESS", "final_output": {"data": "output3"}},
-    {"run_id": "run4", "timestamp": "2023-01-01T13:00:00Z", "input_query": "query4", "status": "SUCCESS", "final_output": {"data": "output4"}},
-    {"run_id": "run5", "timestamp": "2023-01-01T14:00:00Z", "input_query": "query5", "status": "SUCCESS", "final_output": {"data": "output5"}},
+    {"run_id": "run1", "timestamp": "2023-01-01T10:00:00Z", "input_query": "query1", "status": "SUCCESS", "final_output": json.dumps({"data": "output1"})},
+    {"run_id": "run2", "timestamp": "2023-01-01T11:00:00Z", "input_query": "query2", "status": "FAILURE", "error_message": "err2", "final_output": json.dumps({"data": "output2"})},
+    {"run_id": "run3", "timestamp": "2023-01-01T12:00:00Z", "input_query": "query3", "status": "SUCCESS", "final_output": json.dumps({"data": "output3"})},
+    {"run_id": "run4", "timestamp": "2023-01-01T13:00:00Z", "input_query": "query4", "status": "SUCCESS", "final_output": json.dumps({"data": "output4"})},
+    {"run_id": "run5", "timestamp": "2023-01-01T14:00:00Z", "input_query": "query5", "status": "SUCCESS", "final_output": json.dumps({"data": "output5"})},
 ]
 
 class TestDbCLI(unittest.TestCase):
@@ -63,12 +73,21 @@ class TestDbCLI(unittest.TestCase):
         
         # This global variable `osiris_runs_tbl` in db.py is what cli_main uses.
         # We patch it directly within the llm_sidecar.db module.
+        # ALSO, we need to ensure cli_main uses this mock via the _tables dict
+        # So, we patch _tables as well for the duration of the test.
+        # The key is that lls_db.init_db() populates _tables.
+        # If cli_main calls init_db(), it might overwrite our mock if connect isn't fully mocked.
+        # A robust way is to ensure init_db itself is controlled or _tables is definitively set.
+
+        # Let's patch _tables directly for tests that query.
+        # And ensure init_db doesn't run with real connections during these CLI tests.
         return mock_osiris_table
 
-    @patch('llm_sidecar.db.lancedb.connect') # Patch where connect is called in db.py
-    def test_query_runs_default_last_n(self, mock_lancedb_connect):
-        # Setup mock for osiris_runs_tbl to return our sample data
-        with patch('llm_sidecar.db.osiris_runs_tbl', self._setup_mock_osiris_table(mock_lancedb_connect, mock_run_data)):
+    @patch('llm_sidecar.db.init_db') # Prevent real init_db during CLI test
+    @patch('llm_sidecar.db.lancedb.connect')
+    def test_query_runs_default_last_n(self, mock_lancedb_connect, mock_init_db):
+        mock_table = self._setup_mock_osiris_table(mock_lancedb_connect, mock_run_data)
+        with patch.dict(lls_db._tables, {"orchestrator_runs": mock_table, "phi3_feedback": MagicMock(), "hermes_scores": MagicMock()}):
             captured_output = io.StringIO()
             with redirect_stdout(captured_output):
                 lls_db.cli_main(["query-runs"]) # Default N is 5
@@ -78,9 +97,11 @@ class TestDbCLI(unittest.TestCase):
             self.assertEqual(output.count("run_id"), 5)
             self.assertTrue(output.find("run5") < output.find("run1")) # run5 is latest
 
+    @patch('llm_sidecar.db.init_db')
     @patch('llm_sidecar.db.lancedb.connect')
-    def test_query_runs_custom_last_n(self, mock_lancedb_connect):
-         with patch('llm_sidecar.db.osiris_runs_tbl', self._setup_mock_osiris_table(mock_lancedb_connect, mock_run_data)):
+    def test_query_runs_custom_last_n(self, mock_lancedb_connect, mock_init_db):
+        mock_table = self._setup_mock_osiris_table(mock_lancedb_connect, mock_run_data)
+        with patch.dict(lls_db._tables, {"orchestrator_runs": mock_table, "phi3_feedback": MagicMock(), "hermes_scores": MagicMock()}):
             captured_output = io.StringIO()
             with redirect_stdout(captured_output):
                 lls_db.cli_main(["query-runs", "--last", "2"])
@@ -91,9 +112,11 @@ class TestDbCLI(unittest.TestCase):
             self.assertIn("run4", output) # Second latest
             self.assertNotIn("run3", output)
 
+    @patch('llm_sidecar.db.init_db')
     @patch('llm_sidecar.db.lancedb.connect')
-    def test_query_runs_more_than_available(self, mock_lancedb_connect):
-        with patch('llm_sidecar.db.osiris_runs_tbl', self._setup_mock_osiris_table(mock_lancedb_connect, mock_run_data[:3])): # Only 3 runs available
+    def test_query_runs_more_than_available(self, mock_lancedb_connect, mock_init_db):
+        mock_table = self._setup_mock_osiris_table(mock_lancedb_connect, mock_run_data[:3]) # Only 3 runs
+        with patch.dict(lls_db._tables, {"orchestrator_runs": mock_table, "phi3_feedback": MagicMock(), "hermes_scores": MagicMock()}):
             captured_output = io.StringIO()
             with redirect_stdout(captured_output):
                 lls_db.cli_main(["query-runs", "--last", "5"]) # Request 5
@@ -102,21 +125,25 @@ class TestDbCLI(unittest.TestCase):
             # Should show all 3 available runs
             self.assertEqual(output.count("run_id"), 3)
 
+    @patch('llm_sidecar.db.init_db')
     @patch('llm_sidecar.db.lancedb.connect')
-    def test_query_runs_empty_table(self, mock_lancedb_connect):
-        with patch('llm_sidecar.db.osiris_runs_tbl', self._setup_mock_osiris_table(mock_lancedb_connect, [])): # No runs
+    def test_query_runs_empty_table(self, mock_lancedb_connect, mock_init_db):
+        mock_table = self._setup_mock_osiris_table(mock_lancedb_connect, []) # No runs
+        with patch.dict(lls_db._tables, {"orchestrator_runs": mock_table, "phi3_feedback": MagicMock(), "hermes_scores": MagicMock()}):
             captured_output = io.StringIO()
             with redirect_stdout(captured_output):
                 lls_db.cli_main(["query-runs"])
             
             output = captured_output.getvalue()
-            self.assertIn("No run logs found.", output)
+            self.assertIn("No logs found in 'orchestrator_runs'.", output) # Updated expected message
             self.assertEqual(output.count("run_id"), 0)
 
+    @patch('llm_sidecar.db.init_db')
     @patch('llm_sidecar.db.lancedb.connect')
-    def test_query_runs_zero_last_n(self, mock_lancedb_connect):
+    def test_query_runs_zero_last_n(self, mock_lancedb_connect, mock_init_db):
         # --last 0 should show all runs
-        with patch('llm_sidecar.db.osiris_runs_tbl', self._setup_mock_osiris_table(mock_lancedb_connect, mock_run_data)):
+        mock_table = self._setup_mock_osiris_table(mock_lancedb_connect, mock_run_data)
+        with patch.dict(lls_db._tables, {"orchestrator_runs": mock_table, "phi3_feedback": MagicMock(), "hermes_scores": MagicMock()}):
             captured_output = io.StringIO()
             with redirect_stdout(captured_output):
                 lls_db.cli_main(["query-runs", "--last", "0"])
@@ -124,49 +151,55 @@ class TestDbCLI(unittest.TestCase):
             output = captured_output.getvalue()
             self.assertEqual(output.count("run_id"), len(mock_run_data)) # All runs
 
+    @patch('llm_sidecar.db.init_db') # Prevent real init_db
     @patch('llm_sidecar.db.lancedb.connect')
-    def test_no_command_shows_help(self, mock_lancedb_connect):
-        # This doesn't strictly need the table mock, but safe to keep consistent
-        with patch('llm_sidecar.db.osiris_runs_tbl', self._setup_mock_osiris_table(mock_lancedb_connect, [])):
-            captured_output = io.StringIO()
-            with redirect_stdout(captured_output):
-                # Suppress SystemExit that argparse calls on --help or no command
-                with self.assertRaises(SystemExit) as cm:
-                    lls_db.cli_main([]) # No command
+    def test_no_command_shows_help(self, mock_lancedb_connect, mock_init_db):
+        mock_table = self._setup_mock_osiris_table(mock_lancedb_connect, [])
+        # For help, _tables needs to be populated for choices in args
+        with patch.dict(lls_db._tables, {"orchestrator_runs": mock_table, "phi3_feedback": MagicMock(), "hermes_scores": MagicMock()}):
+            captured_output_stdout = io.StringIO()
+            # Argparse help for no command goes to stdout and exits with 0
+            with redirect_stdout(captured_output_stdout), self.assertRaises(SystemExit) as cm:
+                lls_db.cli_main([]) # No command
             
-            output = captured_output.getvalue()
-            self.assertIn("usage: __main__.py [-h] {query-runs}", output) # argparse output uses program name
-            self.assertIn("Available commands", output)
-            # Check that the exit code is 0 for help display
+            output_stdout = captured_output_stdout.getvalue()
+            self.assertIn("usage: __main__.py [-h]", output_stdout)
+            self.assertIn("Available commands", output_stdout)
+            self.assertIn("query-runs", output_stdout) # Check specific command
             self.assertEqual(cm.exception.code, 0)
 
+    @patch('llm_sidecar.db.init_db') # Prevent real init_db
     @patch('llm_sidecar.db.lancedb.connect')
-    def test_invalid_command_shows_help(self, mock_lancedb_connect):
-        with patch('llm_sidecar.db.osiris_runs_tbl', self._setup_mock_osiris_table(mock_lancedb_connect, [])):
-            captured_output = io.StringIO()
-            with redirect_stdout(captured_output):
-                 with self.assertRaises(SystemExit) as cm:
-                    lls_db.cli_main(["invalid-command"])
+    def test_invalid_command_shows_help(self, mock_lancedb_connect, mock_init_db):
+        mock_table = self._setup_mock_osiris_table(mock_lancedb_connect, [])
+        # For help, _tables needs to be populated for choices in args
+        with patch.dict(lls_db._tables, {"orchestrator_runs": mock_table, "phi3_feedback": MagicMock(), "hermes_scores": MagicMock()}):
+            captured_output_stderr = io.StringIO()
+            # Argparse error for invalid command goes to stderr and exits with 2
+            with redirect_stdout(io.StringIO()), redirect_stderr(captured_output_stderr), self.assertRaises(SystemExit) as cm:
+                lls_db.cli_main(["invalid-command"])
             
-            output = captured_output.getvalue()
-            # argparse for invalid command prints error to stderr and help to stdout (or stderr depending on version/config)
-            # For this test, we'll check that it tries to print help.
-            # The actual error message for "invalid choice" goes to stderr, which we are not capturing here.
-            # We are checking that it attempts to print help (which it does before exiting).
-            # The exit code for argument errors is typically 2.
-            self.assertIn("usage: __main__.py [-h] {query-runs}", output)
+            output_stderr = captured_output_stderr.getvalue()
+            self.assertIn("usage: __main__.py [-h]", output_stderr) # argparse prints usage to stderr for errors
+            self.assertIn("invalid choice: 'invalid-command'", output_stderr)
             self.assertEqual(cm.exception.code, 2)
 
+    @patch('llm_sidecar.db.init_db') # Prevent real init_db
     @patch('llm_sidecar.db.lancedb.connect')
-    @patch('llm_sidecar.db.osiris_runs_tbl', None) # Simulate table not being initialized
-    def test_query_runs_table_not_initialized(self, mock_lancedb_connect):
-        # No need to use _setup_mock_osiris_table here, we are patching osiris_runs_tbl to be None
-        captured_output = io.StringIO()
-        with redirect_stdout(captured_output):
-            lls_db.cli_main(["query-runs"])
-        
-        output = captured_output.getvalue()
-        self.assertIn("Error: osiris_runs table is not initialized.", output)
+    def test_query_runs_table_not_initialized(self, mock_lancedb_connect, mock_init_db):
+        original_tables = lls_db._tables
+        lls_db._tables = {} # Directly set _tables to empty to make choices for --table empty
+        try:
+            captured_stderr = io.StringIO()
+            with redirect_stderr(captured_stderr), self.assertRaises(SystemExit) as cm:
+                lls_db.cli_main(["query-runs", "--table", "orchestrator_runs"])
+
+            self.assertEqual(cm.exception.code, 2)
+            stderr_output = captured_stderr.getvalue()
+            self.assertIn("argument --table: invalid choice: 'orchestrator_runs'", stderr_output)
+            self.assertIn("(choose from )", stderr_output) # choices are empty
+        finally:
+            lls_db._tables = original_tables # Restore original _tables
 
 # To run these tests if this file is executed directly (though typically run via pytest or unittest runner)
 if __name__ == '__main__':
