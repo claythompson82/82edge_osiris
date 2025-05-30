@@ -71,8 +71,29 @@ jobs:
           # is accessible. This is often true on GitHub Actions Linux runners.
           # If not, we'd need to pass REDIS_URL as env var and use `host.docker.internal`.
           docker compose -f docker/compose.yaml up -d llm-sidecar
-          echo "Waiting for LLM Sidecar to start..."
-          sleep 45 # Increased sleep time to allow models to load
+          echo "LLM Sidecar container started in detached mode."
+
+      - name: Wait for llm-sidecar service
+        run: |
+          echo "Waiting for llm-sidecar service to be running..."
+          MAX_RETRIES=18 # 18 retries * 10 seconds = 180 seconds
+          RETRY_COUNT=0
+          SERVICE_NAME="llm-sidecar"
+
+          until [ $RETRY_COUNT -ge $MAX_RETRIES ]; do
+            RUNNING_SERVICES=$(docker compose -f docker/compose.yaml ps --services --filter "status=running")
+            if echo "${RUNNING_SERVICES}" | grep -Eq "^${SERVICE_NAME}$"; then
+              echo "$SERVICE_NAME service is running."
+              exit 0 # Success
+            fi
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            FORMATTED_RUNNING_SERVICES=$(echo "${RUNNING_SERVICES}" | tr '\n' ' ' | sed 's/ $//')
+            echo "Waiting for $SERVICE_NAME... Attempt $RETRY_COUNT/$MAX_RETRIES. Currently running services: [${FORMATTED_RUNNING_SERVICES:-none}]"
+            sleep 10
+          done
+
+          echo "Service $SERVICE_NAME did not start within 180 seconds."
+          exit 1 # Failure
 
       - name: Run Orchestrator Smoke Test
         run: |
@@ -80,6 +101,28 @@ jobs:
         # Add environment variables if the orchestrator needs them
         # env:
         #   REDIS_URL: redis://localhost:6379/0 # If orchestrator needs to connect to Redis directly
+
+      - name: Dump service logs on failure
+        if: failure()
+        run: |
+          echo "One or more steps failed. Dumping service logs..."
+          docker ps -a
+          echo "---- llm-sidecar logs ----"
+          docker compose -f docker/compose.yaml logs llm-sidecar > llm-sidecar-logs.txt || echo "llm-sidecar logs not available" > llm-sidecar-logs.txt
+          # vram-watchdog is not started by this workflow, but include for consistency in template
+          echo "---- vram-watchdog logs (if any) ----"
+          docker compose -f docker/compose.yaml logs vram-watchdog > vram-watchdog-logs.txt || echo "vram-watchdog logs not available" > vram-watchdog-logs.txt
+
+      - name: Upload service logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: service-logs-e2e-orchestrator-smoke-test
+          path: |
+            llm-sidecar-logs.txt
+            vram-watchdog-logs.txt
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Stop Docker Container
         if: always() # Ensure this step runs even if previous steps fail

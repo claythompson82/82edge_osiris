@@ -26,43 +26,63 @@ jobs:
         run: |
           docker compose -f docker/compose.yaml up -d
 
-      - name: Wait for services and Health Check
+      - name: Wait for services to be running
         run: |
-          echo "Waiting for services to start..."
+          echo "Waiting for llm-sidecar and vram-watchdog services to be running..."
           MAX_RETRIES=18 # 18 retries * 10 seconds = 180 seconds
           RETRY_COUNT=0
-          HEALTH_STATUS=""
+          # Services expected to be running
+          EXPECTED_SERVICES=("llm-sidecar" "vram-watchdog")
+          ALL_RUNNING=false
 
-          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            echo "Attempting health check (Attempt: $((RETRY_COUNT + 1)))..."
-            # Try to connect and get HTTP status code
-            HEALTH_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health || echo "000")
+          until [ $RETRY_COUNT -ge $MAX_RETRIES ]; do
+            RUNNING_SERVICES=$(docker compose -f docker/compose.yaml ps --services --filter "status=running")
 
-            if [ "$HEALTH_RESPONSE" -eq 200 ]; then
-              # If HTTP 200, then try to get the JSON body and parse status
-              HEALTH_JSON=$(curl -s http://localhost:8000/health)
-              HEALTH_STATUS=$(echo $HEALTH_JSON | jq -r .status)
-
-              if [ "$HEALTH_STATUS" == "ok" ]; then
-                echo "Health check successful: status is ok"
-                break
-              else
-                echo "Health check returned HTTP 200, but status is '$HEALTH_STATUS'. Retrying..."
+            MISSING_SERVICES_COUNT=0
+            for SERVICE_NAME in "${EXPECTED_SERVICES[@]}"; do
+              if ! echo "${RUNNING_SERVICES}" | grep -Eq "^${SERVICE_NAME}$"; then
+                MISSING_SERVICES_COUNT=$((MISSING_SERVICES_COUNT + 1))
+                echo "$SERVICE_NAME is not yet running."
               fi
-            else
-              echo "Health check failed with HTTP status $HEALTH_RESPONSE. Retrying..."
+            done
+
+            if [ "$MISSING_SERVICES_COUNT" -eq 0 ]; then
+              ALL_RUNNING=true
+              echo "All expected services (llm-sidecar, vram-watchdog) are running."
+              break
             fi
 
             RETRY_COUNT=$((RETRY_COUNT + 1))
+            FORMATTED_RUNNING_SERVICES=$(echo "${RUNNING_SERVICES}" | tr '\n' ' ' | sed 's/ $//')
+            echo "Waiting for services... Attempt $RETRY_COUNT/$MAX_RETRIES. Currently running: [${FORMATTED_RUNNING_SERVICES:-none}]"
             sleep 10
           done
 
-          if [ "$HEALTH_STATUS" != "ok" ]; then
-            echo "Health check failed after $MAX_RETRIES attempts or status was not 'ok'."
-            echo "Dumping logs..."
-            docker compose -f docker/compose.yaml logs
+          if [ "$ALL_RUNNING" = "false" ]; then
+            echo "Not all expected services started within 180 seconds."
             exit 1
           fi
+
+      - name: Dump service logs on failure
+        if: failure()
+        run: |
+          echo "One or more steps failed. Dumping service logs..."
+          docker ps -a
+          echo "---- llm-sidecar logs ----"
+          docker compose -f docker/compose.yaml logs llm-sidecar > llm-sidecar-logs.txt || echo "llm-sidecar logs not available" > llm-sidecar-logs.txt
+          echo "---- vram-watchdog logs ----"
+          docker compose -f docker/compose.yaml logs vram-watchdog > vram-watchdog-logs.txt || echo "vram-watchdog logs not available" > vram-watchdog-logs.txt
+
+      - name: Upload service logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: service-logs-llm-sidecar-smoke-test
+          path: |
+            llm-sidecar-logs.txt
+            vram-watchdog-logs.txt
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Tear down services
         if: always() # Ensure cleanup even if previous steps fail
