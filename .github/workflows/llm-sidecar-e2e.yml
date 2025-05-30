@@ -1,0 +1,96 @@
+name: LLM Sidecar E2E Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  e2e-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6 # As specified in the issue
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10' # Specify a Python version, adjust as needed
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt # Install main dependencies
+          pip install -r requirements-ci.txt # Install CI-specific dependencies (pytest, etc.)
+          # pytest-docker should be in requirements-ci.txt
+          # httpx, tenacity are likely in requirements.txt or requirements-ci.txt
+
+      - name: Ensure jq and docker-compose are installed
+        run: sudo apt-get update && sudo apt-get install -y jq docker-compose
+
+      - name: Copy .env template
+        run: cp .env.template .env
+
+      # Ensure the llm_sidecar package is available in PYTHONPATH
+      # This is crucial for the test to import from llm_sidecar.db
+      # If the project is structured as a package, it might already be discoverable
+      # after checkout. If not, PYTHONPATH might need adjustment.
+      # Example: export PYTHONPATH=$PYTHONPATH:$(pwd)
+      # This step assumes that after `pip install -r requirements.txt`, if `llm_sidecar`
+      # is part of a setup.py or pyproject.toml as an editable install, it would be in path.
+      # If it's just a directory, we need to add its parent to PYTHONPATH.
+      # Assuming current working directory is the repo root.
+      - name: Set PYTHONPATH
+        run: echo "PYTHONPATH=$(pwd):$PYTHONPATH" >> $GITHUB_ENV
+
+
+      - name: Start services
+        run: |
+          docker compose -f docker/compose.yaml up -d --build # Add --build to ensure latest code
+
+      # The health check is now primarily handled by the http_client fixture in the test.
+      # However, a basic service readiness check here can be useful before running pytest.
+      - name: Wait for initial service availability (brief check)
+        run: |
+          echo "Waiting for initial service availability..."
+          MAX_RETRIES=6 # 6 retries * 10 seconds = 60 seconds
+          RETRY_COUNT=0
+          SERVICE_UP=false
+
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            echo "Attempting to connect to http://localhost:8000/health (Attempt: $((RETRY_COUNT + 1)))..."
+            HEALTH_RESPONSE_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health || echo "000")
+            if [ "$HEALTH_RESPONSE_CODE" -eq 200 ]; then
+              echo "Service responded with HTTP 200. Proceeding to pytest."
+              SERVICE_UP=true
+              break
+            else
+              echo "Service not yet responding with HTTP 200 (got $HEALTH_RESPONSE_CODE). Retrying..."
+            fi
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            sleep 10
+          done
+
+          if [ "$SERVICE_UP" = "false" ]; then
+            echo "Service did not become available on port 8000 after $MAX_RETRIES attempts."
+            echo "Dumping logs..."
+            docker compose -f docker/compose.yaml logs
+            exit 1
+          fi
+
+      - name: Run E2E tests
+        run: |
+          pytest -m e2e tests/e2e/test_advice_cycle.py -v --log-cli-level=INFO
+
+      - name: Tear down services
+        if: always() # Ensure cleanup even if previous steps fail
+        run: |
+          echo "Tearing down services..."
+          echo "Dumping logs before teardown..."
+          docker compose -f docker/compose.yaml logs
+          docker compose -f docker/compose.yaml down --remove-orphans --volumes # Also remove volumes to ensure clean state for next run

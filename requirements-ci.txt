@@ -1,3 +1,10 @@
 -r requirements.txt
 # light-weight stubs / testing libs
 onnxruntime==1.17.3         # CPU wheel only, tiny
+
+# Testing frameworks and utilities
+pytest
+pytest-asyncio
+pytest-docker
+lancedb # Required by the test to interact with llm_sidecar.db and for Phi3FeedbackSchema
+# httpx is also used by tests, ensure it's in requirements.txt or add here
