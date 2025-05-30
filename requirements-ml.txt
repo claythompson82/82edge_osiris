@@ -1,8 +1,0 @@
--r requirements.txt
-trl
-peft
-bitsandbytes
-onnxruntime
-chatterbox-tts==0.1.2
-torchaudio
-soundfile

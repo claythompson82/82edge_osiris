@@ -1,0 +1,3 @@
+$1f4d7329-92b7-4aa9-8454-1a0c4726fe8f\xb2\xf8.transaction_id \xff\xff\xff\xff\xff\xff\xff\xff\xff*string8Zdefault+	timestamp \xff\xff\xff\xff\xff\xff\xff\xff\xff*string8Zdefault/feedback_type \xff\xff\xff\xff\xff\xff\xff\xff\xff*string8Zdefault2feedback_content \xff\xff\xff\xff\xff\xff\xff\xff\xff*string8Zdefault0schema_version \xff\xff\xff\xff\xff\xff\xff\xff\xff*string8Zdefault6corrected_proposal \xff\xff\xff\xff\xff\xff\xff\xff\xff*string08Zdefault"!
+lance.auto_cleanup.interval20"'
+lance.auto_cleanup.older_than14days

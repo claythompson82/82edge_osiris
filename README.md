@@ -4,12 +4,12 @@
 
 ## Project Overview
 
-This project provides a Dockerised side-car service for running two local Large-Language-Models:
+This project provides a Dockerised side-car service for running two core local Large Language Models (LLMs):
 
-* **Hermes-Trismegistus-III-8B-GPTQ** – the main “conscious-component” model.
-* **Phi-3-mini-4k-instruct (int8 ONNX)** – a lightweight JSON-planning head that is continuously improved by a nightly QLoRA / DPO feedback loop.
+* **Hermes-Trismegistus-III-8B-GPTQ**: This serves as the main advanced reasoning and text generation model.
+* **Phi-3-mini-4k-instruct (int8 ONNX)**: A highly capable and lightweight model, fine-tuned for JSON planning and structured data output. It is continuously improved via a nightly QLoRA / DPO feedback loop.
 
-The container exposes a small REST API (FastAPI) and ships with a GPU-VRAM watchdog so your 4070 Super never OOM-crashes.
+The sidecar container exposes a REST API (using FastAPI) for interacting with these models and includes a GPU VRAM watchdog to help prevent out-of-memory crashes on consumer-grade GPUs.
 
 ---
 
@@ -43,9 +43,12 @@ cd your-repo-name # Replace with your directory name
 cp .env.template .env      # default Hermes ctx = 6144
 
 # 3. spin it up
-docker compose -f docker/compose.yaml up -d llm-sidecar redis
+make rebuild
 ```
-*Note: `redis` service is added to the compose command if you intend to use features relying on it, like event bus or TTS streaming.*
+This will build the images (if necessary, without cache) and start the services defined in `docker-compose.yaml` (typically `llm-sidecar` and `redis`) in detached mode.
+To view logs for a service (e.g., `llm-sidecar`), use `make logs SVC=llm-sidecar` or simply `make logs` (which defaults to `llm-sidecar`).
+
+*Note: The `redis` service is included for features relying on it, like the event bus or TTS streaming.*
 
 FastAPI is now live on **[http://localhost:8000](http://localhost:8000)**.
 
@@ -259,11 +262,13 @@ Returns:
 
 ## Voice Output (Text-to-Speech)
 
-The system can generate voice output for certain events, primarily for Hermes assessments.
+The system utilizes the **Chatterbox plug-in** for Text-to-Speech (TTS) capabilities, allowing generation of voice output for events such as Hermes model assessments.
+
+**Note on Requirements:** TTS, especially with models like Chatterbox, can be resource-intensive. While Chatterbox is designed to be efficient, ensure your system has adequate CPU resources. Some advanced TTS features or future enhancements might benefit from or require GPU acceleration (potentially involving Vulkan or similar graphics APIs).
 
 ### 1. Direct API Call (`/speak`)
 
-You can directly request TTS synthesis for any text:
+You can directly request TTS synthesis for any text via the `/speak` endpoint:
 
 ```bash
 curl -X POST \
@@ -272,25 +277,24 @@ curl -X POST \
   http://localhost:8000/speak \
   --output speech_output.wav
 ```
-This will save the WAV audio data to `speech_output.wav`.
+This saves the WAV audio data to `speech_output.wav`.
 Optional fields in the JSON payload:
-- `exaggeration` (float, default 0.5): Controls the expressiveness.
-- `ref_wav_b64` (string, optional): Base64 encoded WAV data to be used as a voice reference (voice cloning).
+- `exaggeration` (float, default 0.5): Controls expressiveness.
+- `ref_wav_b64` (string, optional): Base64 encoded WAV for voice cloning.
 
 ### 2. Redis Channel (`audio.bytes`)
 
-When TTS is triggered by an internal process (like the orchestrator after a Hermes assessment), the raw WAV audio data (base64 encoded) is published to the Redis channel named `audio.bytes`.
-You can subscribe to this channel using any Redis client to receive the audio data programmatically.
+Internally triggered TTS (e.g., by the orchestrator) publishes raw WAV audio data (base64 encoded) to the Redis channel `audio.bytes`. Subscribe with any Redis client to process this data.
 
 ### 3. Web Audio Console
 
-A simple web-based audio console is available to listen to the audio streamed from the `audio.bytes` Redis channel in real-time.
+Listen to audio streamed from the `audio.bytes` Redis channel in real-time using the web audio console:
 
 *   **URL**: `static/audio_console.html`
-    *   If you are running the LLM sidecar locally, you can typically access it at [http://localhost:8000/static/audio_console.html](http://localhost:8000/static/audio_console.html) (assuming the `static` directory is served by the FastAPI app, which might require adding `StaticFiles` mount to `server.py`).
-    *   Alternatively, open the `static/audio_console.html` file directly in your browser from your local file system if the FastAPI server isn't configured to serve static files from that path.
+    *   Access locally at [http://localhost:8000/static/audio_console.html](http://localhost:8000/static/audio_console.html) (requires `StaticFiles` mount in `server.py`).
+    *   Alternatively, open `static/audio_console.html` directly from your file system.
 
-The console uses Server-Sent Events (SSE) to connect to the `/stream/audio` endpoint on the LLM sidecar, which streams the audio data from the Redis channel.
+The console uses Server-Sent Events (SSE) via the `/stream/audio` endpoint, which streams audio from the Redis channel.
 
 ---
 
@@ -311,3 +315,38 @@ The console uses Server-Sent Events (SSE) to connect to the `/stream/audio` endp
 
 
 Patience Profits!
+
+---
+
+## Troubleshooting
+
+Here are some common issues and potential solutions:
+
+### Problem: `numpy` version conflicts (e.g., `numpy < 2.0` errors).
+*   **Solution**: Some dependencies (especially older ones or those with strict pinning) might require an older major version of numpy (e.g., < 2.0). If you encounter errors like `TypeError: '<' not supported between instances of 'Version' and 'Version'` related to numpy, or direct version conflicts, try pinning numpy to a specific compatible version in your `requirements.txt` or virtual environment. For example:
+    ```
+    numpy==1.26.4
+    ```
+    You may need to experiment to find a version compatible with all your packages or investigate which package has the strict requirement.
+
+### Problem: ONNX Runtime or model loading errors (e.g., "onnxruntime.capi.onnxruntime_pybind11_state.Fail: ...model... not found").
+*   **Solution**: This often indicates that the ONNX model files (e.g., for Phi-3) are not where the application expects them.
+    *   **Check Paths**: Verify that the model paths configured in your application (e.g., environment variables, code constants) correctly point to the model files.
+    *   **Model Download**: Ensure the models are actually downloaded. You can use `huggingface-cli download your-model-name --local-dir /path/to/models` to fetch them.
+    *   **Docker Mounts**: If running in Docker and models are external, ensure your `docker-compose.yaml` or `docker run` command correctly mounts the host directory containing the models to the expected path inside the container (e.g., `/models` or `/app/models`).
+    *   **Permissions**: Ensure the application has read permissions for the model files and directories.
+
+### Problem: LanceDB path issues or errors like "Table not found" after a reset/restart.
+*   **Solution**:
+    *   **Default Path**: LanceDB, in this project, stores its data in `/app/lancedb_data` inside the container by default.
+    *   **Persistence**: If you need LanceDB data (feedback logs, run history, etc.) to persist across container restarts, you must mount this directory as a Docker volume:
+        ```yaml
+        # In your docker-compose.yaml for the llm-sidecar service:
+        volumes:
+          - lancedb_data_volume:/app/lancedb_data
+        # ...
+        volumes:
+          lancedb_data_volume: {} # Defines a named volume
+        ```
+        Without a volume, data written to `/app/lancedb_data` will be lost when the container stops.
+    *   **Automatic Table Creation**: The system is designed to check for tables on startup (`init_db()` in `llm_sidecar/db.py`) and create them if they are missing. So, a "Table not found" error might appear on a fresh start if data is not persisted, but tables should be created automatically. If errors persist, it might indicate issues with write permissions to the LanceDB data directory or deeper configuration problems.

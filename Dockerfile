@@ -10,18 +10,12 @@ RUN apt-get update && \
     apt-get install -y python3 python3-pip git && \
     rm -rf /var/lib/apt/lists/*
 
-# Install necessary dependencies for running a GPTQ model
-# Pinning versions for compatibility, ensure these are suitable for Hermes-3 8B
-RUN pip3 install --no-cache-dir \
-    auto-gptq==0.7.1 \
-    transformers==4.38.2 \
-    optimum==1.19.0 \
-    torch==2.1.0 \
-    fastapi==0.109.2 \
-    uvicorn==0.27.1 \
-    sentencepiece==0.1.99 \
-    accelerate==0.27.2 \
-    huggingface-hub==0.20.3
+# Copy requirements files
+COPY requirements.txt /tmp/requirements.txt
+COPY constraints.txt /tmp/constraints.txt
+
+# Install Python dependencies from requirements.txt and constraints.txt
+RUN pip install --upgrade -r /tmp/requirements.txt -c /tmp/constraints.txt
 
 # Clone the Hermes-3 8B GPTQ model files
 # Using a specific revision known to work with auto-gptq 0.7.1
