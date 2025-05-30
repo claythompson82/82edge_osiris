@@ -32,10 +32,10 @@ class OrchestratorRunSchema(LanceModel):
     error_message: Optional[str] = None
 
 class HermesScoreSchema(LanceModel):
-    run_id: str
+    proposal_id: uuid.UUID
     timestamp: str = Field(default_factory=get_current_utc_iso)
     score: float
-    rationale: Optional[str] = None
+    reasoning: Optional[str] = None
 
 # --- Database Connection and Table Initialization ---
 _db = lancedb.connect(DB_ROOT)

@@ -149,6 +149,175 @@ def patch_model_loaders():
 
 import io
 import wave
+import datetime
+import uuid # For checking proposal_id type in score tests
+from server import db # To access db._tables for mocking if needed
+
+
+@pytest.mark.asyncio
+async def test_score_proposal_with_hermes_success():
+    """Test /score/hermes/ endpoint successful scoring."""
+    with patch('server.score_with_hermes', return_value=0.75) as mock_score_func, \
+         patch('server.db.log_hermes_score', return_value=None) as mock_log_score:
+
+        async with AsyncClient(app=app, base_url="http://test") as client:
+            payload = {"proposal": {"ticker": "XYZ", "action": "BUY"}, "context": "Test context"}
+            response = await client.post("/score/hermes/", json=payload)
+
+        assert response.status_code == 200
+        response_data = response.json()
+        assert "proposal_id" in response_data
+        # Attempt to parse proposal_id as UUID to ensure it's a valid UUID string
+        try:
+            uuid.UUID(response_data["proposal_id"])
+        except ValueError:
+            pytest.fail(f"proposal_id '{response_data['proposal_id']}' is not a valid UUID string.")
+
+        assert response_data["score"] == 0.75
+
+        # server.py runs score_with_hermes in an executor, so the mock should still capture the call.
+        # The actual function passed to run_in_executor is score_with_hermes from the server's scope.
+        # So, 'server.score_with_hermes' is the correct target.
+        # Check call args on the mock_score_func. If run_in_executor is used,
+        # the direct call might be harder to assert perfectly without knowing executor internals
+        # or if the mock behaves differently with it. Assuming standard patching works:
+        # For run_in_executor, the function and its arguments are passed to the executor.
+        # The mock should capture the call to the *original* function if that's what's passed.
+        # The patch replaces 'server.score_with_hermes' with a mock. This mock is then passed
+        # to run_in_executor. So, the mock itself is called.
+        mock_score_func.assert_called_once_with(payload["proposal"], payload["context"])
+
+        mock_log_score.assert_called_once()
+        args, _ = mock_log_score.call_args
+        assert args[0].score == 0.75
+        assert isinstance(args[0].proposal_id, uuid.UUID)
+
+
+@pytest.mark.asyncio
+async def test_score_proposal_with_hermes_failure():
+    """Test /score/hermes/ endpoint when scoring fails."""
+    with patch('server.score_with_hermes', return_value=-1.0) as mock_score_func, \
+         patch('server.db.log_hermes_score') as mock_log_score: # Should not be called
+
+        async with AsyncClient(app=app, base_url="http://test") as client:
+            payload = {"proposal": {"ticker": "ABC", "action": "SELL"}}
+            response = await client.post("/score/hermes/", json=payload)
+
+        assert response.status_code == 500
+        response_data = response.json()
+        assert "Failed to score proposal" in response_data.get("detail", "")
+
+        mock_score_func.assert_called_once_with(payload["proposal"], None)
+        mock_log_score.assert_not_called()
+
+@pytest.mark.asyncio
+async def test_score_proposal_with_hermes_db_log_failure():
+    """Test /score/hermes/ endpoint when DB logging fails after successful scoring."""
+    with patch('server.score_with_hermes', return_value=0.8) as mock_score_func, \
+         patch('server.db.log_hermes_score', side_effect=Exception("DB log error")) as mock_log_score:
+
+        async with AsyncClient(app=app, base_url="http://test") as client:
+            payload = {"proposal": {"ticker": "DEF", "action": "BUY"}, "context": "DB log fail test"}
+            response = await client.post("/score/hermes/", json=payload)
+
+        assert response.status_code == 500
+        response_data = response.json()
+        # Check for the specific error message related to logging failure
+        assert "Score generated but failed to log" in response_data.get("detail", "")
+        assert "DB log error" in response_data.get("detail", "") # Ensure original error is mentioned
+
+
+        mock_score_func.assert_called_once_with(payload["proposal"], payload["context"])
+        mock_log_score.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_health_endpoint_with_recent_scores():
+    """Test /health endpoint when recent Hermes scores are present."""
+    now = datetime.datetime.now(datetime.timezone.utc)
+    scores_data = [
+        {"score": 0.8, "timestamp": (now - datetime.timedelta(hours=1)).isoformat()},
+        {"score": 0.6, "timestamp": (now - datetime.timedelta(hours=2)).isoformat()},
+    ]
+    expected_mean = (0.8 + 0.6) / 2
+
+    mock_table = MagicMock()
+    mock_search_result = MagicMock()
+    mock_where_result = MagicMock()
+    mock_select_result = MagicMock()
+
+    mock_table.search.return_value = mock_search_result
+    mock_search_result.where.return_value = mock_where_result
+    mock_where_result.select.return_value = mock_select_result
+    mock_select_result.to_list.return_value = scores_data
+
+    with patch.dict(db._tables, {'hermes_scores': mock_table}):
+        async with AsyncClient(app=app, base_url="http://test") as client:
+            response = await client.get("/health")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["mean_hermes_score_last_24h"] == expected_mean
+    assert data["num_hermes_scores_last_24h"] == len(scores_data)
+    assert "status" in data
+    assert "hermes_loaded" in data
+
+
+@pytest.mark.asyncio
+async def test_health_endpoint_no_recent_scores():
+    """Test /health endpoint when no recent Hermes scores are present."""
+    mock_table = MagicMock()
+    mock_search_result = MagicMock()
+    mock_where_result = MagicMock()
+    mock_select_result = MagicMock()
+
+    mock_table.search.return_value = mock_search_result
+    mock_search_result.where.return_value = mock_where_result
+    mock_where_result.select.return_value = mock_select_result
+    mock_select_result.to_list.return_value = []
+
+    with patch.dict(db._tables, {'hermes_scores': mock_table}):
+        async with AsyncClient(app=app, base_url="http://test") as client:
+            response = await client.get("/health")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["mean_hermes_score_last_24h"] is None
+    assert data["num_hermes_scores_last_24h"] == 0
+    assert "status" in data
+
+@pytest.mark.asyncio
+async def test_health_endpoint_db_table_not_found():
+    """Test /health endpoint when hermes_scores table is not found."""
+    with patch.dict(db._tables, {'hermes_scores': None}):
+        async with AsyncClient(app=app, base_url="http://test") as client:
+            response = await client.get("/health")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["mean_hermes_score_last_24h"] is None
+    assert data["num_hermes_scores_last_24h"] == 0
+    assert "status" in data
+
+@pytest.mark.asyncio
+async def test_health_endpoint_db_query_exception():
+    """Test /health endpoint when DB query raises an exception."""
+    mock_table = MagicMock()
+    mock_table.search.side_effect = Exception("Simulated DB error")
+
+    # Also mock logger to check if the error is logged
+    with patch('server.logger.error') as mock_logger_error, \
+         patch.dict(db._tables, {'hermes_scores': mock_table}):
+        async with AsyncClient(app=app, base_url="http://test") as client:
+            response = await client.get("/health")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["mean_hermes_score_last_24h"] is None
+    assert data["num_hermes_scores_last_24h"] == 0
+    assert "status" in data
+    mock_logger_error.assert_called_once_with("Error calculating mean Hermes score for health check: Simulated DB error")
+
 
 @pytest.mark.asyncio
 async def test_speak_endpoint():
