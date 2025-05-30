@@ -33,9 +33,10 @@ from llm_sidecar.tts import ChatterboxTTS
 
 # outlines (schema-guided generation for Phi-3)
 from outlines import generate as outlines_generate
-from llm_sidecar.db import append_feedback # db module itself
+from llm_sidecar.db import append_feedback, log_hermes_score # db module itself
 import llm_sidecar.db as db # alias for explicit calls like db.append_feedback
 from llm_sidecar.event_bus import EventBus
+from llm_sidecar.hermes_plugin import score_with_hermes
 
 
 # ---------------------------------------------------------------------
@@ -92,6 +93,11 @@ class FeedbackItem(BaseModel):
     schema_version: str = "1.0"
 
 
+class ScoreRequest(BaseModel):
+    proposal: Dict[str, Any]
+    context: Optional[str] = None
+
+
 # ---------------------------------------------------------------------
 # FastAPI initialisation
 # ---------------------------------------------------------------------
@@ -124,6 +130,40 @@ def _load_recent_feedback(max_examples: int = 3) -> List[Dict[str, Any]]:
             except Exception as err:
                 print(f"[Feedback-load] skipping line: {err}")
     return items[-max_examples:]
+
+# ---------------------------------------------------------------------
+# End-points
+# ---------------------------------------------------------------------
+@app.post("/score/hermes/", tags=["scoring"])
+async def score_proposal_with_hermes_endpoint(req: ScoreRequest): # Renamed function to avoid conflict if any
+    proposal_id = uuid.uuid4()
+
+    # Run in executor to avoid blocking the main event loop if score_with_hermes is CPU bound
+    loop = asyncio.get_event_loop()
+    hermes_score = await loop.run_in_executor(None, score_with_hermes, req.proposal, req.context)
+
+    if hermes_score == -1.0:
+        raise HTTPException(status_code=500, detail="Failed to score proposal with Hermes model.")
+
+    try:
+        score_data = db.HermesScoreSchema(
+            proposal_id=proposal_id,
+            score=hermes_score
+            # timestamp is handled by default_factory
+            # reasoning is optional
+        )
+        # log_hermes_score is synchronous, but if it were async, it should be awaited.
+        # For now, assuming it's safe to call directly or it's very fast.
+        # If db operations become slow, they should also be run in an executor.
+        db.log_hermes_score(score_data)
+    except Exception as e:
+        # Log the error and potentially raise an HTTPException if storing the score is critical
+        logger.error(f"Failed to log Hermes score for proposal_id {proposal_id}: {e}")
+        # Depending on requirements, you might want to inform the client or handle silently
+        raise HTTPException(status_code=500, detail=f"Score generated but failed to log: {e}")
+
+    return {"proposal_id": str(proposal_id), "score": hermes_score}
+
 
 # ---------------------------------------------------------------------
 # SSE Audio Streamer
@@ -345,9 +385,6 @@ async def _generate_hermes_text(
         return f"Error generating text with Hermes: {e}"
 
 
-# ---------------------------------------------------------------------
-# End-points
-# ---------------------------------------------------------------------
 @app.post("/generate/", tags=["unified"])
 async def generate_unified(req: UnifiedPromptRequest):
     if req.model_id == "phi3":
@@ -543,6 +580,37 @@ async def health():
     elif not hermes_ok or not phi3_ok:
         status = "partial_error"
 
+    mean_hermes_score_last_24h = None
+    num_hermes_scores_last_24h = 0
+
+    try:
+        hermes_scores_table = db._tables.get("hermes_scores")
+        if hermes_scores_table:
+            twenty_four_hours_ago_dt = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=24)
+            twenty_four_hours_ago_iso = twenty_four_hours_ago_dt.isoformat()
+
+            # Query using .to_list() to avoid pandas dependency here
+            results = hermes_scores_table.search() \
+                                       .where(f"timestamp >= '{twenty_four_hours_ago_iso}'") \
+                                       .select(["score"]) \
+                                       .to_list()
+
+            if results:
+                num_hermes_scores_last_24h = len(results)
+                # Ensure scores are valid numbers before summing
+                valid_scores = [item['score'] for item in results if 'score' in item and isinstance(item['score'], (int, float))]
+                if valid_scores: # if there are any valid scores
+                    total_score = sum(valid_scores)
+                    if num_hermes_scores_last_24h > 0: # Recalculate num_hermes_scores_last_24h based on valid_scores length if necessary
+                                                       # or ensure that items in 'results' always have valid scores
+                        mean_hermes_score_last_24h = total_score / len(valid_scores)
+                # If no valid_scores, mean_hermes_score_last_24h remains None
+            # If results is empty, num_hermes_scores_last_24h remains 0 and mean_hermes_score_last_24h remains None
+
+    except Exception as e:
+        logger.error(f"Error calculating mean Hermes score for health check: {e}")
+        # Values will remain None/0 as initialized
+
     return {
         "status": status,
         "hermes_loaded": hermes_ok,
@@ -550,6 +618,8 @@ async def health():
         "phi3_model_file_exists": phi3_file,
         "device": DEVICE,
         "phi3_adapter_date": phi3_adapter_date,
+        "mean_hermes_score_last_24h": mean_hermes_score_last_24h,
+        "num_hermes_scores_last_24h": num_hermes_scores_last_24h,
     }
 
 
