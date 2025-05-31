@@ -568,6 +568,46 @@ async def submit_phi3_feedback(feedback: FeedbackItem): # Renamed from submit_fe
         raise HTTPException(status_code=500, detail=f"Failed to process feedback: {e}")
 
 
+@app.get("/tts/cache/stats", tags=["tts", "caching"])
+async def tts_cache_stats():
+    global tts_model # Access the global TTS model instance
+    if not tts_model:
+        raise HTTPException(status_code=503, detail="TTS model not available.")
+
+    hits = tts_model.cache_hits
+    misses = tts_model.cache_misses
+    disk_mb_str = "N/A" # Default value
+
+    if tts_model.redis_client:
+        try:
+            redis_info = tts_model.redis_client.info('memory')
+            used_memory_human = redis_info.get('used_memory_human', '0B') # e.g., '1.23M', '100K', '500B'
+
+            # Parse used_memory_human to MB
+            size_val = float(used_memory_human[:-1]) # Get the numeric part
+            unit = used_memory_human[-1:].upper() # Get the unit (B, K, M, G)
+
+            if unit == 'G':
+                disk_mb = size_val * 1024
+            elif unit == 'M':
+                disk_mb = size_val
+            elif unit == 'K':
+                disk_mb = size_val / 1024
+            elif unit == 'B':
+                disk_mb = size_val / (1024 * 1024)
+            else: # Should not happen with standard Redis info
+                disk_mb = 0.0
+            disk_mb_str = f"{disk_mb:.2f} MB"
+        except redis.exceptions.RedisError as e:
+            print(f"Redis error when fetching memory info: {e}")
+            # disk_mb_str remains "N/A"
+        except Exception as e:
+            print(f"Error parsing Redis memory info: {e}")
+            # disk_mb_str remains "N/A"
+
+    return {"hits": hits, "misses": misses, "redis_used_memory": disk_mb_str}
+
+
 @app.get("/health", tags=["meta"])
 async def health():
     hermes_ok = all(get_hermes_model_and_tokenizer())
