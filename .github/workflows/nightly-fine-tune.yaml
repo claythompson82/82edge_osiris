@@ -14,17 +14,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Osiris Setup
+        uses: ./.github/actions/osiris-setup
         with:
           python-version: '3.10'
+          install-requirements: 'true' # This will handle requirements.txt
+          system-packages: '' # No specific system packages mentioned beyond what Docker setup provides
 
       - name: Install Python dependencies
         run: |
+          # requirements.txt is handled by osiris-setup
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          echo "Installing requirements-ml.txt..."
           pip install -r requirements-ml.txt
           # Verify installations, especially for ML dependencies if needed
+          echo "Listing installed packages:"
           pip list
 
       - name: Build side-car Docker image

@@ -34,25 +34,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Osiris Setup
+        uses: ./.github/actions/osiris-setup
         with:
-          python-version: '3.10' # Or your project's Python version
+          python-version: '3.10'
+          install-requirements: 'true' # This will handle requirements.txt
+          system-packages: 'jq docker-compose' # Ensure docker-compose (and jq just in case)
 
       - name: Install Python dependencies
         run: |
-          python -m pip install --upgrade pip
+          # requirements.txt is handled by osiris-setup
+          python -m pip install --upgrade pip # Good practice to keep pip updated
           if [ -f requirements-ml.txt ]; then
-            pip install -r requirements-ml.txt
+            echo "Installing requirements-ml.txt..."
+            python -m pip install -r requirements-ml.txt
           fi
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
-          else
-            echo "requirements.txt not found!"
-            exit 1
-          fi
-          # Ensure lancedb and redis client are installed for CI scripts
-          pip install lancedb redis pandas # pandas might be needed by lancedb or for data handling
+          echo "Installing lancedb, redis, pandas..."
+          python -m pip install lancedb redis pandas
 
       - name: Create LanceDB data directory
         run: mkdir -p ${{ env.LANCEDB_URI }} # Create ./lancedb_data

@@ -15,8 +15,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Osiris Setup
+        uses: ./.github/actions/osiris-setup
+        with:
+          install-requirements: 'false' # This job builds its own Docker image
+          install-poetry: 'false'
+          system-packages: '' # No extra system packages seem to be needed by the workflow steps themselves
 
       - name: Build Docker image
         run: |

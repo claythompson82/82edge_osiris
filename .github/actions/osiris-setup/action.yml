@@ -1,0 +1,79 @@
+name: 'Osiris Setup'
+description: 'Sets up Docker, Python toolchain, and common dependencies for Osiris projects'
+
+inputs:
+  python-version:
+    description: 'Python version to use'
+    required: false
+    default: '3.11' # Defaulting to 3.11, can be overridden by workflows
+  docker-login-username:
+    description: 'Username for Docker Hub login (optional)'
+    required: false
+  docker-login-password:
+    description: 'Password/token for Docker Hub login (optional)'
+    required: false
+  install-requirements:
+    description: 'Whether to install Python dependencies from requirements.txt'
+    required: false
+    default: 'true'
+  install-poetry:
+    description: 'Whether to install Python dependencies using Poetry'
+    required: false
+    default: 'false' # Assuming not all projects use Poetry, can be enabled
+  system-packages:
+    description: 'Space-separated list of system packages to install via apt-get (e.g., "jq docker-compose")'
+    required: false
+    default: 'jq docker-compose' # Common ones, can be overridden or set to empty
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install system packages
+      if: ${{ inputs.system-packages != '' }}
+      shell: bash
+      run: |
+        echo "Updating package list and installing system packages: ${{ inputs.system-packages }}"
+        sudo apt-get update
+        sudo apt-get install -y ${{ inputs.system-packages }}
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to Docker Hub
+      if: ${{ inputs.docker-login-username != '' && inputs.docker-login-password != '' }}
+      uses: docker/login-action@v3
+      with:
+        username: ${{ inputs.docker-login-username }}
+        password: ${{ inputs.docker-login-password }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install Python dependencies (pip)
+      if: ${{ inputs.install-requirements == 'true' }}
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then
+          echo "Installing dependencies from requirements.txt"
+          pip install -r requirements.txt
+        else
+          echo "requirements.txt not found, skipping pip install."
+        fi
+
+    - name: Install Python dependencies (Poetry)
+      if: ${{ inputs.install-poetry == 'true' }}
+      shell: bash
+      run: |
+        echo "Installing Poetry and project dependencies..."
+        pip install poetry
+        if [ -f poetry.lock ] && [ -f pyproject.toml ]; then
+          poetry install --no-root # Use --no-root if it's a library, or remove if it's an application
+        else
+          echo "poetry.lock or pyproject.toml not found, skipping poetry install."
+        fi

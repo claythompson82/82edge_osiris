@@ -28,25 +28,22 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Osiris Setup
+        uses: ./.github/actions/osiris-setup
         with:
-          python-version: '3.11' # Using Python 3.11
+          python-version: '3.11'
+          install-requirements: 'true' # This will handle requirements.txt
+          system-packages: 'docker-compose' # Explicitly ensure docker-compose
 
       - name: Install Python dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          # requirements-ml.txt installs requirements.txt again, which is fine.
-          # It might be better to have a combined requirements-dev.txt or similar in the future.
+          # requirements.txt is handled by osiris-setup
           if [ -f requirements-ml.txt ]; then
-            pip install -r requirements-ml.txt
+            echo "Installing requirements-ml.txt..."
+            python -m pip install -r requirements-ml.txt
           fi
-          # fakeredis is needed because EventBus is initialized by the sidecar server.py
-          # and EventBus itself tries to import redis.asyncio even if fakeredis is used later.
-          # The EventBus constructor itself calls redis.from_url.
-          # For tests, EventBus is often re-wired, but for running server.py, it needs its imports.
-          pip install fakeredis[pyaio]
+          echo "Installing fakeredis..."
+          python -m pip install fakeredis[pyaio]
 
       - name: Build Docker Image for LLM Sidecar
         run: |
