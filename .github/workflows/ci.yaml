@@ -13,20 +13,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to Docker Hub (Optional - if pushing image)
-        # if: github.event_name != 'pull_request' # Example: Only push on merge to main
-        # uses: docker/login-action@v3
-        # with:
-        #   username: ${{ secrets.DOCKERHUB_USERNAME }}
-        #   password: ${{ secrets.DOCKERHUB_TOKEN }}
-        run: echo "Skipping Docker login for now."
-
+      - name: Osiris Setup
+        uses: ./.github/actions/osiris-setup
+        with:
+          python-version: '3.10' # Or whatever is appropriate for this job if it uses Python directly
+          # docker-login-username: ${{ secrets.DOCKERHUB_USERNAME }} # Optional
+          # docker-login-password: ${{ secrets.DOCKERHUB_TOKEN }}   # Optional
+          install-requirements: 'false' # This job primarily deals with Docker, Python deps are in the image
+          system-packages: 'jq docker-compose' # Ensure these are available if scripts in the job use them
 
       - name: Build llm-sidecar Docker image
         run: |
@@ -101,15 +95,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Osiris Setup
+        uses: ./.github/actions/osiris-setup
         with:
-          python-version: '3.10' # Specify a Python version
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          python-version: '3.10'
+          install-requirements: 'true'
+          system-packages: '' # No extra system packages needed for this job by default
 
       - name: Run Pytest
         run: |
