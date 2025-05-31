@@ -1,0 +1,24 @@
+1. Get the application URL by running these commands:
+  {{- if .Values.orchestrator.service.type == "LoadBalancer" }}
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "osiris.fullname" . }}-orchestrator -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+  {{- else if .Values.orchestrator.service.type == "NodePort" }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "osiris.fullname" . }}-orchestrator)
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  export SERVICE_IP=$NODE_IP
+  {{- else }}
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "osiris.name" . }}-orchestrator,app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+  echo "Visit http://127.0.0.1:8080 to use your application"
+  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8080:{{ .Values.orchestrator.service.port }}
+  {{- end }}
+
+  echo "Osiris Orchestrator URL: http://$SERVICE_IP:{{ .Values.orchestrator.service.port }}"
+
+  {{- if .Values.llmSidecar.service.type == "LoadBalancer" }}
+  export LLM_SIDECAR_SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "osiris.fullname" . }}-llm-sidecar -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+  echo "Osiris LLM Sidecar URL: http://$LLM_SIDECAR_SERVICE_IP:{{ .Values.llmSidecar.service.port }}"
+  {{- end }}
+
+  {{- if .Values.redis.service.type == "LoadBalancer" }}
+  export REDIS_SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "osiris.fullname" . }}-redis -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+  echo "Osiris Redis URL: http://$REDIS_SERVICE_IP:{{ .Values.redis.service.port }}"
+  {{- end }}

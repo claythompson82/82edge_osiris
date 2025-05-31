@@ -1,0 +1,22 @@
+# Patterns to ignore when packaging Helm charts.
+# For example:
+# .git/
+# .vscode/
+# README.md.gotmpl
+#
+# More information: https://helm.sh/docs/chart_template_guide/helm_ignore_file/
+
+# Common patterns:
+.DS_Store
+.git/
+.gitignore
+.svn/
+*~
+*.swp
+*.bak
+*.tmp
+*.orig
+
+# Chart-specific ignores (if any):
+# examples/
+# drafts/

@@ -1,0 +1,71 @@
+version: '3.8'
+
+# Notes for AWS ECS Fargate Deployment:
+# 1. Image URIs: Replace placeholders like '123456789012.dkr.ecr.us-east-1.amazonaws.com/llm-sidecar:latest'
+#    with your actual public ECR image URIs.
+# 2. GPU Requirements: GPU allocation for Fargate is handled in the ECS Task Definition,
+#    not directly in this Compose file. Ensure your Task Definition requests appropriate GPU resources.
+# 3. Persistent Storage for LanceDB: The lancedb_data volume defined here is ephemeral within the Fargate task.
+#    For persistence, consider EFS or a managed database service. OPS-081 covers S3 backups.
+# 4. Secrets Management: Secrets (e.g., API keys, database credentials) should be injected as environment
+#    variables via AWS Secrets Manager or SSM Parameter Store, configured in the ECS Task Definition.
+#    Placeholders like 'YOUR_API_KEY_FROM_SSM' are used below.
+# 5. Logging/Monitoring: Configure CloudWatch Logs in your ECS Task Definition for container logs.
+# 6. Health Checks: ECS uses its own health check mechanism defined in the Task Definition.
+#    The healthcheck directive in this file is for local Docker Compose and might be ignored or overridden by ECS.
+# 7. vram-watchdog: This service has been excluded as its local implementation is not directly portable to Fargate.
+#    VRAM monitoring and task restarts on Fargate should be handled with CloudWatch Alarms and ECS capabilities.
+
+services:
+  llm-sidecar:
+    image: 123456789012.dkr.ecr.us-east-1.amazonaws.com/llm-sidecar:latest # Placeholder ECR image
+    ports:
+      - "8000:8000"
+    environment:
+      # Example: Injecting secrets from AWS SSM Parameter Store or Secrets Manager
+      # These would be configured in the ECS Task Definition to pull from SSM/Secrets Manager
+      - API_KEY=${API_KEY_FROM_SSM} # Placeholder for an API key
+      - LANCEDB_HOST=lancedb # Service discovery within the Fargate task
+      - LANCEDB_PORT=8100
+      # Add any other necessary environment variables for llm-sidecar
+    # Volumes:
+    # - /app/server.py # Code should be baked into the image.
+    # - lancedb_data:/app/lancedb_data # Data for llm-sidecar, if it writes directly. More likely, it connects to lancedb service.
+    restart: unless-stopped
+    depends_on:
+      - lancedb
+    logging:
+      # ECS will typically use awslogs driver configured in the Task Definition
+      driver: awslogs # Example, actual configuration is in Task Definition
+      options:
+        awslogs-group: "/ecs/your-app-name-llm-sidecar" # Placeholder
+        awslogs-region: "us-east-1" # Placeholder
+        awslogs-stream-prefix: "ecs" # Placeholder
+
+  lancedb:
+    image: 123456789012.dkr.ecr.us-east-1.amazonaws.com/lancedb-server:latest # Placeholder ECR image (or public lancedb/lancedb-server)
+    ports:
+      - "8100:8100" # gRPC
+      - "8101:8101" # REST / HTTP
+    volumes:
+      - lancedb_data_volume:/app/lancedb_data # This will be an ephemeral volume within the Fargate task
+    environment:
+      # Add any necessary environment variables for lancedb
+      - LANCEDB_MODE=cloud # Example, if lancedb has different modes
+    restart: unless-stopped
+    logging:
+      driver: awslogs # Example
+      options:
+        awslogs-group: "/ecs/your-app-name-lancedb" # Placeholder
+        awslogs-region: "us-east-1" # Placeholder
+        awslogs-stream-prefix: "ecs" # Placeholder
+
+volumes:
+  lancedb_data_volume: # Defines an ephemeral volume for LanceDB data within the Fargate task
+
+# Further considerations for Fargate (handled in ECS Task Definition, not this file):
+# - CPU/Memory allocations
+# - IAM roles for task execution and ECR access
+# - VPC subnets and security groups
+# - Load balancer integration
+# - Auto-scaling policies

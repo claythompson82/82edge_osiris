@@ -1,0 +1,61 @@
+apiVersion: {{ include "osiris.deployment.apiVersion" . }}
+kind: Deployment
+metadata:
+  name: {{ include "osiris.fullname" . }}-redis
+  labels:
+    {{- include "osiris.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+spec:
+  replicas: 1 # Redis standalone, consider StatefulSet for HA/persistence
+  selector:
+    matchLabels:
+      {{- include "osiris.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: redis
+  template:
+    metadata:
+      labels:
+        {{- include "osiris.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: redis
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "osiris.serviceAccountName" . }}
+      securityContext:
+        fsGroup: 1001 # Example, ensure this matches your Redis image's user/group if needed
+        runAsUser: 1001 # Example
+      containers:
+        - name: {{ .Values.redis.name }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001 # Example, redis official images run as redis (999) or similar
+          image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
+          imagePullPolicy: {{ .Values.redis.image.pullPolicy }}
+          ports:
+            - name: redis
+              containerPort: {{ .Values.redis.service.port }}
+              protocol: TCP
+          livenessProbe:
+            tcpSocket:
+              port: redis
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: redis
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.redis.resources | nindent 12 }}
+          {{- if .Values.redis.persistence.enabled }}
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data # Standard Redis data path
+          {{- end }}
+      {{- if .Values.redis.persistence.enabled }}
+      volumes:
+        - name: redis-data
+          persistentVolumeClaim:
+            claimName: {{ include "osiris.fullname" . }}-redis-pvc
+      {{- end }}

@@ -1,0 +1,64 @@
+apiVersion: {{ include "osiris.deployment.apiVersion" . }}
+kind: Deployment
+metadata:
+  name: {{ include "osiris.fullname" . }}-orchestrator
+  labels:
+    {{- include "osiris.labels" . | nindent 4 }}
+    app.kubernetes.io/component: orchestrator
+spec:
+  replicas: {{ .Values.orchestrator.replicaCount | default .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "osiris.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: orchestrator
+  template:
+    metadata:
+      labels:
+        {{- include "osiris.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: orchestrator
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "osiris.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.orchestrator.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Values.orchestrator.name }}
+          securityContext:
+            {{- toYaml .Values.orchestrator.securityContext | nindent 12 }}
+          image: "{{ .Values.orchestrator.image.repository }}:{{ .Values.orchestrator.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.orchestrator.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.orchestrator.service.port }}
+              protocol: TCP
+          # livenessProbe:
+          #   httpGet:
+          #     path: /healthz # Adjust to your orchestrator's health check endpoint
+          #     port: http
+          # readinessProbe:
+          #   httpGet:
+          #     path: /readyz # Adjust to your orchestrator's readiness endpoint
+          #     port: http
+          resources:
+            {{- toYaml .Values.orchestrator.resources | nindent 12 }}
+          # Example of mounting config from values.yaml if orchestrator.config is used
+          {{- if .Values.orchestrator.config }}
+          envFrom:
+          - configMapRef:
+              name: {{ include "osiris.fullname" . }}-orchestrator-config
+          {{- end }}
+      {{- with .Values.orchestrator.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.orchestrator.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.orchestrator.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

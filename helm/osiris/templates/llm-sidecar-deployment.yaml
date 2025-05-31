@@ -1,0 +1,66 @@
+apiVersion: {{ include "osiris.deployment.apiVersion" . }}
+kind: Deployment
+metadata:
+  name: {{ include "osiris.fullname" . }}-llm-sidecar
+  labels:
+    {{- include "osiris.labels" . | nindent 4 }}
+    app.kubernetes.io/component: llm-sidecar
+spec:
+  replicas: {{ .Values.llmSidecar.replicaCount | default .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "osiris.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: llm-sidecar
+  template:
+    metadata:
+      labels:
+        {{- include "osiris.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: llm-sidecar
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "osiris.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.llmSidecar.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Values.llmSidecar.name }}
+          securityContext:
+            {{- toYaml .Values.llmSidecar.securityContext | nindent 12 }}
+          image: "{{ .Values.llmSidecar.image.repository }}:{{ .Values.llmSidecar.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.llmSidecar.image.pullPolicy }}
+          ports:
+            - name: http-llm
+              containerPort: {{ .Values.llmSidecar.service.port }}
+              protocol: TCP
+          # livenessProbe:
+          #   httpGet:
+          #     path: /health # Adjust to your llm-sidecar's health check endpoint
+          #     port: http-llm
+          # readinessProbe:
+          #   httpGet:
+          #     path: /ready # Adjust to your llm-sidecar's readiness endpoint
+          #     port: http-llm
+          resources:
+            {{- toYaml .Values.llmSidecar.resources | nindent 12 }}
+          # Example of mounting config from values.yaml if llmSidecar.config is used
+          {{- if .Values.llmSidecar.config }}
+          envFrom:
+          - configMapRef:
+              name: {{ include "osiris.fullname" . }}-llm-sidecar-config
+          {{- end }}
+      # GPU Node Selector: Only apply if .Values.llmSidecar.nodeSelector is not empty
+      {{- with .Values.llmSidecar.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.llmSidecar.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # Tolerations for GPU nodes (e.g., if nodes are tainted)
+      {{- with .Values.llmSidecar.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

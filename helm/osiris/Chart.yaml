@@ -1,0 +1,27 @@
+apiVersion: v2
+name: osiris
+description: A Helm chart for deploying the Osiris application (Orchestrator, LLM-Sidecar, and Redis).
+# A chart can be either an 'application' or a 'library' chart.
+# Application charts are a collection of templates that can be packaged into versioned archives
+# to be deployed.
+type: application
+
+# This is the chart version. This version number should be incremented each time you make changes
+# to the chart and its templates, including the app version.
+version: 0.1.0
+
+# This is the version number of the application being deployed. This version number should be
+# incremented each time you make changes to the application.
+appVersion: "1.0.0"
+
+keywords:
+  - osiris
+  - llm
+  - orchestrator
+  - redis
+  - ai
+
+# Optionally, specify maintainers
+maintainers:
+  - name: AI Engineering Team
+    email: ai-eng@example.com # Placeholder
