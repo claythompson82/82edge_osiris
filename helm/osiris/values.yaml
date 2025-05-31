@@ -49,7 +49,10 @@ orchestrator:
   nodeSelector: {}
   tolerations: []
   affinity: {}
-  config: {} # Placeholder for application-specific configurations, e.g., key: value pairs
+  config: # Placeholder for application-specific configurations, e.g., key: value pairs
+    SENTRY_DSN: ""
+    SENTRY_ENV: "development"
+    SENTRY_TRACES_SAMPLE_RATE: "0.2"
 
 # LLM-Sidecar specific values
 llmSidecar:
@@ -85,7 +88,10 @@ llmSidecar:
     enabled: false
   tolerations: [] # For GPU nodes if they have taints (e.g., nvidia.com/gpu=present:NoSchedule)
   affinity: {}
-  config: {} # Placeholder for application-specific configurations
+  config: # Placeholder for application-specific configurations
+    SENTRY_DSN: ""
+    SENTRY_ENV: "development"
+    SENTRY_TRACES_SAMPLE_RATE: "0.2"
 
 # Redis specific values
 redis:
