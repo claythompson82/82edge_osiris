@@ -1,0 +1,13 @@
+{{- if .Values.llmSidecar.config }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "osiris.fullname" . }}-llm-sidecar-config
+  labels:
+    {{- include "osiris.labels" . | nindent 4 }}
+    app.kubernetes.io/component: llm-sidecar
+data:
+  {{- range $key, $value := .Values.llmSidecar.config }}
+  {{ $key }}: {{ $value | quote }}
+  {{- end }}
+{{- end }}

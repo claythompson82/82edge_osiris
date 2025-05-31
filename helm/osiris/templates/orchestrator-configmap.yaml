@@ -1,0 +1,13 @@
+{{- if .Values.orchestrator.config }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "osiris.fullname" . }}-orchestrator-config
+  labels:
+    {{- include "osiris.labels" . | nindent 4 }}
+    app.kubernetes.io/component: orchestrator
+data:
+  {{- range $key, $value := .Values.orchestrator.config }}
+  {{ $key }}: {{ $value | quote }}
+  {{- end }}
+{{- end }}
