@@ -21,3 +21,4 @@ torch==2.2.2+cu121
 transformers==4.38.2
 trl
 uvicorn[standard]==0.27.1
+sentry-sdk

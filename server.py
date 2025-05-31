@@ -13,6 +13,8 @@ from typing import Optional, Dict, Any, List
 import asyncio # Added for event handlers, though not strictly necessary if not using complex async logic within them beyond print
 import logging # Added for consistency
 import base64
+import sentry_sdk
+from sentry_sdk.integrations.logging import LoggingIntegration
 import io
 
 import torch
@@ -307,6 +309,36 @@ async def handle_feedback_submitted_event(payload: str):
 # ---------------------------------------------------------------------
 @app.on_event("startup")
 async def startup_event_handler():
+    # Sentry initialization
+    sentry_dsn = os.getenv("SENTRY_DSN")
+    sentry_env = os.getenv("SENTRY_ENV")
+    sentry_traces_sample_rate_str = os.getenv("SENTRY_TRACES_SAMPLE_RATE")
+    sentry_traces_sample_rate = None
+    if sentry_traces_sample_rate_str:
+        try:
+            sentry_traces_sample_rate = float(sentry_traces_sample_rate_str)
+        except ValueError:
+            logger.warning(f"[Sentry] Invalid SENTRY_TRACES_SAMPLE_RATE: {sentry_traces_sample_rate_str}. Defaulting to 0.2.")
+            sentry_traces_sample_rate = 0.2
+
+    if sentry_dsn:
+        sentry_sdk.init(
+            dsn=sentry_dsn,
+            environment=sentry_env,
+            traces_sample_rate=sentry_traces_sample_rate,
+            integrations=[
+                LoggingIntegration(
+                    level=logging.INFO,        # Capture info and above as breadcrumbs
+                    event_level=logging.ERROR  # Send errors as events
+                )
+            ]
+        )
+        logger.info("[Sentry] SDK initialized.")
+        print("[Sentry] SDK initialized.")
+    else:
+        logger.info("[Sentry] SENTRY_DSN not found, skipping initialization.")
+        print("[Sentry] SENTRY_DSN not found, skipping initialization.")
+
     logger.info("FastAPI startup: Connecting EventBus and subscribing to channels...")
     print("FastAPI startup: Connecting EventBus and subscribing to channels...")
     try:
