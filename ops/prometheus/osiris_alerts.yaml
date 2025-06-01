@@ -1,0 +1,55 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ printf "%s-%s" .Release.Name "osiris-alerts" | trunc 63 | trimSuffix "-" }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "osiris.name" . }}
+    helm.sh/chart: {{ include "osiris.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    # Add this label if your Prometheus Operator is configured to discover rules with it:
+    # prometheus: kube-prometheus # This often depends on the Prometheus Operator setup
+spec:
+  groups:
+  - name: osiris.rules
+    rules:
+    - alert: HighGpuVramUsage
+      expr: avg_over_time(dcgm_fb_used_bytes[2m]) / avg_over_time(dcgm_fb_total_bytes[2m]) * 100 > 90
+      for: 2m
+      labels:
+        severity: warning
+        # service: llm-sidecar # Or whichever service exposes GPU metrics
+      annotations:
+        summary: High GPU VRAM usage on {{ $labels.pod }}
+        description: GPU VRAM usage is {{ $value | printf "%.2f" }}% on pod {{ $labels.pod }} for more than 2 minutes.
+
+    # This rule assumes you have metrics like:
+    # llm_requests_total{model_id="...", status="error/success"}
+    # or llm_errors_total and llm_processed_total
+    # Adjust the query based on your actual metrics.
+    - alert: HighLLMErrorRate
+      expr: |
+        sum(rate(llm_requests_total{status="error"}[5m])) by (job, model_id)
+        /
+        sum(rate(llm_requests_total[5m])) by (job, model_id)
+        * 100 > 5
+      for: 5m
+      labels:
+        severity: critical
+        # service: llm-sidecar or orchestrator
+      annotations:
+        summary: High LLM error rate for model {{ $labels.model_id }}
+        description: LLM model {{ $labels.model_id }} in job {{ $labels.job }} has an error rate of {{ $value | printf "%.2f" }}% over the last 5 minutes.
+
+    # This rule assumes redis_list_length{list_name="your_queue_name"}
+    # Replace "your_main_job_queue" with the actual name of your Redis list/queue.
+    - alert: RedisBacklogTooHigh
+      expr: redis_list_length{list_name="your_main_job_queue"} > 5000
+      for: 10m
+      labels:
+        severity: page # Or critical, depending on impact
+        service: redis # Or the service that manages the queue
+      annotations:
+        summary: Redis backlog too high for queue {{ $labels.list_name }}
+        description: The Redis list {{ $labels.list_name }} has {{ $value }} jobs, exceeding the threshold of 5000 for 10 minutes.

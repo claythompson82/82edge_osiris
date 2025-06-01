@@ -1,4 +1,37 @@
 ---
+## Prometheus Alert Rules
+
+Osiris includes a set of predefined Prometheus alert rules to help monitor key aspects of the system. These rules are defined in `ops/prometheus/osiris_alerts.yaml`.
+
+When deploying Osiris via the Helm chart, these rules will be automatically installed as a `PrometheusRule` custom resource in your Kubernetes cluster, provided the `prometheus.rules.create` value is set to `true` in your `values.yaml` file (it is `true` by default). This requires a Prometheus Operator (commonly deployed as part of `kube-prometheus-stack`) in your cluster that can discover and process `PrometheusRule` resources.
+
+The following alerts are defined:
+
+*   **HighGpuVramUsage**
+    *   **Description:** Monitors the GPU VRAM usage. Triggers if the average VRAM usage exceeds 90% for 2 minutes.
+    *   **Metric Used (example):** `avg_over_time(dcgm_fb_used_bytes[2m]) / avg_over_time(dcgm_fb_total_bytes[2m]) * 100` (or `dcgm_fb_used_percent`). Ensure your GPU monitoring exposes these DCGM metrics.
+
+*   **HighLLMErrorRate**
+    *   **Description:** Monitors the error rate of LLM requests. Triggers if the error rate exceeds 5% over a 5-minute period.
+    *   **Metric Used (placeholder):** `sum(rate(llm_requests_total{status="error"}[5m])) / sum(rate(llm_requests_total[5m])) * 100`
+    *   **ACTION REQUIRED:** This alert uses placeholder metrics. You **must** review and update the `expr` in `ops/prometheus/osiris_alerts.yaml` to use the actual metrics your LLM services expose for tracking request counts and errors (e.g., specific counter names, labels for status, model ID, etc.).
+
+*   **RedisBacklogTooHigh**
+    *   **Description:** Monitors the length of a specific Redis list (queue). Triggers if the queue length exceeds 5000 items for 10 minutes.
+    *   **Metric Used (placeholder):** `redis_list_length{list_name="your_main_job_queue"}`
+    *   **ACTION REQUIRED:** This alert uses a placeholder Redis list name (`your_main_job_queue`). You **must** review and update the `list_name` label in the `expr` in `ops/prometheus/osiris_alerts.yaml` to match the actual Redis list name used by your Osiris application for its main job queue.
+
+### Integrating Alerts with Notification Systems (PagerDuty, SNS, etc.)
+
+Prometheus itself generates alerts, but it relies on the **Alertmanager** component to route these alerts to notification systems like PagerDuty, Slack, email, Opsgenie, SNS, etc.
+
+If you have `kube-prometheus-stack` or a similar Prometheus setup, an Alertmanager instance is likely already running. To receive notifications for the Osiris alerts:
+
+1.  **Configure Receivers:** Define one or more "receivers" in your Alertmanager configuration. A receiver specifies how to connect to a notification service (e.g., PagerDuty integration key, Slack API URL, SNS topic ARN).
+2.  **Configure Routing:** Set up routing rules in Alertmanager to determine which alerts (based on their labels, like `severity`, `app`, etc.) should be sent to which receivers. For example, you might route `severity: critical` alerts to PagerDuty and `severity: warning` alerts to Slack.
+
+Refer to the [official Alertmanager documentation](https://prometheus.io/docs/alerting/latest/configuration/) for detailed instructions on configuring receivers and routing. The Osiris alerts include labels like `severity` and `service` (commented out, but can be enabled) that you can use in your Alertmanager routing rules.
+
 ## Importing Grafana Dashboard
 
 The Osiris Observability dashboard provides a centralized view of key metrics for the Osiris system, including service health, GPU performance, Redis queue depths, LLM token rates, and Sentry error summaries.
