@@ -1,0 +1,3 @@
+{{- if .Values.prometheus.rules.create }}
+{{- tpl (.Files.Get "ops/prometheus/osiris_alerts.yaml") . | nindent 0 }}
+{{- end }}
