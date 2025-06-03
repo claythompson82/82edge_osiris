@@ -3,6 +3,7 @@ import json
 import requests
 import logging
 import asyncio # Added for new event-driven model
+import time # Added for timestamp
 from typing import TypedDict, Dict, Any, Optional, List
 
 # LangGraph
@@ -249,28 +250,87 @@ async def publish_events_node(state: WorkflowState) -> WorkflowState:
 
         # --- Conditional: TTS for Hermes assessment (if hermes_assessment_text is available) ---
         if hermes_assessment_text and isinstance(hermes_assessment_text, str) and hermes_assessment_text.strip():
-            tts_text = hermes_assessment_text.split('.')[0] + "."
-            if len(tts_text) > 150: tts_text = tts_text[:150] + "..."
-            logger.info(f"Requesting TTS for Hermes assessment, run_id {run_id}: '{tts_text}'")
-            tts_payload = {"text": tts_text, "exaggeration": 0.5}
+            tts_text_to_speak = hermes_assessment_text.split('.')[0] + "."
+            if len(tts_text_to_speak) > 150: tts_text_to_speak = tts_text_to_speak[:150] + "..."
             
-            try:
-                tts_http_response = requests.post("http://localhost:8000/speak", json=tts_payload, timeout=30, headers={"Accept": "audio/wav"})
-                tts_http_response.raise_for_status()
-                logger.info(f"TTS request successful for run_id {run_id}. Received {len(tts_http_response.content)} bytes.")
+            if not transaction_id:
+                logger.error(f"Run_id {run_id}: transaction_id is missing. Skipping TTS acknowledgement and last_speak_ms setting.")
+            else:
+                logger.info(f"Requesting TTS for Hermes assessment, run_id {run_id}, transaction_id {transaction_id}: '{tts_text_to_speak}'")
+                tts_payload = {"text": tts_text_to_speak, "exaggeration": 0.5}
+                ack_received = False
                 
-                tts_event_payload = {"transaction_id": transaction_id, "text_spoken": tts_text, "status": "success", "audio_length_bytes": len(tts_http_response.content), "orchestrator_run_id": run_id}
-                await event_bus.publish("hermes.assessment.spoken", json.dumps(tts_event_payload))
-                logger.info(f"Published 'hermes.assessment.spoken' for tx {transaction_id} (run_id {run_id})")
+                try:
+                    # 2. Trigger TTS Synthesis via /speak Endpoint
+                    tts_http_response = requests.post("http://localhost:8000/speak", json=tts_payload, timeout=30) # Removed headers={"Accept": "audio/wav"} as we don't consume audio here
+                    tts_http_response.raise_for_status()
+                    logger.info(f"TTS request successful for run_id {run_id}, transaction_id {transaction_id}.")
 
-            except requests.exceptions.RequestException as e_tts_req:
-                tts_error_msg = f"TTS request failed for run_id {run_id}: {e_tts_req}"
-                logger.error(tts_error_msg)
-                state["error"] = f"{state.get('error', '')} {tts_error_msg}".strip()
-            except Exception as e_tts_other:
-                tts_error_msg = f"Unexpected error in TTS processing for run_id {run_id}"
-                logger.exception(tts_error_msg) # Log with stack trace
-                state["error"] = f"{state.get('error', '')} {tts_error_msg}: {e_tts_other}".strip()
+                    # 3. Await Acknowledgement via Redis
+                    ack_channel_name = f"tts.acknowledged.{transaction_id}"
+                    pubsub = event_bus.redis_client.pubsub()
+                    
+                    try:
+                        await pubsub.subscribe(ack_channel_name)
+                        logger.info(f"Run_id {run_id}, transaction_id {transaction_id}: Subscribed to Redis channel '{ack_channel_name}' for TTS acknowledgement.")
+                        
+                        # Wait for a message
+                        while True: # Loop to get message with timeout
+                            message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=30.0) # 30s timeout
+                            if message:
+                                logger.info(f"Run_id {run_id}, transaction_id {transaction_id}: Received TTS acknowledgement: {message['data']}")
+                                ack_received = True
+                                break # Exit loop once message is received
+                            else: # Timeout occurred
+                                logger.warning(f"Run_id {run_id}, transaction_id {transaction_id}: Timeout waiting for TTS acknowledgement on '{ack_channel_name}'.")
+                                break # Exit loop on timeout
+                    except Exception as e_redis_sub:
+                        logger.error(f"Run_id {run_id}, transaction_id {transaction_id}: Error during Redis subscribe/listen for TTS ack: {e_redis_sub}")
+                        state["error"] = f"{state.get('error', '')} TTS Redis Ack Error: {e_redis_sub}".strip()
+                    finally:
+                        if pubsub:
+                            try:
+                                await pubsub.unsubscribe(ack_channel_name)
+                                logger.info(f"Run_id {run_id}, transaction_id {transaction_id}: Unsubscribed from '{ack_channel_name}'.")
+                                await pubsub.close() # Close the pubsub connection object
+                            except Exception as e_pubsub_close:
+                                logger.error(f"Run_id {run_id}, transaction_id {transaction_id}: Error closing pubsub for TTS ack: {e_pubsub_close}")
+                                
+                    # 5. Event Publishing (hermes.assessment.spoken) - only if ack_received
+                    if ack_received:
+                        tts_event_payload = {
+                            "transaction_id": transaction_id, 
+                            "text_spoken": tts_text_to_speak, 
+                            "status": "success_acknowledged", 
+                            "orchestrator_run_id": run_id
+                        }
+                        await event_bus.publish("hermes.assessment.spoken", json.dumps(tts_event_payload))
+                        logger.info(f"Published 'hermes.assessment.spoken' for tx {transaction_id} (run_id {run_id}) after acknowledgement.")
+
+                        # 4. Set last_speak_ms Redis Key - only if ack_received
+                        last_speak_key = f"last_speak_ms.{transaction_id}"
+                        current_time_ms = int(time.time() * 1000)
+                        try:
+                            await event_bus.redis_client.set(last_speak_key, current_time_ms, ex=86400) # 86400 seconds = 24 hours
+                            logger.info(f"Run_id {run_id}, transaction_id {transaction_id}: Successfully set Redis key '{last_speak_key}' to {current_time_ms}.")
+                        except Exception as e_redis_set:
+                            logger.error(f"Run_id {run_id}, transaction_id {transaction_id}: Failed to set Redis key '{last_speak_key}': {e_redis_set}")
+                            state["error"] = f"{state.get('error', '')} Redis Set Error for last_speak_ms: {e_redis_set}".strip()
+                    else: # ack_received is False
+                         logger.warning(f"Run_id {run_id}, transaction_id {transaction_id}: TTS acknowledgement not received. Skipping 'hermes.assessment.spoken' event and 'last_speak_ms' key setting.")
+
+
+                except requests.exceptions.RequestException as e_tts_req:
+                    tts_error_msg = f"TTS request failed for run_id {run_id}, transaction_id {transaction_id}: {e_tts_req}"
+                    logger.error(tts_error_msg)
+                    state["error"] = f"{state.get('error', '')} {tts_error_msg}".strip()
+                except Exception as e_tts_other:
+                    tts_error_msg = f"Unexpected error in TTS processing for run_id {run_id}, transaction_id {transaction_id}"
+                    logger.exception(tts_error_msg) 
+                    state["error"] = f"{state.get('error', '')} {tts_error_msg}: {e_tts_other}".strip()
+        else:
+            if not (hermes_assessment_text and isinstance(hermes_assessment_text, str) and hermes_assessment_text.strip()):
+                 logger.info(f"Run_id {run_id}: No valid hermes_assessment_text. Skipping TTS processing.")
     
     except RedisError as e_redis:
         error_message = f"RedisError during event publishing for run_id {run_id}"
