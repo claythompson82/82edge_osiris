@@ -1,0 +1,48 @@
+name: Avatar Services Smoke Tests
+
+on:
+  push:
+    branches: [ main, feature/* ] # Trigger on pushes to main and feature branches
+    paths: # Trigger also if changes are in relevant avatar or docker paths
+      - 'docker/musetalk/**'
+      - 'tests/smoke_test_musetalk.sh'
+      - '.github/workflows/ci-avatar-smoke.yaml'
+  pull_request:
+    branches: [ main ] # Trigger on PRs targeting main
+    paths:
+      - 'docker/musetalk/**'
+      - 'tests/smoke_test_musetalk.sh'
+      - '.github/workflows/ci-avatar-smoke.yaml'
+
+jobs:
+  musetalk-docker-smoke-test:
+    runs-on: ubuntu-latest # Assuming a Linux environment with Docker and GPU access
+                           # May need a self-hosted runner for GPU access, or adjust for CPU-only if feasible short-term for basic checks
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU (for multi-platform builds, if needed - optional)
+        uses: docker/setup-qemu-action@v3
+        # This is useful if you ever build for ARM, etc. Not strictly needed for amd64 on amd64.
+
+      - name: Set up Docker Buildx (advanced builder, good practice)
+        uses: docker/setup-buildx-action@v3
+
+      # It's good practice to ensure the CI runner has necessary tools.
+      # For self-hosted runners, these might be pre-installed.
+      # For GitHub-hosted runners, they might need to be installed.
+      - name: Install test dependencies (ImageMagick, SoX, FFmpeg/ffprobe)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick sox ffmpeg
+
+      - name: Make smoke test script executable
+        run: chmod +x ./tests/smoke_test_musetalk.sh
+
+      - name: Run MuseTalk Docker Smoke Test
+        run: ./tests/smoke_test_musetalk.sh
+        env:
+          # Pass any necessary environment variables to the script if needed
+          # Example: DOCKER_BUILDKIT: 1 # (already good practice with buildx)
+          CI: true # To let the script know it's running in CI, if it has CI-specific logic
