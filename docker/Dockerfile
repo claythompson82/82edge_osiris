@@ -29,6 +29,10 @@ RUN pip3 install --no-cache-dir \
     onnxruntime-gpu \
     onnxruntime-extensions
 
+# Copy application code
+COPY ../common /app/common
+COPY ../llm_sidecar /app/llm_sidecar
+
 # Copy scripts
 COPY ./scripts /app/scripts
 

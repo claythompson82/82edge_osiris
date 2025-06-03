@@ -22,22 +22,14 @@ RUN pip install --upgrade -r /tmp/requirements.txt -c /tmp/constraints.txt
 ARG HF_TOKEN
 ENV HF_TOKEN=${HF_TOKEN}
 
-# Download Chatterbox model
-RUN mkdir -p /models/tts/chatterbox && \
-    huggingface-cli download ResembleAI/Chatterbox --local-dir /models/tts/chatterbox --local-dir-use-symlinks False
-
 # Set up the working directory
 WORKDIR /app
 
-# Create a simple server using FastAPI
-COPY ./server.py /app/server.py
+# Copy application code
+COPY common /app/common
+COPY osiris_policy /app/osiris_policy
+COPY advisor /app/advisor # Added as osiris_policy/orchestrator.py imports from advisor
+COPY llm_sidecar /app/llm_sidecar # Added as osiris_policy/orchestrator.py imports from llm_sidecar for EventBus and db
 
-# Expose the necessary port for the API
-EXPOSE 8000
-
-# Copy VRAM Watchdog script into container and make it executable
-COPY ./scripts/vram_watchdog.sh /usr/local/bin/vram_watchdog.sh
-RUN chmod +x /usr/local/bin/vram_watchdog.sh
-
-# Command to run the server
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000"]
+# Command to run the orchestrator
+CMD ["python", "-m", "osiris_policy.orchestrator"]
