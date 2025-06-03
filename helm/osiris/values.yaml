@@ -53,6 +53,7 @@ orchestrator:
     SENTRY_DSN: ""
     SENTRY_ENV: "development"
     SENTRY_TRACES_SAMPLE_RATE: "0.2"
+    OTEL_EXPORTER_OTLP_ENDPOINT: ""
 
 # LLM-Sidecar specific values
 llmSidecar:
@@ -92,6 +93,7 @@ llmSidecar:
     SENTRY_DSN: ""
     SENTRY_ENV: "development"
     SENTRY_TRACES_SAMPLE_RATE: "0.2"
+    OTEL_EXPORTER_OTLP_ENDPOINT: ""
 
 # AZR Planner Configuration
 azrPlanner:

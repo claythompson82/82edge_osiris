@@ -17,6 +17,7 @@ from llm_sidecar.db import log_run, OrchestratorRunLog
 from advisor.risk_gate import accept as risk_gate_accept, log_decision as log_risk_advice, AdviceLog, init_advice_table
 import datetime
 
+from common.otel_init import init_otel
 
 # Configure basic logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -629,6 +630,7 @@ async def process_workflow_run(graph_app: StateGraph, initial_state: WorkflowSta
 
 # --- CLI ---
 async def main_async(args):
+    init_otel() # Initialize OpenTelemetry
     # Build the graph application once
     graph_app = build_graph()
 

@@ -23,3 +23,6 @@ trl
 uvicorn[standard]==0.27.1
 sentry-sdk
 pylint>=2.17.0,<3.0
+opentelemetry-instrumentation-fastapi
+opentelemetry-instrumentation-logging
+opentelemetry-exporter-otlp-proto-http
