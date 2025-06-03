@@ -51,13 +51,17 @@ jobs:
       - name: Install Python dependencies
         run: |
           # requirements.txt is handled by osiris-setup
-          python -m pip install --upgrade pip # Good practice to keep pip updated
-          if [ -f requirements-ml.txt ]; then
-            echo "Installing requirements-ml.txt..."
-            python -m pip install -r requirements-ml.txt
+          echo "Installing lancedb, redis, pandas with CPU constraints if applicable..."
+          PIP_INSTALL_OPTIONS=""
+          if [ -f constraints_cpu.txt ]; then
+            echo "Found constraints_cpu.txt, using it and PyTorch CPU index for additional packages."
+            PIP_INSTALL_OPTIONS="-c constraints_cpu.txt --extra-index-url https://download.pytorch.org/whl/cpu"
+          elif [ -f constraints.txt ]; then
+            echo "Found constraints.txt, using it for additional packages."
+            PIP_INSTALL_OPTIONS="-c constraints.txt"
           fi
-          echo "Installing lancedb, redis, pandas..."
-          python -m pip install lancedb redis pandas
+          echo "Executing: python -m pip install lancedb redis pandas $PIP_INSTALL_OPTIONS"
+          python -m pip install lancedb redis pandas $PIP_INSTALL_OPTIONS
 
       - name: Create LanceDB data directory
         run: mkdir -p ${{ env.LANCEDB_URI }} # Create ./lancedb_data
