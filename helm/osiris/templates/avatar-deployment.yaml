@@ -1,0 +1,73 @@
+{{- if .Values.avatar.enabled -}}
+apiVersion: {{ include "osiris.deployment.apiVersion" . }}
+kind: Deployment
+metadata:
+  name: {{ include "osiris.fullname" . }}-avatar
+  labels:
+    {{- include "osiris.labels" . | nindent 4 }}
+    app.kubernetes.io/component: avatar
+spec:
+  replicas: {{ .Values.avatar.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "osiris.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: avatar
+  template:
+    metadata:
+      labels:
+        {{- include "osiris.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: avatar
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "osiris.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: avatar
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.avatar.image.repository }}:{{ .Values.avatar.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.avatar.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.avatar.service.port }}
+              protocol: TCP
+          # livenessProbe:
+          #   httpGet:
+          #     path: /healthz # Assuming a health check endpoint
+          #     port: http
+          # readinessProbe:
+          #   httpGet:
+          #     path: /readyz # Assuming a readiness endpoint
+          #     port: http
+          resources:
+            {{- toYaml .Values.avatar.resources | nindent 12 }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "osiris.fullname" . }}-avatar-config
+                optional: true # Make configmap optional for now
+          {{- with .Values.avatar.config }}
+          env:
+            {{- range $key, $value := . }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          {{- end }}
+      nodeSelector:
+        {{- if .Values.avatar.useTrt }}
+        nvidia.com/gpu.present: "true"
+        {{- else if .Values.avatar.nodeSelector }}
+        {{- toYaml .Values.avatar.nodeSelector | nindent 8 }}
+        {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

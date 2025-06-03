@@ -1,0 +1,13 @@
+{{- if and .Values.avatar.enabled .Values.avatar.config -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "osiris.fullname" . }}-avatar-config
+  labels:
+    {{- include "osiris.labels" . | nindent 4 }}
+    app.kubernetes.io/component: avatar
+data:
+  {{- range $key, $value := .Values.avatar.config }}
+  {{ $key }}: {{ $value | quote }}
+  {{- end }}
+{{- end }}
