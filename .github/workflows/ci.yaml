@@ -30,10 +30,15 @@ jobs:
           install-requirements: 'false' # This job primarily deals with Docker, Python deps are in the image
           system-packages: 'jq docker-compose' # Ensure these are available if scripts in the job use them
 
-      - name: Build llm-sidecar Docker image
-        run: |
-          docker compose -f docker/compose.yaml build llm-sidecar
-          echo "Image build complete."
+      - name: Build llm-sidecar Docker image via reusable workflow
+        uses: ./.github/workflows/docker_build.yml
+        with:
+          image_name: 'llm-sidecar'
+          # image_tag: 'latest' # Default is 'latest', so optional unless different tag needed
+          dockerfile: 'docker/Dockerfile'
+          context: 'docker'
+          push_image: false
+          # build_args: 'TORCH_VERSION=${{ env.TORCH_VERSION }}' # Add if Dockerfile uses ARG TORCH_VERSION
 
       - name: Run llm-sidecar container
         run: |
