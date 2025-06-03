@@ -30,11 +30,15 @@ jobs:
           path: ~/.cache/pip
           key: ${{ runner.os }}-torch-${{ env.TORCH_VERSION }}
 
-      - name: Build Docker image
-        run: |
-          docker build -t osiris-ci-app .
-        # Note: If CI=true is a build-time argument that changes the image, use:
-        # docker build --build-arg CI=true -t osiris-ci-app .
+      - name: Build osiris-ci-app Docker image via reusable workflow
+        uses: ./.github/workflows/docker_build.yml
+        with:
+          image_name: 'osiris-ci-app'
+          # image_tag: 'latest' # Default is 'latest'
+          dockerfile: './Dockerfile' # Assumes Dockerfile in the root of the repository
+          context: '.' # Build context is the root of the repository
+          build_args: 'CI=true' # Pass the CI=true build argument
+          push_image: false
 
       - name: Run Docker container
         run: |

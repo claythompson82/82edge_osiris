@@ -39,10 +39,15 @@ jobs:
           echo "Listing installed packages:"
           pip list
 
-      - name: Build side-car Docker image
-        run: |
-          docker build -t llm_sidecar:latest -f docker/Dockerfile .
-          echo "Side-car Docker image built successfully."
+      - name: Build llm_sidecar Docker image via reusable workflow
+        uses: ./.github/workflows/docker_build.yml
+        with:
+          image_name: 'llm_sidecar'
+          image_tag: 'latest' # Explicitly 'latest' as in the original command
+          dockerfile: 'docker/Dockerfile' # Path from repo root
+          context: '.' # Build context is the repo root
+          push_image: false
+          # build_args: '' # No specific build_args mentioned
 
       - name: Make fine-tuning script executable
         run: chmod +x scripts/nightly_qlora.sh

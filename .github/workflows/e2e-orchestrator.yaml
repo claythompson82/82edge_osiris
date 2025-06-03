@@ -53,12 +53,16 @@ jobs:
           echo "Installing fakeredis..."
           python -m pip install fakeredis[pyaio]
 
-      - name: Build Docker Image for LLM Sidecar
-        run: |
-          docker compose -f docker/compose.yaml build llm-sidecar
-        # Add environment variables if build needs them (e.g. for pulling models from private repos)
-        # env:
-        #   HF_TOKEN: ${{ secrets.HF_TOKEN }} # Example
+      - name: Build llm-sidecar Docker image via reusable workflow
+        uses: ./.github/workflows/docker_build.yml
+        with:
+          image_name: 'llm-sidecar'
+          # image_tag: 'latest' # Default
+          dockerfile: 'docker/Dockerfile' # Path from repo root
+          context: 'docker' # Path from repo root
+          push_image: false
+          # build_args: '' # If HF_TOKEN is an ARG in Dockerfile, it might be picked from env if set
+          # For explicit secret build args, reusable workflow might need updates or use build-args with secrets.
 
       - name: Run LLM Sidecar Docker Container
         run: |

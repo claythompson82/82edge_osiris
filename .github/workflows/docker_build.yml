@@ -1,0 +1,103 @@
+name: Reusable Docker Build and Push
+
+on:
+  workflow_call:
+    inputs:
+      image_name:
+        description: 'Name of the Docker image (e.g., llm-sidecar, osiris-ci-app)'
+        required: true
+        type: string
+      image_tag:
+        description: 'Tag for the Docker image'
+        required: false
+        type: string
+        default: 'latest'
+      dockerfile:
+        description: 'Path to the Dockerfile (e.g., ./Dockerfile, docker/Dockerfile)'
+        required: true
+        type: string
+      context:
+        description: 'Build context path (e.g., ., docker/)'
+        required: true
+        type: string
+      build_args:
+        description: 'Build arguments as a comma-separated list of key=value pairs (e.g., CI=true,VERSION=1.0)'
+        required: false
+        type: string
+      push_image:
+        description: 'Whether to push the image to the registry'
+        required: false
+        type: boolean
+        default: false
+      registry_user:
+        description: 'Username for Docker registry (required if push_image is true)'
+        required: false
+        type: string
+      registry_password:
+        description: 'Password or token for Docker registry (required if push_image is true)'
+        required: false
+        type: string
+    secrets:
+      REGISTRY_USER_SECRET:
+        description: 'User for registry from secrets, if registry_user input is not set directly'
+        required: false
+      REGISTRY_PASSWORD_SECRET:
+        description: 'Password for registry from secrets, if registry_password input is not set directly'
+        required: false
+    outputs:
+      image_digest:
+        description: 'The digest of the built and pushed image'
+        value: ${{ steps.docker_build_push.outputs.digest }}
+      image_metadata:
+        description: 'Metadata from the build'
+        value: ${{ steps.docker_build_push.outputs.metadata }}
+
+jobs:
+  build_and_push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Registry
+        if: inputs.push_image == true
+        uses: docker/login-action@v3
+        with:
+          username: ${{ inputs.registry_user || secrets.REGISTRY_USER_SECRET }}
+          password: ${{ inputs.registry_password || secrets.REGISTRY_PASSWORD_SECRET }}
+
+      - name: Convert build_args string to array
+        id: build_args_array
+        # Docker build-push action expects build-args as a multiline string or array.
+        # Here we convert comma-separated string to a newline-separated string for the action.
+        run: |
+          if [ -n "${{ inputs.build_args }}" ]; then
+            echo "args=$(echo "${{ inputs.build_args }}" | tr ',' '
+')" >> $GITHUB_OUTPUT
+          else
+            echo "args=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build and Push Docker Image
+        id: docker_build_push
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerfile }}
+          push: ${{ inputs.push_image }}
+          tags: ${{ inputs.image_name }}:${{ inputs.image_tag }}
+          build-args: ${{ steps.build_args_array.outputs.args }}
+          # platforms: 'linux/amd64,linux/arm64' # Example: for multi-platform, add as input if needed
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Logout from Docker Registry
+        if: always() && inputs.push_image == true # Ensure logout even if build fails
+        run: docker logout
