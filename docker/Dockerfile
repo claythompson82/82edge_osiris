@@ -9,13 +9,18 @@ RUN apt-get update && \
     apt-get install -y python3 python3-pip git && \
     rm -rf /var/lib/apt/lists/*
 
+# Copy constraints file for torch installation
+COPY constraints.txt /tmp/constraints.txt
+
+# Install torch using constraints
+RUN pip3 install --no-cache-dir torch -c /tmp/constraints.txt
+
 # Install necessary dependencies for running models
 # Pinning versions for compatibility
 RUN pip3 install --no-cache-dir \
     auto-gptq==0.7.1 \
     transformers==4.38.2 \
     optimum[onnxruntime-gpu]==1.19.0 \
-    torch==2.1.0 \
     fastapi==0.109.2 \
     uvicorn==0.27.1 \
     sentencepiece==0.1.99 \

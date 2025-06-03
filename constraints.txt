@@ -1,1 +1,2 @@
 chatterbox-tts @ git+https://github.com/resemble-ai/chatterbox.git@1cf682e#egg=chatterbox-tts
+torch==2.2.2+cu121
