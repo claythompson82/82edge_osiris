@@ -1,0 +1,19 @@
+{{- if .Values.avatar.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "osiris.fullname" . }}-avatar
+  labels:
+    {{- include "osiris.labels" . | nindent 4 }}
+    app.kubernetes.io/component: avatar
+spec:
+  type: {{ .Values.avatar.service.type }}
+  ports:
+    - port: {{ .Values.avatar.service.port }}
+      targetPort: http # Corresponds to the containerPort name in the deployment
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "osiris.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: avatar
+{{- end }}

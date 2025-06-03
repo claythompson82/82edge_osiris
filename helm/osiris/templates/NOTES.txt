@@ -1,7 +1,7 @@
 1. Get the application URL by running these commands:
-  {{- if .Values.orchestrator.service.type == "LoadBalancer" }}
+  {{- if eq .Values.orchestrator.service.type "LoadBalancer" }}
   export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "osiris.fullname" . }}-orchestrator -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-  {{- else if .Values.orchestrator.service.type == "NodePort" }}
+  {{- else if eq .Values.orchestrator.service.type "NodePort" }}
   export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "osiris.fullname" . }}-orchestrator)
   export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
   export SERVICE_IP=$NODE_IP
@@ -13,12 +13,46 @@
 
   echo "Osiris Orchestrator URL: http://$SERVICE_IP:{{ .Values.orchestrator.service.port }}"
 
-  {{- if .Values.llmSidecar.service.type == "LoadBalancer" }}
+  {{- if eq .Values.llmSidecar.service.type "LoadBalancer" }}
   export LLM_SIDECAR_SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "osiris.fullname" . }}-llm-sidecar -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
   echo "Osiris LLM Sidecar URL: http://$LLM_SIDECAR_SERVICE_IP:{{ .Values.llmSidecar.service.port }}"
   {{- end }}
 
-  {{- if .Values.redis.service.type == "LoadBalancer" }}
+  {{- if eq .Values.redis.service.type "LoadBalancer" }}
   export REDIS_SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "osiris.fullname" . }}-redis -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
   echo "Osiris Redis URL: http://$REDIS_SERVICE_IP:{{ .Values.redis.service.port }}"
   {{- end }}
+
+
+{{- if .Values.avatar.enabled }}
+## Avatar Deployment
+Avatar worker has been enabled.
+
+{{- if eq .Values.avatar.service.type "ClusterIP" }}
+You can access the avatar service within the cluster at:
+  {{ include "osiris.fullname" . }}-avatar:{{ .Values.avatar.service.port }}
+{{- end }}
+
+{{- if .Values.avatar.useTrt }}
+Avatar is configured to run with TRT optimizations, targeting a GPU node.
+{{- else if .Values.avatar.nodeSelector }}
+{{- $gpuSelector := pluck "nvidia.com/gpu.present" .Values.avatar.nodeSelector }}
+{{- if $gpuSelector }}
+Avatar is configured with a nodeSelector that includes 'nvidia.com/gpu.present', likely targeting a GPU node.
+Node Selector:
+{{ toYaml .Values.avatar.nodeSelector | indent 2 }}
+{{- else if not (empty .Values.avatar.nodeSelector) }}
+Avatar is configured with the following nodeSelector:
+{{ toYaml .Values.avatar.nodeSelector | indent 2 }}
+{{- else }}
+Avatar is not specifically configured to run on GPU nodes via 'useTrt' or 'nvidia.com/gpu.present' in nodeSelector.
+{{- end }}
+{{- else }}
+Avatar is not specifically configured to run on GPU nodes via 'useTrt' or 'nvidia.com/gpu.present' in nodeSelector.
+{{- end }}
+
+For more details, check the deployment:
+  kubectl get deployment {{ include "osiris.fullname" . }}-avatar -n {{ .Release.Namespace }}
+And the service:
+  kubectl get service {{ include "osiris.fullname" . }}-avatar -n {{ .Release.Namespace }}
+{{- end }}

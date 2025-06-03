@@ -133,3 +133,31 @@ global: {}
 prometheus:
   rules:
     create: true # Set to true to deploy the PrometheusRule custom resource
+
+# Avatar specific values
+avatar:
+  enabled: false
+  image:
+    repository: your-repo/avatar-worker # Placeholder
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  useTrt: false
+  service:
+    type: ClusterIP
+    port: 8080 # Default avatar port, confirm if different
+  # nodeSelector for GPU assignment, e.g.
+  # nodeSelector:
+  #   nvidia.com/gpu.present: "true"
+  nodeSelector: {}
+  resources: {}
+  # Example for GPU:
+  #   limits:
+  #     cpu: "2"
+  #     memory: "8Gi"
+  #     nvidia.com/gpu: 1 # Requesting 1 GPU
+  #   requests:
+  #     cpu: "1"
+  #     memory: "4Gi"
+  #     nvidia.com/gpu: 1 # Requesting 1 GPU
+  replicaCount: 1
+  config: {} # Placeholder for avatar-specific configurations
