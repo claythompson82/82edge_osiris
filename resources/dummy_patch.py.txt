@@ -1,0 +1,5 @@
+# Dummy patch content from resources/dummy_patch.py.txt
+def new_patched_function():
+    print("This function was added by a dummy patch.")
+
+# End of dummy patch

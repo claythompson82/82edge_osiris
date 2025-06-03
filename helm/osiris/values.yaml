@@ -93,6 +93,22 @@ llmSidecar:
     SENTRY_ENV: "development"
     SENTRY_TRACES_SAMPLE_RATE: "0.2"
 
+# AZR Planner Configuration
+azrPlanner:
+  enabled: false
+  replicaCount: 1
+  image:
+    repository: osiris/azr-planner # Adjust if you have a different image naming scheme
+    pullPolicy: IfNotPresent
+    tag: "latest" # Or specific version
+  service:
+    type: ClusterIP
+    port: 8001
+  # resources: {}
+  # nodeSelector: {}
+  # tolerations: []
+  # affinity: {}
+
 # Redis specific values
 redis:
   name: redis

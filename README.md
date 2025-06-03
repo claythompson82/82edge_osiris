@@ -350,3 +350,70 @@ Here are some common issues and potential solutions:
         ```
         Without a volume, data written to `/app/lancedb_data` will be lost when the container stops.
     *   **Automatic Table Creation**: The system is designed to check for tables on startup (`init_db()` in `llm_sidecar/db.py`) and create them if they are missing. So, a "Table not found" error might appear on a fresh start if data is not persisted, but tables should be created automatically. If errors persist, it might indicate issues with write permissions to the LanceDB data directory or deeper configuration problems.
+
+---
+
+## DGM Kernel (`dgm_kernel`)
+
+The Darwin Gödel Machine (DGM) Kernel is a component responsible for automated self-improvement of the system's policies or strategies. It operates in a meta-loop:
+1.  Fetches recent performance traces.
+2.  Proposes a code patch to potentially improve performance (currently uses a dummy patch).
+3.  Verifies the patch using a combination of a `proofable_reward` function and a Pylint score (currently uses stubs for both).
+4.  If verified, applies the patch and reloads the affected module.
+5.  Monitors rewards and can roll back patches if performance degrades.
+
+### DGM Flow Diagram
+
+![DGM Flow v0.1](docs/img/dgm_flow_v0.1.svg)
+
+### Running DGM Kernel
+
+The DGM Kernel meta-loop can be run as a standalone process:
+
+```bash
+python -m dgm_kernel.meta_loop
+```
+
+To run the loop for a single iteration (e.g., for testing):
+
+```bash
+python -m dgm_kernel.meta_loop --once
+```
+
+### Environment Variables (DGM Kernel)
+
+*   `REDIS_HOST`: Hostname for the Redis instance (defaults to 'redis' in code).
+*   `REDIS_PORT`: Port for the Redis instance (defaults to 6379 in code).
+*(Note: Currently, no other specific environment variables are required beyond what Redis client might pick up by default, as Redis connection is hardcoded in `meta_loop.py`.)*
+
+---
+
+## AZR Planner Service (`services/azr_planner`)
+
+The AZR (Automated Zero-shot Reward) Planner Service is a stub microservice intended to provide planning capabilities. Currently, it exposes a single endpoint that returns a "No Operation" (NOP) patch.
+
+### Running AZR Planner Service
+
+**Using Docker Compose:**
+
+The service is defined in `docker/compose.yaml` and can be started with:
+
+```bash
+docker compose -f docker/compose.yaml up azr_planner
+```
+It will be available on port 8001 by default.
+
+**Using Helm (Kubernetes):**
+
+The AZR Planner service can be enabled in the Osiris Helm chart by setting `azrPlanner.enabled` to `true` in your `values.yaml` file or via `--set azrPlanner.enabled=true` during `helm install/upgrade`.
+
+```yaml
+# Example values.yaml snippet
+azrPlanner:
+  enabled: true
+  # ... other configuration ...
+```
+
+### Environment Variables (AZR Planner)
+
+*   *(No specific environment variables are currently defined or used by the stub service beyond standard Uvicorn/FastAPI configurations.)*
