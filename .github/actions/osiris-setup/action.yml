@@ -60,8 +60,16 @@ runs:
       run: |
         python -m pip install --upgrade pip
         if [ -f requirements.txt ]; then
-          echo "Installing dependencies from requirements.txt"
-          pip install -r requirements.txt
+          PIP_INSTALL_OPTIONS=""
+          if [ -f constraints_cpu.txt ]; then
+            echo "Found constraints_cpu.txt, using it and PyTorch CPU index for requirements.txt."
+            PIP_INSTALL_OPTIONS="-c constraints_cpu.txt --extra-index-url https://download.pytorch.org/whl/cpu"
+          elif [ -f constraints.txt ]; then
+            echo "Found constraints.txt, using it for requirements.txt."
+            PIP_INSTALL_OPTIONS="-c constraints.txt"
+          fi
+          echo "Executing: pip install -r requirements.txt $PIP_INSTALL_OPTIONS"
+          pip install -r requirements.txt $PIP_INSTALL_OPTIONS
         else
           echo "requirements.txt not found, skipping pip install."
         fi
