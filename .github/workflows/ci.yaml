@@ -9,9 +9,17 @@ on:
 jobs:
   build-and-test-llm-sidecar:
     runs-on: ubuntu-latest
+    env:
+      TORCH_VERSION: "2.2.2+cu121"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-torch-${{ env.TORCH_VERSION }}
 
       - name: Osiris Setup
         uses: ./.github/actions/osiris-setup
@@ -91,9 +99,17 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-and-test-llm-sidecar # Optional: make it run after the docker tests, or run in parallel by removing this line
     name: Python Unit Tests
+    env:
+      TORCH_VERSION: "2.2.2+cu121"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-torch-${{ env.TORCH_VERSION }}
 
       - name: Osiris Setup
         uses: ./.github/actions/osiris-setup

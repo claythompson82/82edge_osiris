@@ -10,6 +10,8 @@ jobs:
   build-and-test-audio:
     runs-on: ubuntu-latest
     timeout-minutes: 6
+    env:
+      TORCH_VERSION: "2.2.2+cu121"
 
     steps:
       - name: Checkout repository
@@ -21,6 +23,12 @@ jobs:
           install-requirements: 'false' # This job builds its own Docker image
           install-poetry: 'false'
           system-packages: '' # No extra system packages seem to be needed by the workflow steps themselves
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-torch-${{ env.TORCH_VERSION }}
 
       - name: Build Docker image
         run: |
