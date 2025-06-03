@@ -1,0 +1,4 @@
+
+# ignore compiled artifacts
+__pycache__/
+*.pyc
