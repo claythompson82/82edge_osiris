@@ -10,6 +10,7 @@ jobs:
   chaos_test:
     runs-on: ubuntu-latest
     env:
+      TORCH_VERSION: "2.2.2+cu121"
       CHAOS_MODE: "1"
       PYTHONUNBUFFERED: "1"
       LANCEDB_URI: "./lancedb_data" # Path used by orchestrator and sidecar if they read this env var
@@ -33,6 +34,12 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-torch-${{ env.TORCH_VERSION }}
 
       - name: Osiris Setup
         uses: ./.github/actions/osiris-setup

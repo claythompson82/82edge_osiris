@@ -11,10 +11,18 @@ on:
 jobs:
   smoke-test:
     runs-on: ubuntu-latest
+    env:
+      TORCH_VERSION: "2.2.2+cu121"
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-torch-${{ env.TORCH_VERSION }}
 
       - name: Osiris Setup
         uses: ./.github/actions/osiris-setup

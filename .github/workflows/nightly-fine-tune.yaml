@@ -10,9 +10,17 @@ jobs:
   nightly-fine-tune:
     runs-on: ubuntu-latest
     name: Nightly Phi-3 QLoRA Fine-tuning
+    env:
+      TORCH_VERSION: "2.2.2+cu121"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-torch-${{ env.TORCH_VERSION }}
 
       - name: Osiris Setup
         uses: ./.github/actions/osiris-setup
