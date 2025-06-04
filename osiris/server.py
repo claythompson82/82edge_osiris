@@ -113,6 +113,10 @@ app = FastAPI()
 if ENABLE_METRICS:
     Instrumentator().instrument(app).expose(app)
 init_otel(app)  # Initialize OpenTelemetry with the FastAPI app instance
+if os.getenv("ENABLE_METRICS", "false").lower() == "true":
+    from prometheus_fastapi_instrumentator import Instrumentator
+
+    Instrumentator().instrument(app).expose(app)
 event_bus = EventBus(redis_url="redis://localhost:6379/0")  # Global EventBus instance
 logger = logging.getLogger(__name__)  # For event handler logging
 
