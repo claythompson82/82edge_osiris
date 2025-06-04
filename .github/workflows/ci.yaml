@@ -6,6 +6,19 @@ name: CI
     branches: ["main"]
   pull_request:
     branches: ["main"]
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      enable-obs-tests:
+        description: "Run observability tests"
+        required: false
+        default: "false"
+
+env:
+  ENABLE_OBS_TESTS: ${{ github.event_name == 'schedule' ||
+    (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+    (github.event_name == 'workflow_dispatch' && github.event.inputs.enable-obs-tests == 'true') }}
 
 jobs:
   lint:
@@ -39,7 +52,7 @@ jobs:
         run: pre-commit run --all-files
 
   obs-smoke:
-    if: github.event_name == 'pull_request'
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.event.inputs.enable-obs-tests == 'true') }}
     needs: lint
     runs-on: ubuntu-latest
     steps:
