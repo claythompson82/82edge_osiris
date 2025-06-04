@@ -1,0 +1,49 @@
+{{- if .Values.observability.grafana.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "osiris.fullname" . }}-grafana-dashboard-core
+  labels:
+    {{- include "osiris.labels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+  annotations:
+    grafana_dashboard: "1"
+data:
+  core.json: |-
+    {
+      "title": "Osiris Core Metrics",
+      "uid": "osiris-core",
+      "schemaVersion": 37,
+      "version": 1,
+      "panels": [
+        {
+          "type": "timeseries",
+          "title": "CPU Usage",
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [{"expr": "avg(rate(container_cpu_usage_seconds_total[5m]))", "refId": "A"}],
+          "gridPos": {"h": 6, "w": 12, "x": 0, "y": 0}
+        },
+        {
+          "type": "timeseries",
+          "title": "Memory Usage",
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [{"expr": "avg(container_memory_usage_bytes)", "refId": "A"}],
+          "gridPos": {"h": 6, "w": 12, "x": 12, "y": 0}
+        },
+        {
+          "type": "timeseries",
+          "title": "GPU VRAM Usage",
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [{"expr": "dcgm_fb_used_bytes / dcgm_fb_total_bytes * 100", "refId": "A"}],
+          "gridPos": {"h": 6, "w": 12, "x": 0, "y": 6}
+        },
+        {
+          "type": "timeseries",
+          "title": "Inference Latency (p95)",
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [{"expr": "histogram_quantile(0.95, sum(rate(inference_latency_seconds_bucket[5m])) by (le))", "refId": "A"}],
+          "gridPos": {"h": 6, "w": 12, "x": 12, "y": 6}
+        }
+      ]
+    }
+{{- end }}

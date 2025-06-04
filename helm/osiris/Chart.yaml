@@ -12,7 +12,13 @@ version: 0.1.0
 
 # This is the version number of the application being deployed. This version number should be
 # incremented each time you make changes to the application.
-appVersion: "1.0.0"
+appVersion: "1.1.0"
+
+dependencies:
+  - name: grafana
+    version: 9.3.0
+    repository: https://charts.bitnami.com/bitnami
+    condition: observability.grafana.enabled
 
 keywords:
   - osiris

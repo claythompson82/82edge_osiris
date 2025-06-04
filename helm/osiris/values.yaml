@@ -157,6 +157,12 @@ musetalk:
 prometheus:
   rules:
     create: true # Set to true to deploy the PrometheusRule custom resource
+observability:
+  grafana:
+    enabled: false
+    prometheus:
+      url: http://prometheus-server
+
 
 # Avatar specific values
 avatar:
