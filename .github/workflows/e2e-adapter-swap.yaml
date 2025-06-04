@@ -1,0 +1,97 @@
+name: E2E Adapter Swap Smoke Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TORCH_VERSION: "2.2.2+cu121"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-torch-${{ env.TORCH_VERSION }}
+
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/buildx
+          key: ${{ runner.os }}-buildx-${{ hashFiles('docker/Dockerfile') }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Osiris Setup
+        uses: ./.github/actions/osiris-setup
+        with:
+          python-version: '3.11'
+          install-requirements: 'false'
+          system-packages: 'docker-compose'
+
+      - name: Build llm-sidecar Docker image
+        uses: ./.github/actions/docker_build
+        with:
+          image_name: 'llm-sidecar'
+          dockerfile: 'docker/Dockerfile'
+          context: 'docker'
+          push_image: false
+
+      - name: Start llm-sidecar
+        run: |
+          docker compose -f docker/compose.yaml up -d llm-sidecar
+
+      - name: Wait for llm-sidecar service
+        run: |
+          echo "Waiting for llm-sidecar service to be running..."
+          MAX_RETRIES=18
+          RETRY_COUNT=0
+          SERVICE_NAME="llm-sidecar"
+          until [ $RETRY_COUNT -ge $MAX_RETRIES ]; do
+            RUNNING_SERVICES=$(docker compose -f docker/compose.yaml ps --services --filter "status=running")
+            if echo "${RUNNING_SERVICES}" | grep -Eq "^${SERVICE_NAME}$"; then
+              echo "$SERVICE_NAME service is running."
+              break
+            fi
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            FORMATTED_RUNNING_SERVICES=$(echo "${RUNNING_SERVICES}" | tr '\n' ' ' | sed 's/ $//')
+            echo "Waiting for $SERVICE_NAME... Attempt $RETRY_COUNT/$MAX_RETRIES. Currently running: [${FORMATTED_RUNNING_SERVICES:-none}]"
+            sleep 10
+          done
+          if [ $RETRY_COUNT -ge $MAX_RETRIES ]; then
+            echo "Service $SERVICE_NAME did not start in time."
+            exit 1
+          fi
+
+      - name: Run adapter swap smoke test
+        run: bash tests/smoke_test_adapter_swap.sh
+
+      - name: Dump service logs on failure
+        if: failure()
+        run: |
+          docker ps -a
+          echo "---- llm-sidecar logs ----"
+          docker compose -f docker/compose.yaml logs llm-sidecar > llm-sidecar-logs.txt || echo "llm-sidecar logs not available" > llm-sidecar-logs.txt
+
+      - name: Upload service logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: service-logs-e2e-adapter-swap
+          path: llm-sidecar-logs.txt
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Stop Docker container
+        if: always()
+        run: |
+          docker compose -f docker/compose.yaml down

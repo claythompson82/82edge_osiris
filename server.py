@@ -599,7 +599,19 @@ async def submit_phi3_feedback(feedback: FeedbackItem): # Renamed from submit_fe
         logger.error(f"Error submitting feedback or publishing event for {feedback.transaction_id}: {e}")
         # Decide if you want to raise HTTPException for client, or just log
         # For now, let's return an error message to the client as well.
+
         raise HTTPException(status_code=500, detail=f"Failed to process feedback: {e}")
+
+
+@app.post("/adapters/swap", tags=["meta"])
+async def swap_phi3_adapter():
+    """Reload the Phi-3 model and adapter from disk."""
+    try:
+        load_phi3_model()
+        return {"status": "ok", "phi3_adapter_date": phi3_adapter_date}
+    except Exception as e:
+        logger.error(f"Error swapping Phi-3 adapter: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to swap adapter: {e}")
 
 
 @app.get("/health", tags=["meta"])
