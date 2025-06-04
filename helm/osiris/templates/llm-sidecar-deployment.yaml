@@ -50,6 +50,11 @@ spec:
           - configMapRef:
               name: {{ include "osiris.fullname" . }}-llm-sidecar-config
           {{- end }}
+          {{- if .Values.otel.enabled }}
+          env:
+            - name: OTEL_SERVICE_NAME
+              value: llm-sidecar
+          {{- end }}
       # GPU Node Selector: Only apply if .Values.llmSidecar.nodeSelector is not empty
       {{- with .Values.llmSidecar.nodeSelector }}
       nodeSelector:

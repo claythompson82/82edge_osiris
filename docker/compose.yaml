@@ -20,13 +20,16 @@ services:
       # Adjust the source path if your server.py is located elsewhere relative to the compose file
       - ../server.py:/app/server.py
       # It's good practice to also ensure the model directory is correctly handled.
-      # If the model is downloaded during the build (as in the Dockerfile), 
+      # If the model is downloaded during the build (as in the Dockerfile),
       # it will be part of the image. If you were to download it at runtime or
       # want to persist it outside the container, a volume mount here would be necessary.
       # For now, relying on the Dockerfile's RUN git clone ... is sufficient.
       # Example for persisting model outside container (optional, and adjust path):
       # - ./hermes-model-data:/app/hermes-model
       - ./lancedb_data:/app/lancedb_data
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
+      - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-llm-sidecar}
     # Adding a healthcheck can be useful for production, but is optional here
     # healthcheck:
     #   test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
