@@ -94,8 +94,12 @@ runs:
         build-args: ${{ steps.build_args_array.outputs.args }}
         # TORCH_VERSION should be inherited from the calling workflow's env if Dockerfile uses ARG and RUN env.
         # platforms: 'linux/amd64,linux/arm64' # Example: for multi-platform, add as input if needed
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+        cache-from: |
+          type=gha
+          type=local,src=~/.cache/buildx
+        cache-to: |
+          type=gha,mode=max
+          type=local,dest=~/.cache/buildx,mode=max
 
     - name: Logout from Docker Registry
       if: always() && inputs.push_image == true && inputs.registry_user != '' && inputs.registry_password != ''
