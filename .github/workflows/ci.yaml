@@ -18,6 +18,8 @@ name: CI
 env:
   ENABLE_OBS_TESTS: ${{ github.event_name == 'schedule' ||
     (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+    (github.event_name == 'pull_request' &&
+      contains(github.event.pull_request.labels.*.name, 'run-observability-tests')) ||
     (github.event_name == 'workflow_dispatch' && github.event.inputs.enable-obs-tests == 'true') }}
 
 jobs:
@@ -52,7 +54,7 @@ jobs:
         run: pre-commit run --all-files
 
   obs-smoke:
-    if: ${{ github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.event.inputs.enable-obs-tests == 'true') }}
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-observability-tests')) || (github.event_name == 'workflow_dispatch' && github.event.inputs.enable-obs-tests == 'true') }}
     needs: lint
     runs-on: ubuntu-latest
     steps:
@@ -216,3 +218,44 @@ jobs:
       - name: Run Pytest
         run: |
           pytest tests/test_harvest.py
+
+  observability-tests:
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-observability-tests')) || (github.event_name == 'workflow_dispatch' && github.event.inputs.enable-obs-tests == 'true') }}
+    needs: python-tests
+    runs-on: ubuntu-latest
+    env:
+      TORCH_VERSION: "2.2.2+cu121"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-torch-${{ env.TORCH_VERSION }}
+
+      - name: Osiris Setup
+        uses: ./.github/actions/osiris-setup
+        with:
+          python-version: '3.10'
+          install-requirements: 'true'
+          system-packages: 'docker-compose'
+
+      - name: Run observability tests
+        run: |
+          pytest tests/test_traces.py
+
+      - name: Collect OTEL logs
+        if: failure()
+        run: |
+          docker compose -f tests/docker-compose.traces.yaml logs otel-collector > otel-collector.log || true
+
+      - name: Upload OTEL logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: otel-trace-dump
+          path: otel-collector.log
+          if-no-files-found: ignore
+          retention-days: 7
