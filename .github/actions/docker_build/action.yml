@@ -59,6 +59,9 @@ runs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    - name: Install test requirements
+      run: pip install -r requirements-tests.txt
+
     - name: Install package + test deps
       shell: bash
       run: |
