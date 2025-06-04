@@ -5,7 +5,7 @@ import sys
 import types
 
 _base = importlib.import_module("llm_sidecar")
-__all__ = getattr(_base, "__all__", dir(_base))
+__all__ = list(getattr(_base, "__all__", dir(_base)))
 __path__ = getattr(_base, "__path__", [])
 
 def __getattr__(name):
@@ -22,5 +22,8 @@ _server_module.__getattr__ = _server_getattr
 sys.modules[__name__ + ".server"] = _server_module
 
 __version__ = "0.2.1"
+
+from .server import SidecarServer
+__all__.append("SidecarServer")
 
 from . import *
