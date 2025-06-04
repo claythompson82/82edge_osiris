@@ -7,6 +7,7 @@ from typing import Callable, Awaitable, Union
 
 logger = logging.getLogger(__name__)
 
+
 class EventBus:
     def __init__(self, redis_url: str):
         """
@@ -20,7 +21,9 @@ class EventBus:
         # if a fakeredis server instance is passed to from_url.
         # However, to make it explicit for testing, we might pass "redis://localhost:6379/0"
         # or similar, which from_url can parse.
-        self.redis_client: redis.Redis = redis.from_url(redis_url, decode_responses=True)
+        self.redis_client: redis.Redis = redis.from_url(
+            redis_url, decode_responses=True
+        )
         self.pubsub: PubSub = None
         self._stop_event = asyncio.Event()
         self._listener_tasks = []
@@ -54,7 +57,9 @@ class EventBus:
         except RedisError as e:
             logger.error(f"Error publishing event '{event_type}': {e}")
 
-    async def subscribe(self, event_type: str, handler: Callable[[str], Awaitable[None]]):
+    async def subscribe(
+        self, event_type: str, handler: Callable[[str], Awaitable[None]]
+    ):
         """
         Subscribes to an event type and registers a handler.
 
@@ -75,26 +80,28 @@ class EventBus:
             while not self._stop_event.is_set():
                 try:
                     # listen() will block until a message is received or a timeout occurs
-                    message = await self.pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+                    message = await self.pubsub.get_message(
+                        ignore_subscribe_messages=True, timeout=1.0
+                    )
                     if message and message["type"] == "message":
-                        logger.debug(f"Received message on '{event_type}': {message['data']}")
+                        logger.debug(
+                            f"Received message on '{event_type}': {message['data']}"
+                        )
                         await handler(message["data"])
                     # Allow other tasks to run
                     await asyncio.sleep(0.01)
                 except RedisError as e:
                     logger.error(f"Redis error in listener for '{event_type}': {e}")
                     # Potentially try to resubscribe or handle error
-                    await asyncio.sleep(5) # Wait before retrying or breaking
+                    await asyncio.sleep(5)  # Wait before retrying or breaking
                 except Exception as e:
                     logger.error(f"Exception in handler for '{event_type}': {e}")
                     # Don't let handler exceptions kill the listener loop
             logger.debug(f"Listener task for event type '{event_type}' stopped.")
 
-
         task = asyncio.create_task(_listener())
         self._listener_tasks.append(task)
         logger.debug(f"Listener task for {event_type} added.")
-
 
     async def close(self):
         """
@@ -105,15 +112,17 @@ class EventBus:
 
         if self.pubsub:
             try:
-                await self.pubsub.unsubscribe() # Unsubscribe from all channels
-                await self.pubsub.close() # Close the pubsub connection
+                await self.pubsub.unsubscribe()  # Unsubscribe from all channels
+                await self.pubsub.close()  # Close the pubsub connection
                 logger.debug("PubSub connection closed.")
             except RedisError as e:
                 logger.error(f"Error closing PubSub: {e}")
-        
+
         # Wait for all listener tasks to complete
         if self._listener_tasks:
-            logger.debug(f"Waiting for {len(self._listener_tasks)} listener tasks to complete...")
+            logger.debug(
+                f"Waiting for {len(self._listener_tasks)} listener tasks to complete..."
+            )
             await asyncio.gather(*self._listener_tasks, return_exceptions=True)
             logger.debug("All listener tasks completed.")
             self._listener_tasks = []
@@ -128,13 +137,14 @@ class EventBus:
 
         logger.info("EventBus closed.")
 
+
 # Example Usage (optional, for testing purposes)
 async def main():
     logging.basicConfig(level=logging.DEBUG)
-    
+
     # For testing with a real Redis instance (ensure Redis is running)
     # redis_url = "redis://localhost:6379/0"
-    
+
     # For testing with fakeredis
     # You would typically do this in your test setup:
     # from fakeredis import aioredis
@@ -147,25 +157,33 @@ async def main():
     try:
         # Attempt to use fakeredis if available, otherwise skip this example part
         from fakeredis import aioredis as fake_aioredis
+
         # The from_url method in fakeredis.aioredis.FakeRedis doesn't always behave like real redis.asyncio
         # It's often better to create a FakeServer and then FakeRedis.from_server(server)
         # However, for simplicity here, we'll try to make it work with from_url
         # Note: fakeredis needs a URL, even if it's a dummy one for some configurations.
         event_bus = EventBus("redis://fakeredis")
         # Manually replace the client if from_url didn't create a FakeRedis instance as expected for some versions
-        if not hasattr(event_bus.redis_client, 'is_fake'): # Heuristic to check if it's a fake client
-             server = fake_aioredis.FakeServer()
-             event_bus.redis_client = fake_aioredis.FakeRedis.from_server(server, decode_responses=True)
+        if not hasattr(
+            event_bus.redis_client, "is_fake"
+        ):  # Heuristic to check if it's a fake client
+            server = fake_aioredis.FakeServer()
+            event_bus.redis_client = fake_aioredis.FakeRedis.from_server(
+                server, decode_responses=True
+            )
 
     except ImportError:
-        logger.warning("fakeredis not installed. Skipping example usage with fakeredis.")
+        logger.warning(
+            "fakeredis not installed. Skipping example usage with fakeredis."
+        )
         # Fallback to real Redis if fakeredis is not available and you have a real Redis server
         # For CI/testing, you'd typically ensure fakeredis is installed.
         # redis_url = "redis://localhost:6379/0" # Uncomment if you have Redis running
         # event_bus = EventBus(redis_url) # Remove this line if you don't want to connect to real Redis
-        logger.info("Example usage requires either fakeredis or a running Redis instance.")
+        logger.info(
+            "Example usage requires either fakeredis or a running Redis instance."
+        )
         return
-
 
     async def example_handler_1(payload: str):
         logger.info(f"Handler 1 received: {payload}")
@@ -175,7 +193,6 @@ async def main():
         # Simulate some work
         await asyncio.sleep(0.5)
         logger.info(f"Handler 2 finished processing: {payload}")
-
 
     try:
         await event_bus.connect()
@@ -189,7 +206,7 @@ async def main():
         await event_bus.publish("test_event", "Second message for test_event")
 
         # Keep the event bus running for a bit to process messages
-        await asyncio.sleep(2) 
+        await asyncio.sleep(2)
 
     except RedisError as e:
         logger.error(f"Main example encountered a Redis error: {e}")
@@ -197,6 +214,7 @@ async def main():
         logger.error(f"An unexpected error occurred in main example: {e}")
     finally:
         await event_bus.close()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

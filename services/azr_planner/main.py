@@ -1,7 +1,8 @@
 from fastapi import FastAPI
-import os # For path manipulation to read the file
+import os  # For path manipulation to read the file
 
 app = FastAPI(title="AZR Planner Service")
+
 
 @app.get("/plan")
 async def get_plan():
@@ -22,7 +23,9 @@ async def get_plan():
             # We want to reach <repo_root>/resources/dummy_patch.py.txt
             current_script_dir = os.path.dirname(os.path.abspath(__file__))
             # Path from /app/services/azr_planner/main.py to /app/resources/dummy_patch.py.txt
-            file_path = os.path.join(current_script_dir, "..", "..", "resources", "dummy_patch.py.txt")
+            file_path = os.path.join(
+                current_script_dir, "..", "..", "resources", "dummy_patch.py.txt"
+            )
 
             # Normalize path (e.g., resolves '..')
             normalized_file_path = os.path.normpath(file_path)
@@ -39,8 +42,10 @@ async def get_plan():
 
     return {"patch": patch_content, "priority": priority}
 
+
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
+
 
 # To run directly for local testing: uvicorn services.azr_planner.main:app --reload --port 8001

@@ -71,7 +71,6 @@ def main():
     # Updated where_clause to include schema_version
     where_clause = f"feedback_type = 'correction' AND corrected_proposal IS NOT NULL AND corrected_proposal != '' AND \"when\" >= {cutoff_timestamp_ns} AND schema_version = '{args.schema_version}'"
 
-
     query = table.search().where(where_clause)
 
     if args.max is not None:

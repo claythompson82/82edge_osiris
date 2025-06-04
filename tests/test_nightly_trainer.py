@@ -2,6 +2,7 @@ import subprocess
 import os
 import sys
 
+
 def test_driver_marketforge_task_set():
     """
     Tests that running driver.py with --task-set marketforge logs "trainer loop stub".
@@ -23,7 +24,7 @@ def test_driver_marketforge_task_set():
             capture_output=True,
             text=True,
             check=False,  # Check manually to provide better error message
-            timeout=10 # Add a timeout to prevent tests from hanging
+            timeout=10,  # Add a timeout to prevent tests from hanging
         )
 
         # Combine stdout and stderr for checking the log message
@@ -34,16 +35,23 @@ def test_driver_marketforge_task_set():
             print(f"Stdout:\n{process.stdout}")
             print(f"Stderr:\n{process.stderr}")
 
-        assert process.returncode == 0, f"Script exited with {process.returncode}, output: {output}"
-        assert "trainer loop stub" in output, f"'trainer loop stub' not found in output: {output}"
+        assert (
+            process.returncode == 0
+        ), f"Script exited with {process.returncode}, output: {output}"
+        assert (
+            "trainer loop stub" in output
+        ), f"'trainer loop stub' not found in output: {output}"
 
     except FileNotFoundError:
         # This might happen if sys.executable or driver_script_path is incorrect
-        assert False, f"Could not find Python interpreter or script. Searched for script at {driver_script_path}"
+        assert (
+            False
+        ), f"Could not find Python interpreter or script. Searched for script at {driver_script_path}"
     except subprocess.TimeoutExpired:
         assert False, "Running the driver script timed out."
     except Exception as e:
         assert False, f"An unexpected error occurred: {e}"
+
 
 if __name__ == "__main__":
     # This allows running the test directly e.g., python tests/test_nightly_trainer.py

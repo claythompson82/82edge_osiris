@@ -11,7 +11,10 @@ from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 
 from osiris.server import FeedbackItem, submit_phi3_feedback  # For tests 1 and 2
-from osiris.llm_sidecar.db import append_feedback as actual_append_feedback  # For test 2, to mock its module
+from osiris.llm_sidecar.db import (
+    append_feedback as actual_append_feedback,
+)  # For test 2, to mock its module
+
 # For tests 3 and 4 (script testing)
 from osiris.scripts.harvest_feedback import main as harvest_main
 from osiris.scripts.migrate_feedback import main as migrate_main
@@ -21,21 +24,23 @@ from osiris.scripts.migrate_feedback import (
 
 # --- Helper Pydantic Models for Test Data & Table Creation ---
 
+
 class FeedbackSchemaWithVersionForHarvestTest(BaseModel):
     transaction_id: str
-    timestamp: str # ISO format
+    timestamp: str  # ISO format
     feedback_type: str
     feedback_content: Any
     corrected_proposal: Optional[Dict[str, Any]] = None
     schema_version: str
-    when: int # Nanosecond timestamp, as used by harvest_feedback.py query
+    when: int  # Nanosecond timestamp, as used by harvest_feedback.py query
+
 
 class FeedbackSchemaOldForMigrationTest(BaseModel):
     # Schema for data *before* migration, some fields might be missing if not required by old system
     # The migration script itself uses `FeedbackSchemaWithVersion` to create the *new* table.
     # This model is for defining the data we *insert* into the table *before* migration.
     transaction_id: str
-    timestamp: str # ISO format
+    timestamp: str  # ISO format
     feedback_type: str
     feedback_content: Any
     corrected_proposal: Optional[Dict[str, Any]] = None
@@ -48,6 +53,7 @@ class FeedbackSchemaOldForMigrationTest(BaseModel):
 
 # --- Test Functions ---
 
+
 @pytest.mark.asyncio
 async def test_feedback_item_model_defaults_version():
     """Tests that FeedbackItem model defaults schema_version and allows override."""
@@ -55,7 +61,7 @@ async def test_feedback_item_model_defaults_version():
         transaction_id=str(uuid.uuid4()),
         feedback_type="rating",
         feedback_content={"score": 5},
-        timestamp=datetime.datetime.now(datetime.timezone.utc).isoformat()
+        timestamp=datetime.datetime.now(datetime.timezone.utc).isoformat(),
     )
     assert item1.schema_version == "1.0"
 
@@ -64,9 +70,10 @@ async def test_feedback_item_model_defaults_version():
         feedback_type="qualitative_comment",
         feedback_content={"comment": "Great!"},
         timestamp=datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        schema_version="custom_test_version"
+        schema_version="custom_test_version",
     )
     assert item2.schema_version == "custom_test_version"
+
 
 @pytest.mark.asyncio
 async def test_submit_phi3_feedback_stores_version(mocker):
@@ -79,7 +86,7 @@ async def test_submit_phi3_feedback_stores_version(mocker):
         transaction_id="tid1",
         feedback_type="correction",
         feedback_content="some content",
-        timestamp="ts1"
+        timestamp="ts1",
     )
     await submit_phi3_feedback(feedback_item_default)
     mocked_append.assert_called_once()
@@ -96,7 +103,7 @@ async def test_submit_phi3_feedback_stores_version(mocker):
         feedback_type="rating",
         feedback_content={"score": 1},
         timestamp="ts2",
-        schema_version="custom_v2"
+        schema_version="custom_v2",
     )
     await submit_phi3_feedback(feedback_item_custom)
     mocked_append.assert_called_once()
@@ -117,49 +124,95 @@ async def test_harvest_feedback_py_filters_by_version(tmp_path_factory, monkeypa
     # The harvest script queries 'when', so the table needs it.
     # It also expects corrected_proposal to be filterable.
     # The FeedbackSchemaWithVersionForHarvestTest is suitable here.
-    table_name = "phi3_feedback" # Script uses this name
+    table_name = "phi3_feedback"  # Script uses this name
 
     try:
-        table = db.create_table(table_name, schema=FeedbackSchemaWithVersionForHarvestTest, mode="overwrite")
+        table = db.create_table(
+            table_name, schema=FeedbackSchemaWithVersionForHarvestTest, mode="overwrite"
+        )
     except Exception as e:
         # Fallback for older lancedb that might not like schema on create_table with overwrite
         # or Pydantic schema directly. In that case, create then add with schema inference.
-        if table_name in db.table_names(): # Ensure clean state
+        if table_name in db.table_names():  # Ensure clean state
             db.drop_table(table_name)
         # LanceDB can infer schema from first batch of data if schema not passed or pydantic schema not directly usable
         # For test robustness, explicit schema is better. Assuming create_table with Pydantic schema works.
         # If not, this test would need adjustment for schema creation.
         # For now, let's assume it works.
-        print(f"Warning: Initial table creation with schema failed: {e}. This might affect test if schema not inferred correctly.")
+        print(
+            f"Warning: Initial table creation with schema failed: {e}. This might affect test if schema not inferred correctly."
+        )
         # If create_table with schema fails, one might need to create without schema and add data,
         # relying on LanceDB's schema inference, which is less robust for tests.
         # pytest.fail(f"LanceDB table creation with schema failed: {e}") # Option to fail fast
-        table = db.create_table(table_name, mode="overwrite") # Create without explicit Pydantic schema
+        table = db.create_table(
+            table_name, mode="overwrite"
+        )  # Create without explicit Pydantic schema
 
-
-    now_ns = int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1_000_000_000)
-    old_ns = int((datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=10)).timestamp() * 1_000_000_000)
+    now_ns = int(
+        datetime.datetime.now(datetime.timezone.utc).timestamp() * 1_000_000_000
+    )
+    old_ns = int(
+        (
+            datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=10)
+        ).timestamp()
+        * 1_000_000_000
+    )
 
     common_data = {
         "feedback_content": "test content",
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        "corrected_proposal": {"action": "adjust", "ticker": "TEST"}, # Must be non-empty for filter
+        "corrected_proposal": {
+            "action": "adjust",
+            "ticker": "TEST",
+        },  # Must be non-empty for filter
     }
 
     records_to_add = [
-        FeedbackSchemaWithVersionForHarvestTest(transaction_id="rec1_v1_correct_recent", **common_data, schema_version="1.0", feedback_type="correction", when=now_ns).model_dump(),
-        FeedbackSchemaWithVersionForHarvestTest(transaction_id="rec2_v0.9_correct_recent", **common_data, schema_version="0.9", feedback_type="correction", when=now_ns).model_dump(),
-        FeedbackSchemaWithVersionForHarvestTest(transaction_id="rec3_v1_other_recent", **common_data, schema_version="1.0", feedback_type="other_type", when=now_ns).model_dump(), # Filtered by type
-        FeedbackSchemaWithVersionForHarvestTest(transaction_id="rec4_v1_correct_old", **common_data, schema_version="1.0", feedback_type="correction", when=old_ns).model_dump(), # Filtered by date
-        FeedbackSchemaWithVersionForHarvestTest(transaction_id="rec5_v1.0.1_correct_recent", **common_data, schema_version="1.0.1", feedback_type="correction", when=now_ns).model_dump(), # Should not be picked by --schema-version "1.0"
+        FeedbackSchemaWithVersionForHarvestTest(
+            transaction_id="rec1_v1_correct_recent",
+            **common_data,
+            schema_version="1.0",
+            feedback_type="correction",
+            when=now_ns,
+        ).model_dump(),
+        FeedbackSchemaWithVersionForHarvestTest(
+            transaction_id="rec2_v0.9_correct_recent",
+            **common_data,
+            schema_version="0.9",
+            feedback_type="correction",
+            when=now_ns,
+        ).model_dump(),
+        FeedbackSchemaWithVersionForHarvestTest(
+            transaction_id="rec3_v1_other_recent",
+            **common_data,
+            schema_version="1.0",
+            feedback_type="other_type",
+            when=now_ns,
+        ).model_dump(),  # Filtered by type
+        FeedbackSchemaWithVersionForHarvestTest(
+            transaction_id="rec4_v1_correct_old",
+            **common_data,
+            schema_version="1.0",
+            feedback_type="correction",
+            when=old_ns,
+        ).model_dump(),  # Filtered by date
+        FeedbackSchemaWithVersionForHarvestTest(
+            transaction_id="rec5_v1.0.1_correct_recent",
+            **common_data,
+            schema_version="1.0.1",
+            feedback_type="correction",
+            when=now_ns,
+        ).model_dump(),  # Should not be picked by --schema-version "1.0"
     ]
     if records_to_add:
-         table.add(records_to_add)
+        table.add(records_to_add)
 
     # Monkeypatch lancedb.connect to use the temporary DB
     def mock_lancedb_connect(path):
-        assert str(path) == str(db_path) # Ensure script uses the path we expect
-        return lancedb.connect(path) # Connect to the actual temp path
+        assert str(path) == str(db_path)  # Ensure script uses the path we expect
+        return lancedb.connect(path)  # Connect to the actual temp path
+
     monkeypatch.setattr(lancedb, "connect", mock_lancedb_connect)
 
     # Monkeypatch sys.argv for harvest_feedback.py
@@ -167,9 +220,12 @@ async def test_harvest_feedback_py_filters_by_version(tmp_path_factory, monkeypa
     # Default feedback_type is 'correction' in the script's query
     test_argv = [
         "scripts/harvest_feedback.py",
-        "--days-back", "1",
-        "--schema-version", "1.0",
-        "--out", str(output_file),
+        "--days-back",
+        "1",
+        "--schema-version",
+        "1.0",
+        "--out",
+        str(output_file),
         # "--max", "10" # optional
     ]
     monkeypatch.setattr(sys, "argv", test_argv)
@@ -200,16 +256,17 @@ async def test_harvest_feedback_py_filters_by_version(tmp_path_factory, monkeypa
     found_rec1 = False
     for rec in harvested_records:
         response_data = json.loads(rec["response"])
-        if response_data == common_data["corrected_proposal"]: # Simple check
-             # To be more specific, we'd need to know which record's proposal this is.
-             # Since only one record is expected, this is okay.
-             # If we want to ensure it's from "rec1_v1_correct_recent", we'd need transaction_id
-             # in the output of harvest_feedback.py, which it doesn't currently do.
-             found_rec1 = True
-             break
+        if response_data == common_data["corrected_proposal"]:  # Simple check
+            # To be more specific, we'd need to know which record's proposal this is.
+            # Since only one record is expected, this is okay.
+            # If we want to ensure it's from "rec1_v1_correct_recent", we'd need transaction_id
+            # in the output of harvest_feedback.py, which it doesn't currently do.
+            found_rec1 = True
+            break
     assert found_rec1
 
     # Cleanup: tmp_path_factory handles automatic cleanup of db_path and output_file parent dir
+
 
 @pytest.mark.asyncio
 async def test_migrate_feedback_py_script(tmp_path_factory, monkeypatch):
@@ -218,7 +275,7 @@ async def test_migrate_feedback_py_script(tmp_path_factory, monkeypatch):
 
     # Connect to temporary DB
     db = lancedb.connect(db_path)
-    table_name = "phi3_feedback" # Script uses this name
+    table_name = "phi3_feedback"  # Script uses this name
 
     # For migration, we need to simulate data that *might* not have schema_version.
     # LanceDB can create schema from data. We'll add dicts.
@@ -232,23 +289,34 @@ async def test_migrate_feedback_py_script(tmp_path_factory, monkeypatch):
     # So 'when' will be carried over as an "extra" field if present in source.
     # Let's simplify and use data that matches `FeedbackSchemaOldForMigrationTest` more closely.
 
-    record_A_dict = { # Simulating old data, no schema_version
-        "transaction_id": "a", "timestamp": "ts_a", "feedback_type": "type_a",
-        "feedback_content": "content_a", "corrected_proposal": {"key": "val_a"}
+    record_A_dict = {  # Simulating old data, no schema_version
+        "transaction_id": "a",
+        "timestamp": "ts_a",
+        "feedback_type": "type_a",
+        "feedback_content": "content_a",
+        "corrected_proposal": {"key": "val_a"},
     }
-    record_B_dict = { # Simulating data that somehow already has a version (e.g. partial previous migration)
-        "transaction_id": "b", "timestamp": "ts_b", "feedback_type": "type_b",
-        "feedback_content": "content_b", "corrected_proposal": {"key": "val_b"}, "schema_version": "0.8" # Old version
+    record_B_dict = {  # Simulating data that somehow already has a version (e.g. partial previous migration)
+        "transaction_id": "b",
+        "timestamp": "ts_b",
+        "feedback_type": "type_b",
+        "feedback_content": "content_b",
+        "corrected_proposal": {"key": "val_b"},
+        "schema_version": "0.8",  # Old version
     }
-    record_C_dict = { # Simulating data that is already up-to-date
-        "transaction_id": "c", "timestamp": "ts_c", "feedback_type": "type_c",
-        "feedback_content": "content_c", "corrected_proposal": {"key": "val_c"}, "schema_version": "1.0"
+    record_C_dict = {  # Simulating data that is already up-to-date
+        "transaction_id": "c",
+        "timestamp": "ts_c",
+        "feedback_type": "type_c",
+        "feedback_content": "content_c",
+        "corrected_proposal": {"key": "val_c"},
+        "schema_version": "1.0",
     }
 
     # Create table and add initial data.
     # The schema of the initial table should allow for schema_version to be missing.
     # LanceDB will infer if no schema provided.
-    if table_name in db.table_names(): # Clean slate
+    if table_name in db.table_names():  # Clean slate
         db.drop_table(table_name)
 
     # We can create the table with the schema that the *migration script expects to write to*
@@ -262,29 +330,39 @@ async def test_migrate_feedback_py_script(tmp_path_factory, monkeypatch):
         feedback_type: str
         feedback_content: Any
         corrected_proposal: Optional[Dict[str, Any]] = None
-        schema_version: Optional[str] = None # Key for initial data
+        schema_version: Optional[str] = None  # Key for initial data
 
     try:
         # Create with a schema that allows schema_version to be None (or missing)
-        table = db.create_table(table_name, schema=TempSchemaForInitialData, mode="overwrite")
+        table = db.create_table(
+            table_name, schema=TempSchemaForInitialData, mode="overwrite"
+        )
         table.add([record_A_dict, record_B_dict, record_C_dict])
     except Exception as e:
         # Fallback if Pydantic schema with Optional doesn't work as expected on create
-        print(f"Warning: Initial table creation with TempSchemaForInitialData failed: {e}. Relying on schema inference.")
-        if table_name in db.table_names(): db.drop_table(table_name)
-        table = db.create_table(table_name, mode="overwrite") # No explicit schema
+        print(
+            f"Warning: Initial table creation with TempSchemaForInitialData failed: {e}. Relying on schema inference."
+        )
+        if table_name in db.table_names():
+            db.drop_table(table_name)
+        table = db.create_table(table_name, mode="overwrite")  # No explicit schema
         # Add data as dicts, LanceDB will infer types. `schema_version` might be missing.
         table.add([record_A_dict, record_B_dict, record_C_dict])
-
 
     # Monkeypatch lancedb.connect for the script
     def mock_lancedb_connect_migrate(path):
         assert str(path) == str(db_path)
-        return lancedb.connect(path) # Connect to the actual temp path
-    monkeypatch.setattr("osiris.scripts.migrate_feedback.lancedb.connect", mock_lancedb_connect_migrate)
-    # Also mock os.makedirs in migrate_feedback if it's there, to avoid issues with tmp_path
-    monkeypatch.setattr("osiris.scripts.migrate_feedback.os.makedirs", lambda path, exist_ok=False: None, raising=False)
+        return lancedb.connect(path)  # Connect to the actual temp path
 
+    monkeypatch.setattr(
+        "osiris.scripts.migrate_feedback.lancedb.connect", mock_lancedb_connect_migrate
+    )
+    # Also mock os.makedirs in migrate_feedback if it's there, to avoid issues with tmp_path
+    monkeypatch.setattr(
+        "osiris.scripts.migrate_feedback.os.makedirs",
+        lambda path, exist_ok=False: None,
+        raising=False,
+    )
 
     # Run the migration script's main function
     migrate_main()
@@ -296,7 +374,7 @@ async def test_migrate_feedback_py_script(tmp_path_factory, monkeypatch):
 
     found_a, found_b, found_c = False, False, False
     for record in results:
-        assert record.get("schema_version") == "1.0" # All should be updated
+        assert record.get("schema_version") == "1.0"  # All should be updated
         if record["transaction_id"] == "a":
             assert record["feedback_content"] == "content_a"
             found_a = True

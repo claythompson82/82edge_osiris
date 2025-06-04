@@ -4,7 +4,8 @@ from chatterbox import TTS
 import io
 import base64
 import asyncio
-from .event_bus import EventBus # Assuming event_bus.py is in the same directory
+from .event_bus import EventBus  # Assuming event_bus.py is in the same directory
+
 
 class ChatterboxTTS:
     def __init__(self, model_dir, device, event_bus: EventBus):
@@ -34,10 +35,12 @@ class ChatterboxTTS:
         # Publish to Redis
         if self.event_bus:
             try:
-                b64_audio_data = base64.b64encode(audio_bytes).decode('utf-8')
+                b64_audio_data = base64.b64encode(audio_bytes).decode("utf-8")
                 await self.event_bus.publish("audio.bytes", b64_audio_data)
-                print(f"[TTS] Published {len(audio_bytes)} bytes of audio to 'audio.bytes' (b64 encoded)")
+                print(
+                    f"[TTS] Published {len(audio_bytes)} bytes of audio to 'audio.bytes' (b64 encoded)"
+                )
             except Exception as e:
                 print(f"[TTS] Error publishing to Redis: {e}")
-        
+
         return audio_bytes

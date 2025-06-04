@@ -3,6 +3,7 @@ import os
 from pydantic import BaseModel
 from typing import Any, Optional, Dict, List
 
+
 # Define the target schema for the table, including schema_version
 class FeedbackSchemaWithVersion(BaseModel):
     transaction_id: str
@@ -12,14 +13,17 @@ class FeedbackSchemaWithVersion(BaseModel):
     corrected_proposal: Optional[Dict[str, Any]] = None
     schema_version: str
 
+
 def migrate_data():
     db_path = "/app/lancedb_data"
     original_table_name = "phi3_feedback"
     temp_table_name = "phi3_feedback_migrated"
-    
+
     processed_count = 0
 
-    print(f"Starting migration for table '{original_table_name}' in database '{db_path}'...")
+    print(
+        f"Starting migration for table '{original_table_name}' in database '{db_path}'..."
+    )
 
     try:
         db = lancedb.connect(db_path)
@@ -31,8 +35,12 @@ def migrate_data():
     try:
         original_table = db.open_table(original_table_name)
         print(f"Successfully opened original table '{original_table_name}'.")
-    except Exception as e: # LanceDB often raises generic Exception or OS-level errors like FileNotFoundError
-        print(f"Error: Original table '{original_table_name}' not found or could not be opened. {e}")
+    except (
+        Exception
+    ) as e:  # LanceDB often raises generic Exception or OS-level errors like FileNotFoundError
+        print(
+            f"Error: Original table '{original_table_name}' not found or could not be opened. {e}"
+        )
         print("Migration cannot proceed without the original table.")
         return
 
@@ -52,7 +60,7 @@ def migrate_data():
         if record_dict.get("schema_version") is None:
             record_dict["schema_version"] = "1.0"
         processed_records.append(record_dict)
-    
+
     processed_count = len(processed_records)
     print(f"Processed {processed_count} records. Added 'schema_version' where missing.")
 
@@ -73,7 +81,7 @@ def migrate_data():
         print(f"Error creating temporary table '{temp_table_name}'. {e}")
         # Attempt to clean up if records were processed but table creation failed
         if processed_count > 0 and temp_table_name in db.table_names():
-             db.drop_table(temp_table_name)
+            db.drop_table(temp_table_name)
         return
 
     # 6. Add all processed records to this temporary table
@@ -95,7 +103,9 @@ def migrate_data():
             db.drop_table(original_table_name)
             print(f"Deleted original table '{original_table_name}'.")
         else:
-            print(f"Original table '{original_table_name}' not found for deletion, perhaps already deleted or renamed.")
+            print(
+                f"Original table '{original_table_name}' not found for deletion, perhaps already deleted or renamed."
+            )
     except Exception as e:
         print(f"Error deleting original table '{original_table_name}'. {e}")
         # At this point, we have data in temp_table. Critical decision here.
@@ -105,17 +115,25 @@ def migrate_data():
         # If it exists and deletion fails, that's a more serious issue.
         return
 
-
     # 8. Rename the temporary table to the original table name
     try:
         db.rename_table(temp_table_name, original_table_name)
-        print(f"Renamed temporary table '{temp_table_name}' to '{original_table_name}'.")
+        print(
+            f"Renamed temporary table '{temp_table_name}' to '{original_table_name}'."
+        )
     except Exception as e:
-        print(f"Error renaming temporary table '{temp_table_name}' to '{original_table_name}'. {e}")
-        print(f"CRITICAL: Data is now in '{temp_table_name}'. Manual intervention may be required.")
+        print(
+            f"Error renaming temporary table '{temp_table_name}' to '{original_table_name}'. {e}"
+        )
+        print(
+            f"CRITICAL: Data is now in '{temp_table_name}'. Manual intervention may be required."
+        )
         return
 
-    print(f"Migration complete. {processed_count} records were processed and migrated to the new schema in '{original_table_name}'.")
+    print(
+        f"Migration complete. {processed_count} records were processed and migrated to the new schema in '{original_table_name}'."
+    )
+
 
 if __name__ == "__main__":
     # Ensure the lancedb_data directory exists, similar to db.py, for consistency if script is run standalone
@@ -124,5 +142,5 @@ if __name__ == "__main__":
     if not os.path.exists(db_dir):
         os.makedirs(db_dir)
         print(f"Created database directory: {db_dir}")
-    
+
     migrate_data()

@@ -1,11 +1,12 @@
 import pytest
 import tempfile
 import pathlib
-import importlib # For reloading the module
-import json # For fields that are stored as JSON strings
+import importlib  # For reloading the module
+import json  # For fields that are stored as JSON strings
 
 # Initial import of the module. Its state will be patched and reloaded.
 import llm_sidecar.db
+
 
 def test_db_initialization_and_operations(monkeypatch):
     """
@@ -16,8 +17,8 @@ def test_db_initialization_and_operations(monkeypatch):
         tmp_db_root = pathlib.Path(tmpdir_name)
 
         # Patch _tables and _db to ensure they are reset for the reloaded module
-        monkeypatch.setattr(llm_sidecar.db, '_tables', {})
-        monkeypatch.setattr(llm_sidecar.db, '_db', None)
+        monkeypatch.setattr(llm_sidecar.db, "_tables", {})
+        monkeypatch.setattr(llm_sidecar.db, "_db", None)
 
         # Keep a reference to the original lancedb.connect
         # This is assuming lancedb is an attribute of the llm_sidecar.db module
@@ -28,12 +29,11 @@ def test_db_initialization_and_operations(monkeypatch):
             # Force connection to the temporary directory
             return original_lancedb_connect(tmp_db_root, **kwargs)
 
-        monkeypatch.setattr(llm_sidecar.db.lancedb, 'connect', mock_lancedb_connect)
+        monkeypatch.setattr(llm_sidecar.db.lancedb, "connect", mock_lancedb_connect)
 
         # Also, ensure DB_ROOT in the module itself is set for any direct uses of it,
         # although the connect patch is the primary mechanism now.
-        monkeypatch.setattr(llm_sidecar.db, 'DB_ROOT', tmp_db_root)
-
+        monkeypatch.setattr(llm_sidecar.db, "DB_ROOT", tmp_db_root)
 
         # Reload the module. This will execute `_db = lancedb.connect(DB_ROOT)`
         # which will now call our mock_lancedb_connect.
@@ -42,12 +42,19 @@ def test_db_initialization_and_operations(monkeypatch):
 
         # 1. Assert that the three tables exist
         # Access _db via the reloaded module instance. It should be connected to tmp_db_root.
-        assert db_module._db.uri == str(tmp_db_root), \
-            f"Database connected to {db_module._db.uri} instead of {tmp_db_root}"
+        assert db_module._db.uri == str(
+            tmp_db_root
+        ), f"Database connected to {db_module._db.uri} instead of {tmp_db_root}"
         table_names = db_module._db.table_names()
-        assert "phi3_feedback" in table_names, f"Expected 'phi3_feedback' in {table_names}"
-        assert "orchestrator_runs" in table_names, f"Expected 'orchestrator_runs' in {table_names}"
-        assert "hermes_scores" in table_names, f"Expected 'hermes_scores' in {table_names}"
+        assert (
+            "phi3_feedback" in table_names
+        ), f"Expected 'phi3_feedback' in {table_names}"
+        assert (
+            "orchestrator_runs" in table_names
+        ), f"Expected 'orchestrator_runs' in {table_names}"
+        assert (
+            "hermes_scores" in table_names
+        ), f"Expected 'hermes_scores' in {table_names}"
 
         # 2. Create one sample Pydantic model instance for each schema
         # Access schemas via the reloaded module instance
@@ -63,14 +70,14 @@ def test_db_initialization_and_operations(monkeypatch):
             # run_id and timestamp will use defaults
             status="SUCCESS",
             final_output=json.dumps({"result": "Bootstrap test successful"}),
-            error_message=None
+            error_message=None,
         )
 
         hermes_score_sample = db_module.HermesScoreSchema(
-            run_id=orchestrator_run_sample.run_id, # Link to the created run
+            run_id=orchestrator_run_sample.run_id,  # Link to the created run
             # timestamp will use default
             score=0.95,
-            rationale="Bootstrap test rationale"
+            rationale="Bootstrap test rationale",
         )
 
         # 3. Add these sample rows
@@ -83,35 +90,44 @@ def test_db_initialization_and_operations(monkeypatch):
         # Access _tables via the reloaded module instance
 
         feedback_table = db_module._tables.get("phi3_feedback")
-        assert feedback_table is not None, "phi3_feedback table object not found in _tables"
+        assert (
+            feedback_table is not None
+        ), "phi3_feedback table object not found in _tables"
         assert feedback_table.count_rows() == 1
 
         orchestrator_runs_table = db_module._tables.get("orchestrator_runs")
-        assert orchestrator_runs_table is not None, "orchestrator_runs table object not found in _tables"
+        assert (
+            orchestrator_runs_table is not None
+        ), "orchestrator_runs table object not found in _tables"
         assert orchestrator_runs_table.count_rows() == 1
 
         hermes_scores_table = db_module._tables.get("hermes_scores")
-        assert hermes_scores_table is not None, "hermes_scores table object not found in _tables"
+        assert (
+            hermes_scores_table is not None
+        ), "hermes_scores table object not found in _tables"
         assert hermes_scores_table.count_rows() == 1
 
         # Verify data content (optional, but good for sanity check)
         retrieved_feedback = feedback_table.search().limit(1).to_list()
         assert len(retrieved_feedback) == 1
-        assert retrieved_feedback[0]['transaction_id'] == "txn_bootstrap_123"
+        assert retrieved_feedback[0]["transaction_id"] == "txn_bootstrap_123"
 
         retrieved_runs = orchestrator_runs_table.search().limit(1).to_list()
         assert len(retrieved_runs) == 1
-        assert retrieved_runs[0]['input_query'] == "What is bootstrap testing?"
-        assert json.loads(retrieved_runs[0]['final_output']) == {"result": "Bootstrap test successful"}
+        assert retrieved_runs[0]["input_query"] == "What is bootstrap testing?"
+        assert json.loads(retrieved_runs[0]["final_output"]) == {
+            "result": "Bootstrap test successful"
+        }
 
         retrieved_scores = hermes_scores_table.search().limit(1).to_list()
         assert len(retrieved_scores) == 1
-        assert retrieved_scores[0]['run_id'] == orchestrator_run_sample.run_id
+        assert retrieved_scores[0]["run_id"] == orchestrator_run_sample.run_id
 
         # Temporary directory tmpdir_name is automatically cleaned up.
         # Close the db connection from the reloaded module to release file locks.
-        if hasattr(db_module._db, 'close'):
-             db_module._db.close()
+        if hasattr(db_module._db, "close"):
+            db_module._db.close()
+
 
 # To ensure that the reloaded module's state doesn't interfere with other tests,
 # it might be good practice to restore the original module state if pytest doesn't fully isolate it.

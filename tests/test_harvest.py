@@ -202,12 +202,14 @@ def run_script_test_helper(db_path_for_script_to_use, output_file, script_args_l
     parsed_args_dict["out"] = output_file
 
     # Mock os.path.exists for the hardcoded DB path in the script
-    with patch("harvest_feedback.os.path.exists") as mock_path_exists, patch(
-        "harvest_feedback.lancedb.connect", side_effect=mock_lancedb_connect
-    ), patch.object(
-        argparse.ArgumentParser,
-        "parse_args",
-        return_value=argparse.Namespace(**parsed_args_dict),
+    with (
+        patch("harvest_feedback.os.path.exists") as mock_path_exists,
+        patch("harvest_feedback.lancedb.connect", side_effect=mock_lancedb_connect),
+        patch.object(
+            argparse.ArgumentParser,
+            "parse_args",
+            return_value=argparse.Namespace(**parsed_args_dict),
+        ),
     ):
 
         mock_path_exists.return_value = (

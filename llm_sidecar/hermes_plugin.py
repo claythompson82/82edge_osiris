@@ -1,12 +1,15 @@
 import torch
 from llm_sidecar.loader import get_hermes_model_and_tokenizer
 from typing import Optional, Dict, Any
-import re # For parsing the score
+import re  # For parsing the score
 
 # Determine device
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-def score_with_hermes(proposal_dict: Dict[str, Any], context: Optional[str] = None) -> float:
+
+def score_with_hermes(
+    proposal_dict: Dict[str, Any], context: Optional[str] = None
+) -> float:
     """
     Scores a given proposal using the Hermes model.
 
@@ -28,12 +31,14 @@ def score_with_hermes(proposal_dict: Dict[str, Any], context: Optional[str] = No
     prompt_parts = [
         "Rate the above trade idea from 0-to-10 where 10 = excellent risk-reward … Reply with just the number.",
         "Trade Idea:",
-        str(proposal_dict) # Convert dict to string for the prompt
+        str(proposal_dict),  # Convert dict to string for the prompt
     ]
 
     # Add context if provided
     if context:
-        prompt_parts.insert(1, f"Context: {context}") # Insert context before the trade idea
+        prompt_parts.insert(
+            1, f"Context: {context}"
+        )  # Insert context before the trade idea
 
     # The critique instruction from docs/quality_loop.md is:
     # "Rate the above trade idea from 0-to-10 where 10 = excellent risk-reward … Reply with just the number."
@@ -55,22 +60,29 @@ def score_with_hermes(proposal_dict: Dict[str, Any], context: Optional[str] = No
     )
 
     try:
-        inputs = tokenizer(final_prompt, return_tensors="pt", truncation=True, max_length=512).to(DEVICE) # Added truncation
+        inputs = tokenizer(
+            final_prompt, return_tensors="pt", truncation=True, max_length=512
+        ).to(
+            DEVICE
+        )  # Added truncation
 
         # Generate response
         # Using similar parameters as _generate_hermes_text in server.py
         # eos_token_id is important for stopping generation after the number.
         output_sequences = model.generate(
             **inputs,
-            max_new_tokens=10, # Score should be short
-            do_sample=False, # We want a deterministic score
+            max_new_tokens=10,  # Score should be short
+            do_sample=False,  # We want a deterministic score
             eos_token_id=tokenizer.eos_token_id,
-            pad_token_id=tokenizer.eos_token_id # common practice for models without a pad token
+            pad_token_id=tokenizer.eos_token_id,  # common practice for models without a pad token
         )
 
         # Decode the response
         # We only want the generated part, not the input prompt
-        response_text = tokenizer.decode(output_sequences[0][inputs['input_ids'].shape[-1]:], skip_special_tokens=True).strip()
+        response_text = tokenizer.decode(
+            output_sequences[0][inputs["input_ids"].shape[-1] :],
+            skip_special_tokens=True,
+        ).strip()
 
         # Extract the score (should be just a number)
         # Use regex to find the first number (integer or float) in the response
@@ -83,11 +95,11 @@ def score_with_hermes(proposal_dict: Dict[str, Any], context: Optional[str] = No
                 return normalized_score
             else:
                 print(f"Raw score {raw_score} is outside the 0-10 range.")
-                return -1.0 # Indicate scoring failure (invalid score range)
+                return -1.0  # Indicate scoring failure (invalid score range)
         else:
             print(f"Could not parse score from Hermes response: '{response_text}'")
             return -1.0  # Indicate scoring failure (parsing failed)
 
     except Exception as e:
         print(f"Error during Hermes model inference or score processing: {e}")
-        return -1.0 # Indicate scoring failure
+        return -1.0  # Indicate scoring failure

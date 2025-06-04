@@ -2,10 +2,10 @@ import asyncio
 import json
 import logging
 from pathlib import Path
-from unittest import mock # Python's built-in mock library
+from unittest import mock  # Python's built-in mock library
 
 import pytest
-import fakeredis # Needs to be installed: pip install fakeredis
+import fakeredis  # Needs to be installed: pip install fakeredis
 
 # Modules to be tested
 from dgm_kernel import meta_loop
@@ -14,13 +14,15 @@ from dgm_kernel import meta_loop
 logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(__name__)
 
+
 @pytest.fixture
 def mock_redis_server():
     # This fixture provides a fakeredis server instance if needed,
     # but often, the decorator is enough.
     server = fakeredis.FakeServer()
-    server.connected = True # Ensure it appears connected
+    server.connected = True  # Ensure it appears connected
     return server
+
 
 @pytest.fixture
 def fake_redis(mock_redis_server):
@@ -30,6 +32,7 @@ def fake_redis(mock_redis_server):
     # Ensure the connection is explicitly "established"
     r.ping()
     return r
+
 
 @pytest.fixture(autouse=True)
 def patch_redis_client(monkeypatch, fake_redis):
@@ -42,12 +45,14 @@ def patch_redis_client(monkeypatch, fake_redis):
 
 # --- Test Cases for fetch_recent_traces ---
 
+
 @pytest.mark.asyncio
 async def test_fetch_recent_traces_empty_queue(fake_redis):
     log.info("Testing fetch_recent_traces with an empty queue.")
     traces = await meta_loop.fetch_recent_traces(n=5)
     assert len(traces) == 0
     log.info("Test passed: fetch_recent_traces with empty queue returned 0 traces.")
+
 
 @pytest.mark.asyncio
 async def test_fetch_recent_traces_fetches_n_items(fake_redis):
@@ -70,6 +75,7 @@ async def test_fetch_recent_traces_fetches_n_items(fake_redis):
     assert fake_redis.llen(meta_loop.TRACE_QUEUE) == 3
     log.info("Test passed: fetch_recent_traces fetched N items correctly.")
 
+
 @pytest.mark.asyncio
 async def test_fetch_recent_traces_less_than_n_items_available(fake_redis):
     log.info("Testing fetch_recent_traces with less than N items available.")
@@ -84,42 +90,58 @@ async def test_fetch_recent_traces_less_than_n_items_available(fake_redis):
     assert fake_redis.llen(meta_loop.TRACE_QUEUE) == 0
     log.info("Test passed: fetch_recent_traces handled less than N items correctly.")
 
+
 @pytest.mark.asyncio
 async def test_fetch_recent_traces_json_decode_error(fake_redis, caplog):
     log.info("Testing fetch_recent_traces with a JSON decode error.")
-    fake_redis.lpush(meta_loop.TRACE_QUEUE, json.dumps({"id": 1, "data": "valid_trace"}))
+    fake_redis.lpush(
+        meta_loop.TRACE_QUEUE, json.dumps({"id": 1, "data": "valid_trace"})
+    )
     fake_redis.lpush(meta_loop.TRACE_QUEUE, "this_is_not_json")
-    fake_redis.lpush(meta_loop.TRACE_QUEUE, json.dumps({"id": 3, "data": "another_valid_trace"}))
+    fake_redis.lpush(
+        meta_loop.TRACE_QUEUE, json.dumps({"id": 3, "data": "another_valid_trace"})
+    )
 
     # We pushed 3 items, rpop will fetch in reverse order of lpush if we think of it as stack.
     # Or, if lpush = head, rpop = tail:
     # Pushed: {"id":3}, "not_json", {"id":1}  ( {"id":1} is at tail)
     # Fetched: {"id":1}, then "not_json" (error), then {"id":3}
 
-    caplog.clear() # Clear previous logs
+    caplog.clear()  # Clear previous logs
     with caplog.at_level(logging.ERROR):
         fetched_traces = await meta_loop.fetch_recent_traces(n=3)
 
-    assert len(fetched_traces) == 2 # Should skip the invalid one
-    assert fetched_traces[0]["id"] == 1 # from rpop
-    assert fetched_traces[1]["id"] == 3 # from rpop
+    assert len(fetched_traces) == 2  # Should skip the invalid one
+    assert fetched_traces[0]["id"] == 1  # from rpop
+    assert fetched_traces[1]["id"] == 3  # from rpop
 
-    assert any("Failed to decode JSON for trace: this_is_not_json" in message for message in caplog.messages)
+    assert any(
+        "Failed to decode JSON for trace: this_is_not_json" in message
+        for message in caplog.messages
+    )
     log.info("Test passed: fetch_recent_traces handled JSON decode error correctly.")
+
 
 # --- Placeholder for meta_loop tests ---
 # These will be more complex and require mocking generate_patch, _prove_patch, _apply_patch,
 # and llm_sidecar.reward.proofable_reward
 
+
 @pytest.mark.asyncio
-@mock.patch('dgm_kernel.meta_loop.generate_patch')
-@mock.patch('dgm_kernel.meta_loop._prove_patch')
-@mock.patch('dgm_kernel.meta_loop._apply_patch')
-@mock.patch('dgm_kernel.meta_loop.proofable_reward') # Path to proofable_reward
-@mock.patch('asyncio.sleep', return_value=None) # Mock sleep to speed up test
+@mock.patch("dgm_kernel.meta_loop.generate_patch")
+@mock.patch("dgm_kernel.meta_loop._prove_patch")
+@mock.patch("dgm_kernel.meta_loop._apply_patch")
+@mock.patch("dgm_kernel.meta_loop.proofable_reward")  # Path to proofable_reward
+@mock.patch("asyncio.sleep", return_value=None)  # Mock sleep to speed up test
 async def test_meta_loop_applies_good_patch(
-    self, mock_sleep, mock_proofable_reward, mock_apply_patch,
-    mock_prove_patch, mock_generate_patch, fake_redis, tmp_path
+    self,
+    mock_sleep,
+    mock_proofable_reward,
+    mock_apply_patch,
+    mock_prove_patch,
+    mock_generate_patch,
+    fake_redis,
+    tmp_path,
 ):
     log.info("Testing meta_loop applies a good patch.")
     # Setup:
@@ -145,7 +167,7 @@ async def test_meta_loop_applies_good_patch(
         "target": str(target_file_path),
         "before": initial_content,
         "after": initial_content + "# Patched by DGM\n",
-        "rationale": "Test rationale"
+        "rationale": "Test rationale",
     }
     mock_generate_patch.return_value = asyncio.Future()
     mock_generate_patch.return_value.set_result(test_patch)
@@ -157,7 +179,7 @@ async def test_meta_loop_applies_good_patch(
     mock_apply_patch.return_value = True
 
     # proofable_reward is synchronous
-    mock_proofable_reward.return_value = 1.0 # Positive reward
+    mock_proofable_reward.return_value = 1.0  # Positive reward
 
     # Run meta_loop for one iteration (or a controlled number)
     # We need to run it in a way that it can be cancelled after one cycle for the test
@@ -174,12 +196,14 @@ async def test_meta_loop_applies_good_patch(
     # To stop the loop after one iteration for testing:
     # Make generate_patch return None after the first call.
     async def generate_patch_side_effect(*args, **kwargs):
-        if mock_generate_patch.call_count == 1: # Corrected: use mock_generate_patch.call_count
+        if (
+            mock_generate_patch.call_count == 1
+        ):  # Corrected: use mock_generate_patch.call_count
             fut = asyncio.Future()
             fut.set_result(test_patch)
             return fut
         fut_none = asyncio.Future()
-        fut_none.set_result(None) # Stop loop after one successful patch cycle
+        fut_none.set_result(None)  # Stop loop after one successful patch cycle
         return fut_none
 
     mock_generate_patch.side_effect = generate_patch_side_effect
@@ -188,7 +212,7 @@ async def test_meta_loop_applies_good_patch(
     # Or, more robustly, run it as a task and cancel after a short delay.
     loop_task = asyncio.create_task(meta_loop.meta_loop())
     # Increased sleep slightly to ensure the full loop including mocked sub-awaits can complete.
-    await asyncio.sleep(0.5) # Allow loop to run at least one full cycle
+    await asyncio.sleep(0.5)  # Allow loop to run at least one full cycle
     loop_task.cancel()
     try:
         await loop_task
@@ -201,10 +225,12 @@ async def test_meta_loop_applies_good_patch(
     # - _apply_patch was called with the patch
     # - proofable_reward was called
     # - Patch was logged to APPLIED_LOG in Redis
-    assert mock_generate_patch.call_count >= 1 # Should be called at least once
+    assert mock_generate_patch.call_count >= 1  # Should be called at least once
     mock_prove_patch.assert_called_with(test_patch)
     mock_apply_patch.assert_called_with(test_patch)
-    mock_proofable_reward.assert_called_with(trace_1, {}) # Assuming empty context for now
+    mock_proofable_reward.assert_called_with(
+        trace_1, {}
+    )  # Assuming empty context for now
 
     applied_log_content = fake_redis.lrange(meta_loop.APPLIED_LOG, 0, -1)
     assert len(applied_log_content) == 1
@@ -220,16 +246,18 @@ async def test_meta_loop_applies_good_patch(
     # assert target_file_path.read_text() == test_patch["after"]
     log.info("Test passed: meta_loop applied a good patch.")
 
+
 # Test that a negative reward triggers rollback and traces are tagged.
 # TODO: Add test for meta_loop_skips_unproven_patch
 # Similar, but _prove_patch returns False. Assert _apply_patch is not called.
 
+
 @pytest.mark.asyncio
-@mock.patch('dgm_kernel.meta_loop.generate_patch')
-@mock.patch('dgm_kernel.meta_loop._verify_patch')
-@mock.patch('dgm_kernel.meta_loop._rollback', wraps=meta_loop._rollback)
-@mock.patch('dgm_kernel.meta_loop._apply_patch')
-@mock.patch('dgm_kernel.meta_loop.proofable_reward')
+@mock.patch("dgm_kernel.meta_loop.generate_patch")
+@mock.patch("dgm_kernel.meta_loop._verify_patch")
+@mock.patch("dgm_kernel.meta_loop._rollback", wraps=meta_loop._rollback)
+@mock.patch("dgm_kernel.meta_loop._apply_patch")
+@mock.patch("dgm_kernel.meta_loop.proofable_reward")
 async def test_meta_loop_rolls_back_bad_patch(
     mock_reward,
     mock_apply_patch,
@@ -256,7 +284,10 @@ async def test_meta_loop_rolls_back_bad_patch(
 
     mock_generate_patch.return_value = patch
     mock_prove_patch.return_value = (True, 9.0)
-    mock_apply_patch.side_effect = lambda p: (Path(p["target"]).write_text(p["after"]), True)[1]
+    mock_apply_patch.side_effect = lambda p: (
+        Path(p["target"]).write_text(p["after"]),
+        True,
+    )[1]
     mock_reward.return_value = -0.5
 
     traces = await meta_loop.fetch_recent_traces()
@@ -264,11 +295,15 @@ async def test_meta_loop_rolls_back_bad_patch(
     accepted, score = await meta_loop._verify_patch(traces, patch_data)
     if accepted:
         if meta_loop._apply_patch(patch_data):
-            new_r = sum(meta_loop.proofable_reward(t, patch_data.get("after")) for t in traces)
+            new_r = sum(
+                meta_loop.proofable_reward(t, patch_data.get("after")) for t in traces
+            )
             if new_r >= 0:
                 meta_loop.REDIS.lpush(
                     meta_loop.APPLIED_LOG,
-                    json.dumps(patch_data | {"reward": new_r, "verification_score": score}),
+                    json.dumps(
+                        patch_data | {"reward": new_r, "verification_score": score}
+                    ),
                 )
             else:
                 for t in traces:
@@ -279,6 +314,7 @@ async def test_meta_loop_rolls_back_bad_patch(
     mock_rollback.assert_called_once_with(patch)
     assert target_file.read_text() == before
     assert fake_redis.llen(meta_loop.APPLIED_LOG) == 0
-    rb_entries = [json.loads(v) for v in fake_redis.lrange(meta_loop.ROLLED_BACK_LOG, 0, -1)]
+    rb_entries = [
+        json.loads(v) for v in fake_redis.lrange(meta_loop.ROLLED_BACK_LOG, 0, -1)
+    ]
     assert rb_entries == [{"id": "trace1", "value": 100, "rolled_back": True}]
-
