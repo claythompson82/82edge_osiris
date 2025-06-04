@@ -15,6 +15,7 @@ services:
     environment:
       - PYTHONPATH=/app
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_SERVICE_NAME=llm_sidecar_test
     command: python tests/mock_sidecar.py
     depends_on:
       - otel-collector
@@ -28,6 +29,7 @@ services:
     environment:
       - PYTHONPATH=/app
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_SERVICE_NAME=orchestrator_test
     command: python tests/mock_orchestrator.py
     depends_on:
       - otel-collector
