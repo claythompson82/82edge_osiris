@@ -19,3 +19,7 @@ target-version = "py310"
 line-length = 88
 required-version = "0.4.4"
 select = ["E9"]
+
+[tool.semantic_release]
+version_variable = "pyproject.toml:version"
+tag_format = "v{version}"
