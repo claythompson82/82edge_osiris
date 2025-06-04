@@ -118,7 +118,7 @@ async def test_harvest_feedback_py_filters_by_version(tmp_path_factory, monkeypa
     # It also expects corrected_proposal to be filterable.
     # The FeedbackSchemaWithVersionForHarvestTest is suitable here.
     table_name = "phi3_feedback" # Script uses this name
-    
+
     try:
         table = db.create_table(table_name, schema=FeedbackSchemaWithVersionForHarvestTest, mode="overwrite")
     except Exception as e:
@@ -161,7 +161,7 @@ async def test_harvest_feedback_py_filters_by_version(tmp_path_factory, monkeypa
         assert str(path) == str(db_path) # Ensure script uses the path we expect
         return lancedb.connect(path) # Connect to the actual temp path
     monkeypatch.setattr(lancedb, "connect", mock_lancedb_connect)
-    
+
     # Monkeypatch sys.argv for harvest_feedback.py
     # Target: --schema-version "1.0", --days-back 1 (to include 'now_ns'), --out output_file.jsonl
     # Default feedback_type is 'correction' in the script's query
@@ -183,7 +183,7 @@ async def test_harvest_feedback_py_filters_by_version(tmp_path_factory, monkeypa
     with open(output_file, "r") as f:
         for line in f:
             harvested_records.append(json.loads(line))
-    
+
     assert len(harvested_records) == 1
     # The only record matching all criteria: schema_version="1.0", feedback_type="correction", recent
     # The prompt for harvest_feedback.py is 'assessment' or 'proposal'.
@@ -194,7 +194,7 @@ async def test_harvest_feedback_py_filters_by_version(tmp_path_factory, monkeypa
     # than what FeedbackItem/FeedbackSchema strictly define.
     # For the purpose of this test, we check if the *correct record* (rec1) was selected based on filtering criteria.
     # The output format is {"prompt": "...", "response": "{...corrected_proposal_json...}"}
-    
+
     # To make the assertion more robust, let's check the content of the 'response' field,
     # which should be the JSON dump of 'corrected_proposal' of 'rec1_v1_correct_recent'.
     found_rec1 = False
@@ -215,7 +215,7 @@ async def test_harvest_feedback_py_filters_by_version(tmp_path_factory, monkeypa
 async def test_migrate_feedback_py_script(tmp_path_factory, monkeypatch):
     """Integration-like test for scripts/migrate_feedback.py."""
     db_path = tmp_path_factory.mktemp("lancedb_migrate_test")
-    
+
     # Connect to temporary DB
     db = lancedb.connect(db_path)
     table_name = "phi3_feedback" # Script uses this name
@@ -224,24 +224,24 @@ async def test_migrate_feedback_py_script(tmp_path_factory, monkeypatch):
     # LanceDB can create schema from data. We'll add dicts.
     # The migration script reads this data, adds schema_version, and writes to a *new*
     # table defined by its internal `FeedbackSchemaWithVersion`.
-    
+
     # Initial data: one with schema_version, one without
     # Timestamps for 'when' are not strictly part of migration logic test,
     # but if they exist, they should be carried over.
     # The migration script's `FeedbackSchemaWithVersion` does not include 'when'.
     # So 'when' will be carried over as an "extra" field if present in source.
     # Let's simplify and use data that matches `FeedbackSchemaOldForMigrationTest` more closely.
-    
+
     record_A_dict = { # Simulating old data, no schema_version
-        "transaction_id": "a", "timestamp": "ts_a", "feedback_type": "type_a", 
+        "transaction_id": "a", "timestamp": "ts_a", "feedback_type": "type_a",
         "feedback_content": "content_a", "corrected_proposal": {"key": "val_a"}
     }
     record_B_dict = { # Simulating data that somehow already has a version (e.g. partial previous migration)
-        "transaction_id": "b", "timestamp": "ts_b", "feedback_type": "type_b", 
+        "transaction_id": "b", "timestamp": "ts_b", "feedback_type": "type_b",
         "feedback_content": "content_b", "corrected_proposal": {"key": "val_b"}, "schema_version": "0.8" # Old version
     }
     record_C_dict = { # Simulating data that is already up-to-date
-        "transaction_id": "c", "timestamp": "ts_c", "feedback_type": "type_c", 
+        "transaction_id": "c", "timestamp": "ts_c", "feedback_type": "type_c",
         "feedback_content": "content_c", "corrected_proposal": {"key": "val_c"}, "schema_version": "1.0"
     }
 
@@ -250,12 +250,12 @@ async def test_migrate_feedback_py_script(tmp_path_factory, monkeypatch):
     # LanceDB will infer if no schema provided.
     if table_name in db.table_names(): # Clean slate
         db.drop_table(table_name)
-    
+
     # We can create the table with the schema that the *migration script expects to write to*
     # (MigrationOutputSchema), but set schema_version as Optional for initial insert.
     # Or, let LanceDB infer from data that includes optional schema_version.
     # For robustness, let's try to create with a schema that allows optional schema_version
-    
+
     class TempSchemaForInitialData(BaseModel):
         transaction_id: str
         timestamp: str
@@ -293,7 +293,7 @@ async def test_migrate_feedback_py_script(tmp_path_factory, monkeypatch):
     migrated_table = db.open_table(table_name)
     results = migrated_table.search().to_list()
     assert len(results) == 3
-    
+
     found_a, found_b, found_c = False, False, False
     for record in results:
         assert record.get("schema_version") == "1.0" # All should be updated
@@ -308,13 +308,13 @@ async def test_migrate_feedback_py_script(tmp_path_factory, monkeypatch):
             assert record["feedback_content"] == "content_c"
             # schema_version was already "1.0", should remain "1.0"
             found_c = True
-            
+
     assert found_a and found_b and found_c
 
     # Test idempotency: Run migration again
     print("Running migration script again for idempotency check...")
     migrate_main()
-    
+
     migrated_table_again = db.open_table(table_name)
     results_again = migrated_table_again.search().to_list()
     assert len(results_again) == 3
