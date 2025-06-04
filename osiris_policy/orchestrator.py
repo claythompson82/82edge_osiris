@@ -4,6 +4,7 @@ import requests
 import logging
 import asyncio  # Added for new event-driven model
 import time  # Added for timestamp
+import os
 from typing import TypedDict, Dict, Any, Optional, List
 
 # LangGraph
@@ -23,12 +24,35 @@ from advisor.risk_gate import (
 import datetime
 
 from common.otel_init import init_otel
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 
 # Configure basic logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+
+def _setup_tracer() -> "trace.Tracer":
+    """Initialise OTLP tracing if OTEL_EXPORTER_ENDPOINT is set."""
+    endpoint = os.getenv("OTEL_EXPORTER_ENDPOINT")
+    if not endpoint:
+        logger.info("OTEL_EXPORTER_ENDPOINT not set; traces disabled.")
+        return trace.get_tracer(__name__)
+    if not endpoint.startswith("http"):
+        endpoint = f"http://{endpoint}"
+    provider = TracerProvider()
+    processor = BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint))
+    provider.add_span_processor(processor)
+    trace.set_tracer_provider(provider)
+    logger.info("OpenTelemetry tracing enabled")
+    return trace.get_tracer(__name__)
+
+
+tracer = _setup_tracer()
 
 # --- Global Variables & Constants ---
 TICK_BUFFER: List[Dict[str, Any]] = []
@@ -873,7 +897,8 @@ async def main_async(args):
     )
 
 
-if __name__ == "__main__":
+def run_orchestrator() -> None:
+    """Entry point for running the orchestrator from the CLI."""
     parser = argparse.ArgumentParser(
         description="Osiris Policy Orchestrator - Event-Driven Mode"
     )
@@ -896,7 +921,10 @@ if __name__ == "__main__":
         help="Number of market ticks to buffer before triggering a new proposal workflow.",
     )
 
-    # Potentially add other config args like sidecar URL if needed
-
     args = parser.parse_args()
-    asyncio.run(main_async(args))
+    with tracer.start_as_current_span("orchestrator.run"):
+        asyncio.run(main_async(args))
+
+
+if __name__ == "__main__":
+    run_orchestrator()
