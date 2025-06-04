@@ -13,7 +13,7 @@ from langgraph.graph import StateGraph, END
 from llm_sidecar.event_bus import EventBus, RedisError
 
 # Database for logging runs
-from llm_sidecar.db import log_run, OrchestratorRunLog
+from llm_sidecar.db import log_run, OrchestratorRunSchema
 from advisor.risk_gate import accept as risk_gate_accept, log_decision as log_risk_advice, AdviceLog, init_advice_table
 import datetime
 
@@ -605,15 +605,15 @@ async def process_workflow_run(graph_app: StateGraph, initial_state: WorkflowSta
     # The input_query for the log should be the stringified tick data.
     input_query_for_log = initial_state["query"]
 
-    run_log_entry = OrchestratorRunLog(
-        input_query=input_query_for_log, 
-        final_output=final_output_dict_for_db, 
+    run_log_entry = OrchestratorRunSchema(
+        input_query=input_query_for_log,
+        final_output=final_output_dict_for_db,
         status=status,
         error_message=final_state_dict.get("error"),
-        run_id_override=run_id # Explicitly pass the run_id
+        run_id=run_id
     )
     try:
-        log_run(run_log_entry) # log_run should use the run_id_override
+        log_run(run_log_entry)
         logger.info(f"Successfully logged workflow run {run_id} to LanceDB.")
     except Exception as e:
         logger.error(f"Failed to log workflow run {run_id} to LanceDB: {e}")
