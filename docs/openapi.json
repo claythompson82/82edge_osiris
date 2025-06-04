@@ -1,0 +1,507 @@
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "FastAPI",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/score/hermes/": {
+      "post": {
+        "tags": [
+          "scoring"
+        ],
+        "summary": "Score Proposal With Hermes Endpoint",
+        "operationId": "score_proposal_with_hermes_endpoint_score_hermes__post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScoreRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/generate/": {
+      "post": {
+        "tags": [
+          "unified"
+        ],
+        "summary": "Generate Unified",
+        "operationId": "generate_unified_generate__post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnifiedPromptRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/generate/hermes/": {
+      "post": {
+        "tags": [
+          "hermes"
+        ],
+        "summary": "Generate Hermes",
+        "operationId": "generate_hermes_generate_hermes__post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromptRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/generate/phi3/": {
+      "post": {
+        "tags": [
+          "phi3"
+        ],
+        "summary": "Generate Phi3",
+        "operationId": "generate_phi3_generate_phi3__post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromptRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/propose_trade_adjustments/": {
+      "post": {
+        "tags": [
+          "strategy"
+        ],
+        "summary": "Propose Trade",
+        "operationId": "propose_trade_propose_trade_adjustments__post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromptRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/stream/audio": {
+      "get": {
+        "tags": [
+          "tts",
+          "streaming"
+        ],
+        "summary": "Stream Audio",
+        "description": "Streams base64 encoded audio chunks via Server-Sent Events (SSE).\nClients connect to this endpoint to receive live audio data.",
+        "operationId": "stream_audio_stream_audio_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/speak": {
+      "post": {
+        "tags": [
+          "tts"
+        ],
+        "summary": "Speak",
+        "operationId": "speak_speak_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpeakRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/feedback/phi3/": {
+      "post": {
+        "tags": [
+          "feedback"
+        ],
+        "summary": "Submit Phi3 Feedback",
+        "operationId": "submit_phi3_feedback_feedback_phi3__post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackItem"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/adapters/swap": {
+      "post": {
+        "tags": [
+          "meta"
+        ],
+        "summary": "Swap Phi3 Adapter",
+        "description": "Reload the Phi-3 model and adapter from disk.",
+        "operationId": "swap_phi3_adapter_adapters_swap_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "meta"
+        ],
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "FeedbackItem": {
+        "title": "FeedbackItem",
+        "required": [
+          "transaction_id",
+          "feedback_type",
+          "timestamp"
+        ],
+        "type": "object",
+        "properties": {
+          "transaction_id": {
+            "title": "Transaction Id",
+            "type": "string"
+          },
+          "feedback_type": {
+            "title": "Feedback Type",
+            "type": "string"
+          },
+          "feedback_content": {
+            "title": "Feedback Content"
+          },
+          "timestamp": {
+            "title": "Timestamp",
+            "type": "string"
+          },
+          "corrected_proposal": {
+            "title": "Corrected Proposal",
+            "type": "object"
+          },
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "string",
+            "default": "1.0"
+          }
+        }
+      },
+      "HTTPValidationError": {
+        "title": "HTTPValidationError",
+        "type": "object",
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            }
+          }
+        }
+      },
+      "PromptRequest": {
+        "title": "PromptRequest",
+        "required": [
+          "prompt"
+        ],
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "max_length": {
+            "title": "Max Length",
+            "type": "integer",
+            "default": 256
+          }
+        }
+      },
+      "ScoreRequest": {
+        "title": "ScoreRequest",
+        "required": [
+          "proposal"
+        ],
+        "type": "object",
+        "properties": {
+          "proposal": {
+            "title": "Proposal",
+            "type": "object"
+          },
+          "context": {
+            "title": "Context",
+            "type": "string"
+          }
+        }
+      },
+      "SpeakRequest": {
+        "title": "SpeakRequest",
+        "required": [
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "exaggeration": {
+            "title": "Exaggeration",
+            "type": "number",
+            "default": 0.5
+          },
+          "ref_wav_b64": {
+            "title": "Ref Wav B64",
+            "type": "string"
+          }
+        }
+      },
+      "UnifiedPromptRequest": {
+        "title": "UnifiedPromptRequest",
+        "required": [
+          "prompt"
+        ],
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "max_length": {
+            "title": "Max Length",
+            "type": "integer",
+            "default": 256
+          },
+          "model_id": {
+            "title": "Model Id",
+            "type": "string",
+            "default": "hermes"
+          }
+        }
+      },
+      "ValidationError": {
+        "title": "ValidationError",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "loc": {
+            "title": "Location",
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            }
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

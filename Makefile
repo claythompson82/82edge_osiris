@@ -1,6 +1,6 @@
 # Makefile for LLM Sidecar
 
-.PHONY: rebuild logs dev-shell
+.PHONY: rebuild logs dev-shell openapi
 
 # Default service for logs if not specified
 SVC ?= llm-sidecar
@@ -13,6 +13,9 @@ logs:
 
 dev-shell:
 	dotenv -f .env -- poetry shell
+
+openapi:
+	PYTHONPATH=. python scripts/generate_openapi.py
 
 # Example usage:
 # make rebuild
