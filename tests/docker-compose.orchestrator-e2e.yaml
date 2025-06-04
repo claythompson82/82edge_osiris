@@ -1,0 +1,34 @@
+version: '3.8'
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+  llm-sidecar:
+    image: python:3.10-slim
+    working_dir: /app
+    volumes:
+      - ..:/app
+      - ./e2e_lancedb_data:/app/lancedb_data
+    environment:
+      - PYTHONPATH=/app
+    command: python tests/mock_sidecar.py
+    depends_on:
+      - redis
+    ports:
+      - "8000:8000"
+  orchestrator:
+    image: python:3.10-slim
+    working_dir: /app
+    volumes:
+      - ..:/app
+      - ./e2e_lancedb_data:/app/lancedb_data
+    environment:
+      - PYTHONPATH=/app
+      - PHI3_API_URL=http://llm-sidecar:8000
+      - EVENT_BUS_REDIS_URL=redis://redis:6379/0
+    command: >
+      python -m osiris_policy.orchestrator --redis_url redis://redis:6379/0 --market_channel market.ticks --ticks_per_proposal 1
+    depends_on:
+      - redis
+      - llm-sidecar
