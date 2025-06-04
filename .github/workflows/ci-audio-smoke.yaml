@@ -8,7 +8,9 @@ on:
 
 jobs:
   build-and-test-audio:
-    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' ||
+        contains(github.event.pull_request.labels.*.name, 'run-gpu-tests')
+    runs-on: [self-hosted, gpu-enabled]
     timeout-minutes: 6
     env:
       TORCH_VERSION: "2.2.2+cu121"
