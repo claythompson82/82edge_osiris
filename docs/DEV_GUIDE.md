@@ -309,7 +309,10 @@ Before each release we run a bug bash where all failing tests must be addressed.
 You can run `docker compose -f docker/compose.yaml exec llm-sidecar pytest` to execute tests inside the container environment. This mirrors the CI build closely.
 
 ## Credentials
-Sensitive keys should be loaded from the environment only. Avoid committing them to git history. GitHub secrets and local `.env` files keep them isolated from code.
+Sensitive keys should be loaded from the environment only. Avoid committing them
+to git history. A `.gitignore` file now excludes `.env` and other secret files by
+default. Copy `.env.template` to `.env` for local use and store real credentials
+there. See [Secrets Management Review](SECURITY_SECRETS.md) for hardening tips.
 
 ## Long-running tasks
 For lengthy simulations or training loops, consider running inside `tmux` or `screen` so the session survives SSH disconnects. Logs can be tailed in another window while the job runs.

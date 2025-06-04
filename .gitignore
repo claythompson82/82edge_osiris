@@ -1,0 +1,9 @@
+# Ignore local environment files and secrets
+.env
+*.env
+configs/env/*.env
+# other typical ignore patterns
+__pycache__/
+*.py[cod]
+.DS_Store
+
