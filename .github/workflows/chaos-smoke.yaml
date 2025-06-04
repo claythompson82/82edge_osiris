@@ -151,6 +151,11 @@ jobs:
           echo "All services seem to be ready."
           sleep 10 # Extra buffer
 
+      - name: Run LanceDB migrations
+        run: |
+          docker compose -f docker/compose.yaml exec -T llm-sidecar \
+            python /app/scripts/migrate_lancedb_20250604.py
+
       - name: Start Orchestrator in background
         run: |
           echo "Starting orchestrator..."
