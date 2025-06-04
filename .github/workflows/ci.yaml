@@ -160,7 +160,7 @@ jobs:
           install-requirements: 'true'
           system-packages: '' # No extra system packages needed for this job by default
 
-      - name: Install test requirements
+      - name: Install test-only deps
         run: |
           pip install -r requirements-tests.txt
 
