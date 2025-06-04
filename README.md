@@ -60,6 +60,7 @@ docker run -d -p 4317:4317 otel/opentelemetry-collector-contrib:0.92.0
 echo "OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318" >> .env
 echo "OTEL_SERVICE_NAME=osiris_llm_sidecar" >> .env
 echo "OTEL_TRACES_SAMPLER=parentbased_always_on" >> .env
+echo "ENABLE_PROFILING=true" >> .env  # optional profiling endpoint
 ```
 This will build the images (if necessary, without cache) and start the services defined in `docker-compose.yaml` (typically `llm-sidecar` and `redis`) in detached mode.
 To view logs for a service (e.g., `llm-sidecar`), use `make logs SVC=llm-sidecar` or simply `make logs` (which defaults to `llm-sidecar`).
@@ -68,6 +69,7 @@ To enter a Poetry-managed shell with your `.env` variables loaded, run `make dev
 *Note: The `redis` service is included for features relying on it, like the event bus or TTS streaming.*
 
 FastAPI is now live on **[http://localhost:8000](http://localhost:8000)**.
+If `ENABLE_PROFILING` is set, profiling data for the last request can be viewed at [http://localhost:8000/debug/prof](http://localhost:8000/debug/prof).
 
 ---
 

@@ -18,6 +18,7 @@ sentencepiece==0.1.99
 soundfile
 transformers==4.38.2
 trl
+pyinstrument
 uvicorn[standard]==0.27.1
 sentry-sdk
 pylint>=2.17.0,<3.0
