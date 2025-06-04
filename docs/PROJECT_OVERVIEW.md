@@ -44,6 +44,9 @@
 Start any ChatGPT session like this:
 
 ```text
-Repo: https://github.com/claythompson82/82edge_osiris  
-Context: docs/PROJECT_OVERVIEW.md  
+Repo: https://github.com/claythompson82/82edge_osiris
+Context: docs/PROJECT_OVERVIEW.md
 Today's goal: <fill this in>
+```
+
+Replace `<fill this in>` with your desired outcome for the session.

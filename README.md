@@ -3,7 +3,7 @@
 Open‑source trading stack with local LLM agents.
 
 [![Build][ci-badge]][ci]
-![Observability](https://github.com/${{github.repository}}/actions/workflows/ci.yaml/badge.svg?branch=main&label=obs)
+[![Observability][obs-badge]][ci]
 [![License][license-badge]](LICENSE)
 [![Python][python-badge]](pyproject.toml)
 
@@ -499,3 +499,4 @@ helm upgrade --install osiris-canary helm/osiris \
 [ci]: https://github.com/OWNER/REPO/actions/workflows/ci.yaml
 [license-badge]: https://img.shields.io/badge/License-MIT-blue.svg
 [python-badge]: https://img.shields.io/badge/python-3.10%2B-blue.svg
+[obs-badge]: https://github.com/OWNER/REPO/actions/workflows/ci.yaml/badge.svg?branch=main&label=obs
