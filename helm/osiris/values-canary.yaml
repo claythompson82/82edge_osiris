@@ -1,0 +1,8 @@
+replicaCount: 1
+
+trafficWeight: 10
+
+otel:
+  enabled: true
+  trace:
+    sample: 1.0
