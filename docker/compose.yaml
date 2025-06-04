@@ -30,6 +30,7 @@ services:
     environment:
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
       - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-llm-sidecar}
+      - ENABLE_METRICS=${ENABLE_METRICS:-true}
     # Adding a healthcheck can be useful for production, but is optional here
     # healthcheck:
     #   test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
