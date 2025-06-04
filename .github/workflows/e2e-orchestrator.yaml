@@ -7,9 +7,23 @@ on:
   pull_request:
     branches:
       - main
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      enable-obs-tests:
+        description: 'Run observability tests'
+        required: false
+        default: 'false'
+
+env:
+  ENABLE_OBS_TESTS: ${{ github.event_name == 'schedule' ||
+    (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+    (github.event_name == 'workflow_dispatch' && github.event.inputs.enable-obs-tests == 'true') }}
 
 jobs:
   smoke-test:
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.event.inputs.enable-obs-tests == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15 # Add a timeout for the job
     env:
@@ -132,6 +146,14 @@ jobs:
         run: |
           docker logs ${{ job.services.otel-collector.id }} > otel-collector.log
           grep "/v1/traces" otel-collector.log
+
+      - name: Upload OTEL trace dump
+        uses: actions/upload-artifact@v4
+        with:
+          name: otel-trace-dump
+          path: otel-collector.log
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Dump service logs on failure
         if: failure()
