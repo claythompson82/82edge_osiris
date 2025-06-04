@@ -12,9 +12,7 @@ from pathlib import Path
 # from redis import Redis # Original import
 from llm_sidecar.reward import proofable_reward
 from dgm_kernel.llm_client import draft_patch # Added dgm_kernel.llm_client import
-import subprocess
-import tempfile
-import re # For parsing pylint score
+from dgm_kernel.prover import prove_patch # Added import
 
 log = logging.getLogger(__name__)
 
@@ -78,63 +76,31 @@ async def generate_patch(traces: list[dict]) -> dict | None: # Return type updat
     """
     return draft_patch(traces)
 
-def _get_pylint_score(patch_code: str) -> float:
-    """
-    Runs pylint on the given Python code string and returns the score.
-    Returns 0.0 if pylint is not found, fails, or score cannot be parsed.
-    """
-    score = 0.0
-    # Create a temporary file path variable to ensure it's defined for finally block
-    tmp_file_path_for_pylint = None
-    try:
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as tmp_file:
-            tmp_file.write(patch_code)
-            tmp_file_path_for_pylint = tmp_file.name
-
-        process = subprocess.run(
-            ["pylint", tmp_file_path_for_pylint],
-            capture_output=True, text=True, timeout=30
-        )
-
-        match = re.search(r"Your code has been rated at (-?\d+\.?\d*)/10", process.stdout)
-        if match:
-            score = float(match.group(1))
-            log.info(f"Pylint score for temp patch: {score}/10")
-        else:
-            log.warning(f"Could not parse Pylint score from output. stdout: {process.stdout[:500]}, stderr: {process.stderr[:500]}")
-
-    except FileNotFoundError:
-        log.error("pylint command not found. Please ensure pylint is installed and in PATH.")
-    except subprocess.TimeoutExpired:
-        log.error(f"Pylint execution timed out for {tmp_file_path_for_pylint}.")
-    except Exception as e:
-        log.error(f"Error running pylint on temporary file: {e}")
-    finally:
-        if tmp_file_path_for_pylint and Path(tmp_file_path_for_pylint).exists():
-            Path(tmp_file_path_for_pylint).unlink()
-    return score
-
 async def _verify_patch(traces: list[dict], patch: dict) -> tuple[bool, float]:
     """
-    Verifies the patch using proofable_reward and pylint score.
+    Verifies the patch using the prover.
     Returns (is_accepted, pylint_score).
     """
-    if not traces:
-        log.warning("_verify_patch called with no traces.")
-        return False, 0.0
+    # patch_id is not strictly necessary for verification itself by prove_patch,
+    # but good to have for context if prove_patch starts logging or using it.
+    # Using a default if not present in the patch dict.
+    patch_id = patch.get("id", "unknown_patch_id")
+    patch_diff = patch.get("diff", "") # Diff might not always be present or used by prove_patch
+    patch_code = patch.get("after", "")
 
-    current_trace = traces[0]
+    if not patch_code:
+        log.error("_verify_patch called with patch containing no 'after' code.")
+        return False, 0.0 # Cannot verify empty code, score 0
 
-    reward_value = proofable_reward(current_trace, patch.get("after"))
-    log.info(f"Proofable reward for patch verification: {reward_value}")
+    # Call the imported prove_patch function
+    verification_result = prove_patch(id=patch_id, diff=patch_diff, patch_code=patch_code)
 
-    pylint_score_value = _get_pylint_score(patch.get("after", "")) # Renamed variable to avoid conflict
-    log.info(f"Pylint score for patch verification: {pylint_score_value}")
+    accepted = verification_result.status == "APPROVED"
+    pylint_score = verification_result.score # This is the Pylint score from the prover
 
-    accepted = reward_value >= 0.0 and pylint_score_value >= 6.0
-    log.info(f"Patch verification result: {'Accepted' if accepted else 'Rejected'}. Reward: {reward_value}, Pylint Score: {pylint_score_value}")
+    log.info(f"Patch verification result: {'Accepted' if accepted else 'Rejected'}. Pylint Score: {pylint_score}")
 
-    return accepted, pylint_score_value
+    return accepted, pylint_score
 
 def _apply_patch(patch: dict) -> bool:
     """
