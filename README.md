@@ -455,6 +455,21 @@ llmSidecar:
       nvidia.com/gpu: 1
 ```
 
+### Network Policies
+
+The Helm chart ships with optional `NetworkPolicy` resources. They default to
+disabled since some clusters may not include a network policy controller. Enable
+them with:
+
+```bash
+helm upgrade --install osiris helm/osiris \
+  --set networkPolicy.enabled=true
+```
+
+When enabled, ingress and egress traffic between the orchestrator,
+`llm_sidecar`, Redis and LanceDB is restricted to the minimal paths required for
+the application to function.
+
 ### Canary Deployment
 
 Use `helm/osiris/values-canary.yaml` to deploy a canary release. This file

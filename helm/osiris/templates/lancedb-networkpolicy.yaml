@@ -1,0 +1,26 @@
+{{- if and .Values.networkPolicy.enabled .Values.networkPolicy.lancedb.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "osiris.fullname" . }}-lancedb
+  labels:
+    {{- include "osiris.labels" . | nindent 4 }}
+    app.kubernetes.io/component: lancedb
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: lancedb
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "osiris.selectorLabels" . | nindent 12 }}
+              app.kubernetes.io/component: orchestrator
+      ports:
+        - protocol: TCP
+          port: {{ .Values.lancedb.service.port }}
+  egress: []
+{{- end }}

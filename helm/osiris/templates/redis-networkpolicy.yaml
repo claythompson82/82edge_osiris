@@ -1,0 +1,31 @@
+{{- if and .Values.networkPolicy.enabled .Values.networkPolicy.redis.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "osiris.fullname" . }}-redis
+  labels:
+    {{- include "osiris.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "osiris.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: redis
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "osiris.selectorLabels" . | nindent 12 }}
+              app.kubernetes.io/component: orchestrator
+        - podSelector:
+            matchLabels:
+              {{- include "osiris.selectorLabels" . | nindent 12 }}
+              app.kubernetes.io/component: llm-sidecar
+      ports:
+        - protocol: TCP
+          port: {{ .Values.redis.service.port }}
+  egress: []
+{{- end }}

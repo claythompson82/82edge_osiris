@@ -1,0 +1,35 @@
+{{- if and .Values.networkPolicy.enabled .Values.networkPolicy.llmSidecar.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "osiris.fullname" . }}-llm-sidecar
+  labels:
+    {{- include "osiris.labels" . | nindent 4 }}
+    app.kubernetes.io/component: llm-sidecar
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "osiris.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: llm-sidecar
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "osiris.selectorLabels" . | nindent 12 }}
+              app.kubernetes.io/component: orchestrator
+      ports:
+        - protocol: TCP
+          port: {{ .Values.llmSidecar.service.port }}
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "osiris.selectorLabels" . | nindent 12 }}
+              app.kubernetes.io/component: redis
+      ports:
+        - protocol: TCP
+          port: {{ .Values.redis.service.port }}
+{{- end }}
