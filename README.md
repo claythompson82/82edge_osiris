@@ -3,6 +3,7 @@
 Open‑source trading stack with local LLM agents.
 
 [![Build][ci-badge]][ci]
+![Observability](https://github.com/${{github.repository}}/actions/workflows/ci.yaml/badge.svg?branch=main&label=obs)
 [![License][license-badge]](LICENSE)
 [![Python][python-badge]](pyproject.toml)
 
