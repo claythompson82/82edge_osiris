@@ -31,6 +31,9 @@ class OrchestratorRunSchema(LanceModel):
     status: str  # e.g., "SUCCESS", "FAILURE"
     error_message: Optional[str] = None
 
+# Backwards compatibility alias
+OrchestratorRunLog = OrchestratorRunSchema
+
 class HermesScoreSchema(LanceModel):
     proposal_id: uuid.UUID
     timestamp: str = Field(default_factory=get_current_utc_iso)
