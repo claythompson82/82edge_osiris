@@ -1,6 +1,6 @@
 # Makefile for LLM Sidecar
 
-.PHONY: rebuild logs
+.PHONY: rebuild logs dev-shell
 
 # Default service for logs if not specified
 SVC ?= llm-sidecar
@@ -10,6 +10,9 @@ rebuild:
 
 logs:
 	@docker compose logs -f $(SVC)
+
+dev-shell:
+	dotenv -f .env -- poetry shell
 
 # Example usage:
 # make rebuild
