@@ -23,3 +23,9 @@ This document outlines the recommended steps for a local development setup.
 
 pip install -r requirements-tests.txt before running pytest.
 
+
+## Branch protection
+
+Run `scripts/ci/setup_branch_protection.sh` once to enable the required status checks on the `main` branch. The script uses the GitHub CLI and needs an authenticated session with permission to edit repository settings.
+
+After running it, `gh api repos/:owner/:repo/branches/main/protection` should list the four checks.
