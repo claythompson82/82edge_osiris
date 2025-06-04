@@ -1,0 +1,46 @@
+{{- if and .Values.networkPolicy.enabled .Values.networkPolicy.orchestrator.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "osiris.fullname" . }}-orchestrator
+  labels:
+    {{- include "osiris.labels" . | nindent 4 }}
+    app.kubernetes.io/component: orchestrator
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "osiris.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: orchestrator
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        {{- if .Values.networkPolicy.ingressControllerLabels }}
+        - podSelector:
+            matchLabels:
+              {{- range $key, $value := .Values.networkPolicy.ingressControllerLabels }}
+              {{ $key }}: {{ $value | quote }}
+              {{- end }}
+        {{- else }}
+        - {}
+        {{- end }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.orchestrator.service.port }}
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "osiris.selectorLabels" . | nindent 12 }}
+              app.kubernetes.io/component: llm-sidecar
+        - podSelector:
+            matchLabels:
+              {{- include "osiris.selectorLabels" . | nindent 12 }}
+              app.kubernetes.io/component: redis
+      ports:
+        - protocol: TCP
+          port: {{ .Values.llmSidecar.service.port }}
+        - protocol: TCP
+          port: {{ .Values.redis.service.port }}
+{{- end }}

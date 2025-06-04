@@ -199,3 +199,24 @@ avatar:
   #     nvidia.com/gpu: 1 # Requesting 1 GPU
   replicaCount: 1
   config: {} # Placeholder for avatar-specific configurations
+
+# LanceDB service values
+lancedb:
+  enabled: false
+  service:
+    type: ClusterIP
+    port: 8100
+
+# Network policy configuration
+networkPolicy:
+  enabled: false
+  ingressControllerLabels: {}
+  orchestrator:
+    enabled: true
+  llmSidecar:
+    enabled: true
+  redis:
+    enabled: true
+  lancedb:
+    enabled: false
+
