@@ -29,6 +29,14 @@ The following alerts are defined:
     *   **Description:** Monitors the GPU VRAM usage. Triggers if the average VRAM usage exceeds 90% for 2 minutes.
     *   **Metric Used (example):** `avg_over_time(dcgm_fb_used_bytes[2m]) / avg_over_time(dcgm_fb_total_bytes[2m]) * 100` (or `dcgm_fb_used_percent`). Ensure your GPU monitoring exposes these DCGM metrics.
 
+*   **VramWatchdogHighUsage**
+    *   **Description:** Raised by the VRAM watchdog container when GPU memory stays above 90% for 2 minutes.
+    *   **Metric Used:** Same as **HighGpuVramUsage** – `dcgm_fb_used_bytes` vs `dcgm_fb_total_bytes`.
+
+*   **HighApiLatency**
+    *   **Description:** Monitors the p95 HTTP request latency. Triggers if the 95th percentile latency exceeds 5 seconds over a 5-minute window.
+    *   **Metric Used:** `histogram_quantile(0.95, sum(rate(http_server_duration_seconds_bucket[5m])) by (le))`
+
 *   **HighLLMErrorRate**
     *   **Description:** Monitors the error rate of LLM requests. Triggers if the error rate exceeds 5% over a 5-minute period.
     *   **Metric Used (placeholder):** `sum(rate(llm_requests_total{status="error"}[5m])) / sum(rate(llm_requests_total[5m])) * 100`
