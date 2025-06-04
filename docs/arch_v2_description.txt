@@ -77,15 +77,15 @@ This document describes the components and interactions of the v2 architecture, 
     *   Calls **Phi-3 Model** to generate/regenerate a proposal based on the prompt.
     *   Calls **Hermes 8B Model** to assess the generated Phi-3 proposal.
 9.  **LLM Sidecar** returns a combined response (Phi-3 proposal + Hermes assessment) to the **Orchestrator**.
-10. **Orchestrator** receives the response.
-11. **Orchestrator** publishes events to **Redis Bus**:
+10.  **Orchestrator** receives the response.
+11.  **Orchestrator** publishes events to **Redis Bus**:
     *   `phi3.proposal.created` (payload: Phi-3 proposal JSON from `/propose_trade_adjustments` response)
         *   Arrow: Orchestrator -> Redis Bus (Event: `phi3.proposal.created`)
     *   `phi3.proposal.assessed` (payload: Hermes assessment JSON + transaction ID)
         *   Arrow: Orchestrator -> Redis Bus (Event: `phi3.proposal.assessed`)
-12. **Orchestrator** logs the execution details (input, output, status) to **LanceDB**.
+12.  **Orchestrator** logs the execution details (input, output, status) to **LanceDB**.
     *   Arrow: Orchestrator -> LanceDB (Write: Run Log)
-13. **Orchestrator** outputs the final result to the **User/Client** (stdout).
+13.  **Orchestrator** outputs the final result to the **User/Client** (stdout).
 
 **Flow 2: Feedback Submission and Processing**
 
