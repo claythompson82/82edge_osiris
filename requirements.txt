@@ -26,3 +26,4 @@ opentelemetry-instrumentation-logging
 opentelemetry-exporter-otlp-proto-http
 opentelemetry-sdk
 opentelemetry-exporter-otlp
+prometheus-fastapi-instrumentator>=6.1
