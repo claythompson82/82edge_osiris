@@ -5,6 +5,9 @@
 # -----------------------------------------------------------------------------
 
 import os
+
+ENABLE_METRICS = os.getenv("ENABLE_METRICS", "false").lower() in ("1", "true", "yes")
+print(f"[Side-car] metrics enabled: {ENABLE_METRICS}")
 import json
 import uuid
 import datetime
@@ -20,6 +23,7 @@ import io
 import torch
 from fastapi import FastAPI, HTTPException, Response, Request
 from fastapi.responses import StreamingResponse
+from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel
 from common.otel_init import init_otel
 
@@ -106,6 +110,8 @@ class ScoreRequest(BaseModel):
 # FastAPI initialisation
 # ---------------------------------------------------------------------
 app = FastAPI()
+if ENABLE_METRICS:
+    Instrumentator().instrument(app).expose(app)
 init_otel(app)  # Initialize OpenTelemetry with the FastAPI app instance
 event_bus = EventBus(redis_url="redis://localhost:6379/0")  # Global EventBus instance
 logger = logging.getLogger(__name__)  # For event handler logging
