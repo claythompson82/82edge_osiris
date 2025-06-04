@@ -5,6 +5,7 @@ Below is a set of common tasks and environment notes for contributors.
 ## Table of Contents
 - [Local development setup](#local-development-setup)
 - [Pre-commit install](#pre-commit-install)
+- [Dev environment check](#dev-environment-check)
 - [Local harness](#local-harness)
 - [Running sidecar and Redis](#running-sidecar-and-redis)
 - [Pointing tests at local sidecar](#pointing-tests-at-local-sidecar)
@@ -32,6 +33,11 @@ Use either `pyenv` with Poetry or the standard `venv` module. For a pyenv workfl
 
 ## Pre-commit install
 Install the hooks with `pre-commit install` after installing the package. This ensures formatting and linting checks run automatically before each commit. Run `pre-commit autoupdate` to sync hook versions and `pre-commit run --all-files` one time to lint the entire repo.
+
+## Dev environment check
+Run `python scripts/check_dev_env.py` to verify that your system meets the prerequisites.
+The script reports missing tools, blocked ports, and Docker status so you can fix issues
+before running the services.
 
 ## Local harness
 The local harness spins up the policy orchestrator and simulator using your Python environment. Run `make dev-shell` to enter a Poetry shell with your environment variables loaded. From there run `python -m osiris_policy.orchestrator --redis_url redis://localhost:6379/0`. This setup lets you iterate on policies without building new Docker images.
