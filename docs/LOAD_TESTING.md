@@ -18,7 +18,7 @@ docker compose up redis llm-sidecar
 Wait until the API is available at `http://localhost:8000`.
 
 ## Running the load test
-From the repository root, execute:
+The default script `k6_sidecar_load.js` exercises the `/generate` and `/metrics` endpoints. From the repository root, execute:
 
 ```bash
 k6 run scripts/load/k6_sidecar_load.js
@@ -37,6 +37,22 @@ Set `OSIRIS_URL` to target a different base URL:
 ```bash
 OSIRIS_URL=http://localhost:8000 k6 run scripts/load/k6_sidecar_load.js
 ```
+
+### Additional scenarios
+
+Two more scripts cover read‑heavy and write‑heavy patterns:
+
+* `k6_read_heavy.js` performs repeated `GET /health` and `GET /metrics` requests.
+* `k6_propose_trade.js` posts prompts from `prompts.json` to `/propose_trade_adjustments/`.
+
+Run them in the same way, for example:
+
+```bash
+k6 run scripts/load/k6_read_heavy.js
+k6 run scripts/load/k6_propose_trade.js
+```
+
+The `prompts.json` file can be edited to supply custom test inputs.
 
 ## Stopping services
 Press `Ctrl+C` to stop k6 when done. Shut down the stack with:

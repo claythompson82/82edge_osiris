@@ -1,0 +1,53 @@
+name: k6 Smoke Test
+
+on:
+  push:
+    branches: [ "main" ]
+  schedule:
+    - cron: '0 5 * * *'
+  workflow_dispatch:
+
+jobs:
+  k6-smoke:
+    runs-on: ubuntu-latest
+    env:
+      TORCH_VERSION: "2.2.2+cu121"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-torch-${{ env.TORCH_VERSION }}
+
+      - name: Osiris Setup
+        uses: ./.github/actions/osiris-setup
+        with:
+          install-requirements: 'false'
+          system-packages: 'jq docker-compose'
+
+      - name: Install k6
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y k6
+
+      - name: Copy .env template
+        run: cp .env.template .env
+
+      - name: Start llm-sidecar
+        run: docker compose -f docker/compose.yaml up -d llm-sidecar
+
+      - name: Wait for service
+        run: |
+          echo "Waiting for llm-sidecar service to start..."
+          timeout 60s bash -c 'until curl -sf http://localhost:8000/health; do sleep 2; done'
+
+      - name: Run k6 smoke test
+        run: |
+          OSIRIS_URL=http://localhost:8000 k6 run scripts/load/k6_read_heavy.js
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker/compose.yaml down
