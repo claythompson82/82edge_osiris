@@ -51,14 +51,14 @@ async def test_generate_phi3_explicit_model_id():
         mock_generate_phi3.assert_called_once_with("test prompt for phi3", 256, mock_get_phi3.return_value[0], mock_get_phi3.return_value[1])
 
 @pytest.mark.asyncio
-async def test_generate_invalid_model_id():
-    """Test /generate/ with an invalid model_id"""
+@pytest.mark.parametrize("bad_id", ["invalid_model", "nonsense", "bad"])
+async def test_generate_invalid_model_id(bad_id: str):
+    """/generate/ rejects unknown model_id values with 422"""
     async with AsyncClient(app=app, base_url="http://test") as client:
-        response = await client.post("/generate/", json={"prompt": "test prompt", "model_id": "invalid_model"})
+        response = await client.post("/generate/", json={"prompt": "test prompt", "model_id": bad_id})
 
-    # The server.py logic returns a dict for invalid model_id, FastAPI defaults to 200 OK for such responses.
-    assert response.status_code == 200
-    assert response.json() == {"error": "Invalid model_id specified. Choose 'hermes' or 'phi3'.", "specified_model_id": "invalid_model"}
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Invalid model_id specified. Choose 'hermes' or 'phi3'."}
 
 @pytest.mark.asyncio
 async def test_generate_hermes_model_not_loaded():
@@ -134,18 +134,11 @@ def patch_model_loaders():
 # use request.max_length, so the mocked functions should be asserted with this default value.
 # Added this to the `assert_called_once_with` for relevant tests.
 
-# For test_generate_invalid_model_id, the status code is 200 as discussed.
-# The server logic returns:
-# return {"error": "Invalid model_id specified. Choose 'hermes' or 'phi3'.", "specified_model_id": request.model_id}
-# This is a standard dictionary, FastAPI converts it to JSONResponse with status 200.
-# So, assert response.status_code == 200 is correct based on the current server code.
-# If a 4xx status code were desired, server.py would need to use:
-# from fastapi import HTTPException
-# raise HTTPException(status_code=400, detail="Invalid model_id specified...")
-# or from fastapi.responses import JSONResponse
-# return JSONResponse(status_code=400, content={"error": ...})
-# Since it doesn't, 200 is the expected code for these error responses.
-# The tests align with this.
+# For test_generate_invalid_model_id we now expect a 422 response. The endpoint
+# raises an HTTPException with the detail string
+# "Invalid model_id specified. Choose 'hermes' or 'phi3'." whenever the
+# `model_id` is anything other than "hermes" or "phi3". The test above
+# parameterizes several bad values and confirms the JSON body matches.
 
 import io
 import wave
