@@ -11,23 +11,10 @@ RUN apt-get update && \
 
 # Copy constraints file for torch installation
 COPY constraints.txt /tmp/constraints.txt
+COPY requirements.txt /tmp/requirements.txt
 
-# Install torch using constraints
-RUN pip3 install --no-cache-dir torch -c /tmp/constraints.txt
-
-# Install necessary dependencies for running models
-# Pinning versions for compatibility
-RUN pip3 install --no-cache-dir \
-    auto-gptq==0.7.1 \
-    transformers==4.38.2 \
-    optimum[onnxruntime-gpu]==1.19.0 \
-    fastapi==0.109.2 \
-    uvicorn==0.27.1 \
-    sentencepiece==0.1.99 \
-    accelerate==0.27.2 \
-    huggingface-hub \
-    onnxruntime-gpu \
-    onnxruntime-extensions
+# Install Python dependencies from requirements.txt using constraints.txt
+RUN pip3 install --no-cache-dir -r /tmp/requirements.txt -c /tmp/constraints.txt
 
 # Copy application code
 COPY ../common /app/common

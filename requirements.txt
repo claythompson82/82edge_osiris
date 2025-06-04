@@ -16,8 +16,6 @@ python-dotenv
 requests
 sentencepiece==0.1.99
 soundfile
-torchaudio==2.2.2
-torch==2.2.2
 transformers==4.38.2
 trl
 uvicorn[standard]==0.27.1
