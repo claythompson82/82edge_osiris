@@ -8,6 +8,9 @@ _base = importlib.import_module("llm_sidecar")
 __all__ = list(getattr(_base, "__all__", dir(_base)))
 __path__ = getattr(_base, "__path__", [])
 
+from .. import server  # re-export for legacy tests
+__all__ = ["server", *globals().get("__all__", [])]
+
 def __getattr__(name):
     return getattr(_base, name)
 
