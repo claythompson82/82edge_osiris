@@ -71,6 +71,9 @@ runs:
           python -m pip install -r requirements-ci.txt
         fi
 
+    - name: Install test dependencies
+      run: pip install -r requirements-tests.txt
+
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
 
