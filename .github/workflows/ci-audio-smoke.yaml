@@ -24,6 +24,9 @@ jobs:
           install-poetry: 'false'
           system-packages: '' # No extra system packages seem to be needed by the workflow steps themselves
 
+      - name: Install test-only deps
+        run:  pip install -r requirements-tests.txt
+
       - name: Cache pip dependencies
         uses: actions/cache@v4
         with:

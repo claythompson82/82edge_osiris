@@ -31,6 +31,9 @@ jobs:
           install-requirements: 'false' # Assuming this job doesn't run python setup directly
           system-packages: 'jq docker-compose' # jq is explicitly installed here
 
+      - name: Install test-only deps
+        run:  pip install -r requirements-tests.txt
+
       - name: Copy .env template
         run: cp .env.template .env
 
