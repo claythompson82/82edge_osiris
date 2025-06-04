@@ -1,24 +1,33 @@
-# LLM Sidecar with Hermes-3 8B GPTQ & Phi-3-mini
+# Osiris
 
-[![E2E Orchestrator Smoke Test](https://github.com/OWNER/REPO/actions/workflows/e2e-orchestrator.yaml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/e2e-orchestrator.yaml)
+Open‑source trading stack with local LLM agents.
 
-## Project Overview
+[![Build][ci-badge]][ci]
+[![License][license-badge]](LICENSE)
+[![Python][python-badge]](pyproject.toml)
 
-This project provides a Dockerised side-car service for running two core local Large Language Models (LLMs):
+### Why you might care
 
-* **Hermes-Trismegistus-III-8B-GPTQ**: This serves as the main advanced reasoning and text generation model.
-* **Phi-3-mini-4k-instruct (int8 ONNX)**: A highly capable and lightweight model, fine-tuned for JSON planning and structured data output. It is continuously improved via a nightly QLoRA / DPO feedback loop.
+- Run LLM-driven strategies entirely offline.
+- Generate and critique trade proposals with Hermes and Phi‑3.
+- Experiment with the DGM kernel for self‑improving policies.
 
-The sidecar container exposes a REST API (using FastAPI) for interacting with these models and includes a GPU VRAM watchdog to help prevent out-of-memory crashes on consumer-grade GPUs.
+### 2‑minute Quick-start
+
+```bash
+git clone https://github.com/your/fork.git
+cd osiris
+cp .env.template .env
+make rebuild
+```
 
 ---
 
-## Architecture v3
+## Architecture at a glance
 
-**(Placeholder for new architecture diagram - `docs/arch_v3.png` needs to be created/updated manually)**
+![Osiris architecture](docs/arch_v2.drawio.svg)
 
-A detailed description of the v3 architecture, including components and interaction flows, can be found here:
-[Link to diagram description](docs/arch_v3_description.txt) (Note: This file also needs to be updated for v3)
+See [docs/ARCH.md](docs/ARCH.md) for component details.
 
 ---
 
@@ -431,3 +440,16 @@ helm upgrade --install osiris-canary helm/osiris \
 ### Environment Variables (AZR Planner)
 
 *   *(No specific environment variables are currently defined or used by the stub service beyond standard Uvicorn/FastAPI configurations.)*
+
+---
+
+| Links | Links |
+| --- | --- |
+| [Docs](docs/) | [Developer Guide](docs/DEV_GUIDE.md) |
+| [DGM Paper](docs/research/DGM_mapping.md) | [Prometheus Alerts](ops/prometheus/alerts.yaml) |
+| [Helm Chart](helm/osiris) | |
+
+[ci-badge]: https://github.com/OWNER/REPO/actions/workflows/ci.yaml/badge.svg
+[ci]: https://github.com/OWNER/REPO/actions/workflows/ci.yaml
+[license-badge]: https://img.shields.io/badge/License-MIT-blue.svg
+[python-badge]: https://img.shields.io/badge/python-3.10%2B-blue.svg
