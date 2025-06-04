@@ -67,6 +67,14 @@ llmSidecar:
     type: ClusterIP
     port: 8000 # Matches docker/compose.yaml
 
+  # When enabled, these annotations allow Prometheus to scrape metrics from the
+  # llm-sidecar container. Adjust the path and port if your metrics endpoint
+  # differs.
+  prometheusScrape:
+    enabled: false
+    path: /metrics
+    port: 8000
+
   # GPU node selector. Adapt to your cluster's GPU node labels.
   # Example: if nodes are labeled 'accelerator=nvidia-tesla-v100' or 'gpu=true'
   nodeSelector: {}

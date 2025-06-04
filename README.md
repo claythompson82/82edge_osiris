@@ -432,6 +432,22 @@ azrPlanner:
   # ... other configuration ...
 ```
 
+Enabling Prometheus scraping and GPU scheduling can be done through additional
+`values.yaml` configuration:
+
+```yaml
+llmSidecar:
+  prometheusScrape:
+    enabled: true
+  nodeSelector:
+    accelerator: nvidia-tesla-t4
+  resources:
+    limits:
+      nvidia.com/gpu: 1
+    requests:
+      nvidia.com/gpu: 1
+```
+
 ### Canary Deployment
 
 Use `helm/osiris/values-canary.yaml` to deploy a canary release. This file

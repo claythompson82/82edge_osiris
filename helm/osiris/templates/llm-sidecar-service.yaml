@@ -5,6 +5,12 @@ metadata:
   labels:
     {{- include "osiris.labels" . | nindent 4 }}
     app.kubernetes.io/component: llm-sidecar
+  {{- if .Values.llmSidecar.prometheusScrape.enabled }}
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: "{{ .Values.llmSidecar.prometheusScrape.path }}"
+    prometheus.io/port: "{{ .Values.llmSidecar.prometheusScrape.port }}"
+  {{- end }}
 spec:
   type: {{ .Values.llmSidecar.service.type }}
   ports:

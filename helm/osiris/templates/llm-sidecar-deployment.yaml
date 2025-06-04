@@ -16,6 +16,12 @@ spec:
       labels:
         {{- include "osiris.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: llm-sidecar
+      {{- if .Values.llmSidecar.prometheusScrape.enabled }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "{{ .Values.llmSidecar.prometheusScrape.path }}"
+        prometheus.io/port: "{{ .Values.llmSidecar.prometheusScrape.port }}"
+      {{- end }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
