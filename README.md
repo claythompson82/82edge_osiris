@@ -56,6 +56,10 @@ cp .env.template .env      # default Hermes ctx = 6144
 make rebuild
 # Optional: run an OpenTelemetry collector
 docker run -d -p 4317:4317 otel/opentelemetry-collector-contrib:0.92.0
+# If using OpenTelemetry locally, set the OTEL variables in .env
+echo "OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318" >> .env
+echo "OTEL_SERVICE_NAME=osiris_llm_sidecar" >> .env
+echo "OTEL_TRACES_SAMPLER=parentbased_always_on" >> .env
 ```
 This will build the images (if necessary, without cache) and start the services defined in `docker-compose.yaml` (typically `llm-sidecar` and `redis`) in detached mode.
 To view logs for a service (e.g., `llm-sidecar`), use `make logs SVC=llm-sidecar` or simply `make logs` (which defaults to `llm-sidecar`).
