@@ -59,6 +59,15 @@ runs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    - name: Install package + test deps
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install -e .
+        if [ -f requirements-ci.txt ]; then
+          python -m pip install -r requirements-ci.txt
+        fi
+
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
 
