@@ -49,9 +49,9 @@ def prove_patch(id: str, diff: str, patch_code: str) -> VerifiedPatch:
 
 
 def _get_pylint_score(patch_code: str) -> float:
-    """
-    Runs pylint on the given Python code string and returns the score.
-    Returns 0.0 if pylint is not found, fails, or score cannot be parsed.
+    """Run pylint on the given Python code string and return the score.
+
+    Returns 0.0 if pylint is not found, fails, or the score cannot be parsed.
     """
     score = 0.0
     # Create a temporary file path variable to ensure it's defined for finally block

@@ -85,7 +85,7 @@ async def generate_patch(
     traces: list[dict],
 ) -> dict | None:  # Return type updated to include None
     """
-    Placeholder for LLM / search routine to emit a JSON patch.
+    Emit a JSON patch using an LLM or search routine.
     ▼ TODO: Replace with actual patch generation logic.
     """
     return draft_patch(traces)
@@ -93,7 +93,7 @@ async def generate_patch(
 
 async def _verify_patch(traces: list[dict], patch: dict) -> tuple[bool, float]:
     """
-    Verifies the patch using the prover.
+    Verify the patch using the prover.
     Returns (is_accepted, pylint_score).
     """
     # patch_id is not strictly necessary for verification itself by prove_patch,
@@ -166,7 +166,7 @@ def _apply_patch(patch: dict) -> bool:
 
 
 async def meta_loop():
-    """Main async supervisor loop (runs forever)."""
+    """Run the main async supervisor loop (runs forever)."""
     while True:
         traces = await fetch_recent_traces()
         if not traces:
@@ -217,7 +217,7 @@ async def meta_loop():
 
 
 def _rollback(patch: dict):
-    """Rolls back the patch by writing the 'before' content to the target file and reloading the module."""
+    """Roll back the patch by writing the 'before' content to the target file and reloading the module."""
     tgt = Path(patch["target"])
     tgt.write_text(patch["before"])
     importlib.invalidate_caches()
