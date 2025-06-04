@@ -40,7 +40,7 @@ jobs:
           pip list
 
       - name: Build llm_sidecar Docker image via reusable workflow
-        uses: ./.github/workflows/docker_build.yml
+        uses: ./.github/actions/docker_build # Changed this line
         with:
           image_name: 'llm_sidecar'
           image_tag: 'latest' # Explicitly 'latest' as in the original command

@@ -54,7 +54,7 @@ jobs:
           python -m pip install fakeredis[pyaio]
 
       - name: Build llm-sidecar Docker image via reusable workflow
-        uses: ./.github/workflows/docker_build.yml
+        uses: ./.github/actions/docker_build # Changed this line
         with:
           image_name: 'llm-sidecar'
           # image_tag: 'latest' # Default
