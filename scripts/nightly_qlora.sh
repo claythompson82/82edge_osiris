@@ -58,4 +58,23 @@ fi
 echo "Nightly QLoRA fine-tuning process completed."
 echo "Adapters saved to ${ADAPTERS_DEST_DIR}"
 
+# --- Report Success to GitHub ---
+# If the GitHub CLI is available, report a commit status so the workflow
+# can surface the result directly on GitHub. This uses environment
+# variables provided by GitHub Actions when available and falls back to
+# local git information otherwise.
+if command -v gh >/dev/null 2>&1; then
+    REPO="${GITHUB_REPOSITORY:-$(git config --get remote.origin.url | sed -E 's#.*github.com[:/]([^/]+/[^.]+)\.git#\1#')}"
+    SHA="${GITHUB_SHA:-$(git rev-parse HEAD)}"
+    TARGET_URL="${GITHUB_SERVER_URL:-https://github.com}/${REPO}/actions/runs/${GITHUB_RUN_ID:-}"
+    echo "Reporting success status to GitHub for ${REPO}@${SHA}..."
+    gh api repos/${REPO}/statuses/${SHA} \
+        -f state=success \
+        -f context="nightly_qlora" \
+        -f description="QLoRA fine-tune completed" \
+        -f target_url="${TARGET_URL}" || echo "Warning: failed to update GitHub status"
+else
+    echo "Warning: gh CLI not found; skipping GitHub status update."
+fi
+
 exit 0
