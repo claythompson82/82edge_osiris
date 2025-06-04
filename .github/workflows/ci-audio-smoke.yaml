@@ -30,6 +30,14 @@ jobs:
           path: ~/.cache/pip
           key: ${{ runner.os }}-torch-${{ env.TORCH_VERSION }}
 
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/buildx
+          key: ${{ runner.os }}-buildx-${{ hashFiles('Dockerfile') }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
       - name: Build osiris-ci-app Docker image via reusable workflow
         uses: ./.github/actions/docker_build # Changed this line
         with:
