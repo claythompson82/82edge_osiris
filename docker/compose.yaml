@@ -55,6 +55,19 @@ services:
     #   retries: 3
     #   start_period: 5s
 
+  orchestrator:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    command: >
+      python -m osiris_policy.orchestrator --redis_url redis://localhost:6379/0
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
+      - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-osiris_orchestrator}
+      - OTEL_TRACES_SAMPLER=${OTEL_TRACES_SAMPLER:-parentbased_always_on}
+    depends_on:
+      - llm-sidecar
+
   vram-watchdog:
     image: docker:latest # Using docker:latest which includes Docker CLI
     volumes:

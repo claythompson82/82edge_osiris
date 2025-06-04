@@ -27,7 +27,7 @@ from common.otel_init import init_otel
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 
 # Configure basic logging
 logging.basicConfig(
@@ -37,19 +37,21 @@ logger = logging.getLogger(__name__)
 
 
 def _setup_tracer() -> "trace.Tracer":
-    """Initialise OTLP tracing if OTEL_EXPORTER_ENDPOINT is set."""
-    endpoint = os.getenv("OTEL_EXPORTER_ENDPOINT")
+    """Initialise OTLP tracing if OTEL_EXPORTER_OTLP_ENDPOINT is set."""
+    endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
     if not endpoint:
-        logger.info("OTEL_EXPORTER_ENDPOINT not set; traces disabled.")
-        return trace.get_tracer(__name__)
+        logger.info("OTEL_EXPORTER_OTLP_ENDPOINT not set; traces disabled.")
+        return trace.get_tracer("osiris.policy.orchestrator")
     if not endpoint.startswith("http"):
         endpoint = f"http://{endpoint}"
     provider = TracerProvider()
-    processor = BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint))
+    processor = BatchSpanProcessor(
+        OTLPSpanExporter(endpoint=f"{endpoint}/v1/traces")
+    )
     provider.add_span_processor(processor)
     trace.set_tracer_provider(provider)
     logger.info("OpenTelemetry tracing enabled")
-    return trace.get_tracer(__name__)
+    return trace.get_tracer("osiris.policy.orchestrator")
 
 
 tracer = _setup_tracer()
@@ -802,7 +804,8 @@ async def process_workflow_run(graph_app: StateGraph, initial_state: WorkflowSta
     """Process a single workflow run, including logging its final state."""
     run_id = initial_state.get("run_id", "unknown_run")
     logger.info(f"Starting background processing for workflow run_id: {run_id}")
-    final_state_dict = await graph_app.ainvoke(initial_state)
+    with tracer.start_as_current_span("orchestrator.meta_flow"):
+        final_state_dict = await graph_app.ainvoke(initial_state)
 
     status = "FAILURE" if final_state_dict.get("error") else "SUCCESS"
     final_output_str = final_state_dict.get("final_output")
