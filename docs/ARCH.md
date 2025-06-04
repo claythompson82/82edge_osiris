@@ -129,3 +129,4 @@ The diagram below (`arch_v2.drawio.svg`) visualises these relationships.
 | `otel.enabled` | `helm/osiris/values.yaml` | `false` | Turns on OpenTelemetry instrumentation for all pods. |
 | `OTEL_SERVICE_NAME` | Derived | `llm-sidecar` when `otel.enabled` is true | Sets the service name for traces. |
 | `musetalk.useGpu` | `helm/osiris/values.yaml` | `true` | Schedules MuseTalk container on a GPU node via `nvidia.com/gpu.present=true`. |
+| `otelCollectorSidecar.enabled` | `helm/osiris/values.yaml` | `false` | Deploys an OpenTelemetry Collector sidecar in each pod. |

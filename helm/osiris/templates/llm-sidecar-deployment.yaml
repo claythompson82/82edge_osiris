@@ -53,14 +53,23 @@ spec:
           # Example of mounting config from values.yaml if llmSidecar.config is used
           {{- if .Values.llmSidecar.config }}
           envFrom:
-          - configMapRef:
-              name: {{ include "osiris.fullname" . }}-llm-sidecar-config
+            - configMapRef:
+                name: {{ include "osiris.fullname" . }}-llm-sidecar-config
           {{- end }}
           {{- if .Values.otel.enabled }}
           env:
             - name: OTEL_SERVICE_NAME
               value: llm-sidecar
           {{- end }}
+        {{- if .Values.otelCollectorSidecar.enabled }}
+        - name: otel-collector
+          image: "{{ .Values.otelCollectorSidecar.image.repository }}:{{ .Values.otelCollectorSidecar.image.tag }}"
+          imagePullPolicy: {{ .Values.otelCollectorSidecar.image.pullPolicy }}
+          args: ["--config=/etc/otel/config.yaml"]
+          volumeMounts:
+            - name: otel-collector-config
+              mountPath: /etc/otel
+        {{- end }}
       # GPU Node Selector: Only apply if .Values.llmSidecar.nodeSelector is not empty
       {{- with .Values.llmSidecar.nodeSelector }}
       nodeSelector:
@@ -74,4 +83,10 @@ spec:
       {{- with .Values.llmSidecar.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.otelCollectorSidecar.enabled }}
+      volumes:
+        - name: otel-collector-config
+          configMap:
+            name: {{ include "osiris.fullname" . }}-otel-collector-config
       {{- end }}

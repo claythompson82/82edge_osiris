@@ -159,6 +159,28 @@ global: {}
 otel:
   enabled: false
 
+otelCollectorSidecar:
+  enabled: false
+  endpoint: http://localhost:4318
+  image:
+    repository: otel/opentelemetry-collector-contrib
+    pullPolicy: IfNotPresent
+    tag: "0.92.0"
+  config: |
+    receivers:
+      otlp:
+        protocols:
+          http:
+    exporters:
+      logging:
+        loglevel: debug
+        verbosity: detailed
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          exporters: [logging]
+
 musetalk:
   useGpu: true
 
