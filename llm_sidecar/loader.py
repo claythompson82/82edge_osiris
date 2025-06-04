@@ -30,7 +30,7 @@ HERMES_MODEL_PATH = "/app/hermes-model"  # This is a directory
 
 
 def load_hermes_model():
-    """Loads the Hermes GPTQ model and tokenizer."""
+    """Load the Hermes GPTQ model and tokenizer."""
     global hermes_model, hermes_tokenizer
     if hermes_model is not None and hermes_tokenizer is not None:
         print("Hermes model and tokenizer already loaded.")
@@ -55,7 +55,7 @@ def load_hermes_model():
 
 
 def load_phi3_model():
-    """Loads the Phi-3 ONNX model and tokenizer."""
+    """Load the Phi-3 ONNX model and tokenizer."""
     global phi3_model, phi3_tokenizer
     if phi3_model is not None and phi3_tokenizer is not None:
         print("Phi-3 model and tokenizer already loaded.")
@@ -150,12 +150,12 @@ def load_phi3_model():
 
 
 def get_hermes_model_and_tokenizer():
-    """Returns the loaded Hermes model and tokenizer."""
+    """Return the loaded Hermes model and tokenizer."""
     return hermes_model, hermes_tokenizer
 
 
 def get_phi3_model_and_tokenizer():
-    """Returns the loaded Phi-3 model and tokenizer."""
+    """Return the loaded Phi-3 model and tokenizer."""
     return phi3_model, phi3_tokenizer
 
 
@@ -178,8 +178,8 @@ if __name__ == "__main__":
 
 def get_latest_adapter_dir(base_path: str) -> Optional[str]:
     """
-    Scans a base path for date-formatted subdirectories (YYYYMMDD)
-    containing an 'adapter_config.json' file and returns the path
+    Scan a base path for date-formatted subdirectories (YYYYMMDD)
+    containing an 'adapter_config.json' file and return the path
     to the most recent valid adapter directory.
 
     Args:

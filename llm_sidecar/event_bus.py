@@ -10,8 +10,7 @@ logger = logging.getLogger(__name__)
 
 class EventBus:
     def __init__(self, redis_url: str):
-        """
-        Initializes the EventBus with a Redis client.
+        """Initialize the EventBus with a Redis client.
 
         Args:
             redis_url: The URL for the Redis server.
@@ -29,9 +28,7 @@ class EventBus:
         self._listener_tasks = []
 
     async def connect(self):
-        """
-        Connects to Redis and pings the server to ensure connection.
-        """
+        """Connect to Redis and ping the server to ensure connection."""
         try:
             await self.redis_client.ping()
             logger.info("Successfully connected to Redis.")
@@ -41,8 +38,7 @@ class EventBus:
             raise
 
     async def publish(self, event_type: str, payload: str):
-        """
-        Publishes an event to the specified channel.
+        """Publish an event to the specified channel.
 
         Args:
             event_type: The channel name to publish to.
@@ -60,8 +56,7 @@ class EventBus:
     async def subscribe(
         self, event_type: str, handler: Callable[[str], Awaitable[None]]
     ):
-        """
-        Subscribes to an event type and registers a handler.
+        """Subscribe to an event type and register a handler.
 
         Args:
             event_type: The event type (channel) to subscribe to.
@@ -104,9 +99,7 @@ class EventBus:
         logger.debug(f"Listener task for {event_type} added.")
 
     async def close(self):
-        """
-        Gracefully disconnects the Redis client and stops listener tasks.
-        """
+        """Gracefully disconnect the Redis client and stop listener tasks."""
         logger.info("Closing EventBus connection and stopping listeners...")
         self._stop_event.set()
 

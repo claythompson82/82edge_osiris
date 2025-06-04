@@ -8,9 +8,7 @@ RESOURCES_DIR = Path(__file__).parent.parent / "resources"
 
 
 def draft_patch(trace: List[Dict]) -> Optional[Dict]:
-    """
-    Generates a dummy patch by reading from resources/dummy_patch.py.txt.
-    """
+    """Generate a dummy patch by reading from resources/dummy_patch.py.txt."""
     if not trace:
         log.warning("draft_patch called with no traces, returning None.")
         return None

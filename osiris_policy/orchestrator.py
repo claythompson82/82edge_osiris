@@ -775,9 +775,7 @@ async def market_tick_listener(
 
 
 async def process_workflow_run(graph_app: StateGraph, initial_state: WorkflowState):
-    """
-    Processes a single workflow run, including logging its final state.
-    """
+    """Process a single workflow run, including logging its final state."""
     run_id = initial_state.get("run_id", "unknown_run")
     logger.info(f"Starting background processing for workflow run_id: {run_id}")
     final_state_dict = await graph_app.ainvoke(initial_state)

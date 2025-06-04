@@ -60,7 +60,7 @@ _tables: Dict[str, Any] = {}
 
 
 def init_db():
-    """Initializes the database and creates tables if they don't exist."""
+    """Initialize the database and create tables if they don't exist."""
     for (
         table_name,
         schema_model,
@@ -84,7 +84,7 @@ def add_to_table(
     table_name: str, data: LanceModel
 ) -> None:  # data is now a LanceModel instance
     """
-    Adds a Pydantic model (LanceModel) instance to the specified table after validation.
+    Add a Pydantic model (LanceModel) instance to the specified table after validation.
     The actual async safety depends on LanceDB's capabilities with asyncio.
     For now, this is a standard synchronous function.
     """
@@ -104,17 +104,17 @@ def add_to_table(
 
 # --- Specific Data Logging Functions ---
 def append_feedback(feedback_data: Phi3FeedbackSchema) -> None:
-    """Logs feedback data."""
+    """Log feedback data."""
     add_to_table("phi3_feedback", feedback_data)
 
 
 def log_run(run_data: OrchestratorRunSchema) -> None:
-    """Logs orchestrator run data."""
+    """Log orchestrator run data."""
     add_to_table("orchestrator_runs", run_data)
 
 
 def log_hermes_score(score_data: HermesScoreSchema) -> None:
-    """Logs Hermes evaluation scores."""
+    """Log Hermes evaluation scores."""
     add_to_table("hermes_scores", score_data)
 
 
