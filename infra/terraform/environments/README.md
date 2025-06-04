@@ -2,10 +2,11 @@
 
 This directory contains example Terraform configurations for deploying Osiris using the shared module.
 
-Two sample environments are provided:
+The following sample environments are provided:
 
 - `dev` – a lightweight setup intended for development and testing.
 - `staging` – a configuration that more closely mirrors production settings.
+- `production_example` – demonstrates production-like settings with higher availability and external services.
 
 To deploy an environment, change into the desired directory and run:
 
