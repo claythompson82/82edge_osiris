@@ -2,7 +2,7 @@
 
 This document outlines the recommended steps for a local development setup.
 
-## Local Setup
+## Setting up a dev env
 
 1. Copy the environment template and adjust any settings:
 
@@ -16,6 +16,8 @@ This document outlines the recommended steps for a local development setup.
    ```bash
    pip install -e .
    ```
+
+- `pip install -r requirements-tests.txt` installs extras needed only for running tests.
 
 ## Testing
 
