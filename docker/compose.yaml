@@ -29,7 +29,8 @@ services:
       - ./lancedb_data:/app/lancedb_data
     environment:
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
-      - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-llm-sidecar}
+      - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-osiris_llm_sidecar}
+      - OTEL_TRACES_SAMPLER=${OTEL_TRACES_SAMPLER:-parentbased_always_on}
       - ENABLE_METRICS=${ENABLE_METRICS:-true}
     # Adding a healthcheck can be useful for production, but is optional here
     # healthcheck:
