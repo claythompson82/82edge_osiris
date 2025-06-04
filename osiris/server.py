@@ -21,6 +21,7 @@ import torch
 from fastapi import FastAPI, HTTPException, Response, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from prometheus_fastapi_instrumentator import Instrumentator
 from common.otel_init import init_otel
 
 from llm_sidecar.loader import (
@@ -106,6 +107,8 @@ class ScoreRequest(BaseModel):
 # FastAPI initialisation
 # ---------------------------------------------------------------------
 app = FastAPI()
+if os.getenv("ENABLE_METRICS", "false").lower() == "true":
+    Instrumentator().instrument(app).expose(app)
 init_otel(app)  # Initialize OpenTelemetry with the FastAPI app instance
 event_bus = EventBus(redis_url="redis://localhost:6379/0")  # Global EventBus instance
 logger = logging.getLogger(__name__)  # For event handler logging

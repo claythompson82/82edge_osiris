@@ -24,3 +24,4 @@ pylint>=2.17.0,<3.0
 opentelemetry-instrumentation-fastapi
 opentelemetry-instrumentation-logging
 opentelemetry-exporter-otlp-proto-http
+prometheus-fastapi-instrumentator>=6.1
