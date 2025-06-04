@@ -1,6 +1,48 @@
+# Quality Loop Overview
+
+Osiris maintains a tight **Generate → Prove → Apply → Fine‑Tune** cycle to incrementally
+improve trade generation and automated code updates. New ideas or patches are drafted,
+verified, applied if they improve reward, and then incorporated into a nightly
+fine‑tuning routine. This page collects the notes for that process.
+
+![Quality Loop Diagram](quality_loop.drawio.svg)
+
+### Reward Signals
+
+The system evaluates new patches using several reward components:
+
+| Signal | Purpose |
+| --- | --- |
+| **Profit** | Raw profit and loss from closed trades |
+| **Risk‑Adjusted Return** | Profit normalized by drawdown or other risk metrics |
+| **Novelty** | Encourages diverse ideas rather than repetitive trades |
+| **Latency** | Rewards faster execution and lower decision lag |
+
+The final reward combines these signals to determine whether a patch or strategy
+should be kept.
+
+Each component addresses a different dimension of quality:
+
+* **Profit** tracks raw gains or losses on executed trades.
+* **Risk‑Adjusted Return** penalizes high drawdowns so that risky strategies do not dominate.
+* **Novelty** provides incentive for the model to explore new approaches instead of repeating the same pattern.
+* **Latency** measures how quickly an idea can be acted on once generated.
+
+Balancing these metrics lets operators tune the loop toward either conservative or experimental behavior.
+
+> **Rollback Logic**
+> 
+> When a patch results in a negative reward it is immediately rolled back. The
+> details of this mechanism live in
+> [`dgm_kernel/meta_loop.py`](../dgm_kernel/meta_loop.py).
+
+The fine‑tuning stage is automated by the nightly script
+[`scripts/nightly_qlora.sh`](../scripts/nightly_qlora.sh), which harvests feedback
+and retrains adapters using QLoRA.
+
 # Hermes Scoring Rationale
 
-This document explains the rationale behind the Hermes scoring system.
+This section explains the rationale behind the Hermes scoring system.
 
 The Hermes scoring system is designed to evaluate trade ideas based on their risk-reward profile. The evaluation is performed by a large language model (LLM) using a specific prompt template.
 
@@ -109,3 +151,50 @@ This section describes how users interact with trade advice within the user inte
     *   A dedicated "status" column for each advice row will change to "approved" or "rejected" (or "edited") based on the user's action. This provides immediate visual confirmation of the recorded feedback.
 
 This UI-driven feedback mechanism ensures that human expertise can directly influence the system's understanding of advice quality and allows for the collection of preference data (approved vs. rejected, or original vs. edited) that can be used in subsequent training iterations, such as the RL-DPO pipeline.
+
+## Example Workflow
+
+The following outline shows how the pieces fit together over the course of a trading day:
+
+1.  **Generation:** The system or a human drafts new advice or a code patch and submits it to the queue.
+2.  **Proving:** Automated checks validate the patch using unit tests, style rules and the Hermes score.
+3.  **Application:** If the patch improves the reward, it is applied live and begins affecting trading decisions.
+4.  **Observation:** Every trade result is logged along with metadata about the patch that produced it.
+5.  **Fine‑Tuning:** The nightly job aggregates the last 24 hours of feedback and runs `scripts/nightly_qlora.sh` to train adapters.
+6.  **Reloading:** The updated adapters are loaded on startup or during the next generation step, completing the loop.
+
+Developers can adjust the weights of each reward signal in the configuration. A heavier emphasis on profit may speed convergence toward short‑term gains, while higher novelty weight encourages exploration. Tuning these parameters is an active area of experimentation.
+
+### Suggested Future Enhancements
+
+*   Add a visualization dashboard showing reward trends over time.
+*   Expand the prover to include custom static analysis or formal checks.
+*   Investigate reinforcement learning algorithms beyond DPO for adapter updates.
+*   Store rollback statistics to better understand how often negative reward occurs.
+*   Alert when latency grows beyond a configurable threshold.
+
+The quality loop thrives on small, rapid iterations. By steadily applying the cycle the system learns to prefer higher quality trades while rejecting regressions.
+
+## Troubleshooting
+
+Occasionally a patch may appear valid yet still degrade overall performance. When that happens check the following:
+
+1.  Verify that the collected reward signals cover a long enough window of trades.
+2.  Inspect the `dgm:rolled_back_traces` list in Redis for context on the rollback.
+3.  Confirm that unit tests in the prover captured the intended behavior.
+4.  Make sure the nightly adapter directory contains the latest files produced by `nightly_qlora.sh`.
+5.  Review recent logs for exceptions in `dgm_kernel.meta_loop` which may indicate a failed reload.
+
+### Running the Nightly Script Manually
+
+The quality loop normally invokes QLoRA training from a scheduled job. To run it on demand execute:
+
+```bash
+bash scripts/nightly_qlora.sh
+```
+
+The script creates a date‑stamped adapter folder under `models/phi3/adapters/` and moves the trained files there. Reloading the sidecar will then pick up the new adapters automatically.
+
+Keeping a record of each adapter directory allows experiments to be reproduced or rolled back if necessary.
+
+Consistent tracking and automation make the quality loop a central part of Osiris.
