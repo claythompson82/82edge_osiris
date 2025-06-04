@@ -8,7 +8,7 @@ from contextlib import redirect_stdout
 
 # Modules to test
 from osiris_policy import orchestrator as policy_orchestrator
-from llm_sidecar.db import OrchestratorRunSchema # For type checking in log_run assertion
+from osiris.llm_sidecar.db import OrchestratorRunSchema # For type checking in log_run assertion
 
 # Helper to create mock HTTP responses
 def _mock_response(status_code=200, json_data=None, text_data=None, raise_for_status=None):
