@@ -19,11 +19,13 @@ on:
 env:
   ENABLE_OBS_TESTS: ${{ github.event_name == 'schedule' ||
     (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+    (github.event_name == 'pull_request' &&
+      contains(github.event.pull_request.labels.*.name, 'run-observability-tests')) ||
     (github.event_name == 'workflow_dispatch' && github.event.inputs.enable-obs-tests == 'true') }}
 
 jobs:
   smoke-test:
-    if: ${{ github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.event.inputs.enable-obs-tests == 'true') }}
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-observability-tests')) || (github.event_name == 'workflow_dispatch' && github.event.inputs.enable-obs-tests == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15 # Add a timeout for the job
     env:
