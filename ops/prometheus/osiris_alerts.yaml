@@ -24,6 +24,16 @@ spec:
         summary: High GPU VRAM usage on {{ $labels.pod }}
         description: GPU VRAM usage is {{ $value | printf "%.2f" }}% on pod {{ $labels.pod }} for more than 2 minutes.
 
+    - alert: VramWatchdogHighUsage
+      expr: avg_over_time(dcgm_fb_used_bytes[2m]) / avg_over_time(dcgm_fb_total_bytes[2m]) * 100 > 90
+      for: 2m
+      labels:
+        severity: warning
+        service: vram-watchdog
+      annotations:
+        summary: VRAM watchdog triggered on {{ $labels.pod }}
+        description: GPU memory usage has exceeded 90% for more than 2 minutes on pod {{ $labels.pod }}.
+
     # This rule assumes you have metrics like:
     # llm_requests_total{model_id="...", status="error/success"}
     # or llm_errors_total and llm_processed_total
