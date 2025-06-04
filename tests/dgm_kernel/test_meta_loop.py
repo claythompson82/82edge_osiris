@@ -227,3 +227,56 @@ async def test_meta_loop_applies_good_patch(
 
 # TODO: Add test for meta_loop_skips_unproven_patch
 # Similar, but _prove_patch returns False. Assert _apply_patch is not called.
+
+@pytest.mark.asyncio
+@mock.patch('dgm_kernel.meta_loop.generate_patch')
+@mock.patch('dgm_kernel.meta_loop._verify_patch')
+@mock.patch('dgm_kernel.meta_loop._apply_patch')
+@mock.patch('dgm_kernel.meta_loop._rollback')
+@mock.patch('dgm_kernel.meta_loop.proofable_reward')
+async def test_meta_loop_rolls_back_bad_patch(
+    mock_reward,
+    mock_rollback,
+    mock_apply_patch,
+    mock_prove_patch,
+    mock_generate_patch,
+    fake_redis,
+    tmp_path,
+):
+    trace = {"id": "trace1", "value": 100}
+    fake_redis.lpush(meta_loop.TRACE_QUEUE, json.dumps(trace))
+
+    target_file = tmp_path / "osiris_policy" / "strategy.py"
+    target_file.parent.mkdir(parents=True, exist_ok=True)
+    before = "# Initial strategy content\n"
+    target_file.write_text(before)
+
+    patch = {
+        "target": str(target_file),
+        "before": before,
+        "after": before + "# bad\n",
+        "rationale": "bad patch",
+    }
+
+    mock_generate_patch.return_value = patch
+    mock_prove_patch.return_value = (True, 9.0)
+    mock_apply_patch.return_value = True
+    mock_reward.return_value = -1.0
+
+    traces = await meta_loop.fetch_recent_traces()
+    patch_data = await meta_loop.generate_patch(traces)
+    accepted, score = await meta_loop._verify_patch(traces, patch_data)
+    if accepted:
+        if meta_loop._apply_patch(patch_data):
+            new_r = sum(meta_loop.proofable_reward(t, patch_data.get("after")) for t in traces)
+            if new_r >= 0:
+                meta_loop.REDIS.lpush(
+                    meta_loop.APPLIED_LOG,
+                    json.dumps(patch_data | {"reward": new_r, "verification_score": score}),
+                )
+            else:
+                meta_loop._rollback(patch_data)
+
+    mock_rollback.assert_called_once_with(patch)
+    assert fake_redis.llen(meta_loop.APPLIED_LOG) == 0
+
