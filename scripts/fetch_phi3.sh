@@ -1,3 +1,3 @@
 #!/bin/bash
-echo "No model dl in CI"
+echo "stub – real fetcher TBD"
 exit 0
