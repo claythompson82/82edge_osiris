@@ -10,8 +10,8 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy constraints file for torch installation
-COPY constraints.txt /tmp/constraints.txt
-COPY requirements.txt /tmp/requirements.txt
+COPY ../constraints.txt /tmp/constraints.txt
+COPY ../requirements.txt /tmp/requirements.txt
 
 # Install Python dependencies from requirements.txt using constraints.txt
 RUN pip3 install --no-cache-dir -r /tmp/requirements.txt -c /tmp/constraints.txt
