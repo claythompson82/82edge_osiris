@@ -6,7 +6,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Install Python, pip, and git
 RUN apt-get update && \
-    apt-get install -y python3 python3-pip git && \
+    apt-get install -y --no-install-recommends python3 python3-pip git && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy constraints file for torch installation
@@ -15,6 +15,13 @@ COPY ../requirements.txt /tmp/requirements.txt
 
 # Install Python dependencies from requirements.txt using constraints.txt
 RUN pip3 install --no-cache-dir -r /tmp/requirements.txt -c /tmp/constraints.txt
+
+# Create non-root user and group
+RUN groupadd --system sidecar && \
+    useradd --system --create-home --gid sidecar sidecar
+
+# Prepare application directory
+RUN mkdir -p /app
 
 # Copy application code
 COPY ../common /app/common
@@ -37,14 +44,24 @@ RUN if [ -f /app/models/llm_micro/phi-3-mini-4k-instruct-AWQ-4bit.onnx ]; then \
 # Using a specific revision known to work with auto-gptq 0.7.1
 RUN git clone https://huggingface.co/TheBloke/Hermes-Trismegistus-III-8B-GPTQ /app/hermes-model --branch gptq-8bit-128g-actorder_True --depth 1
 
+# Remove git to keep the final image minimal
+RUN apt-get purge -y git && \
+    apt-get autoremove -y && \
+    rm -rf /var/lib/apt/lists/*
+
 # Set up the working directory
 WORKDIR /app
 
 # Create a simple server using FastAPI
 COPY ./server.py /app/server.py
 
+# Adjust ownership for non-root execution
+RUN chown -R sidecar:sidecar /app
+
 # Expose the necessary port for the API
 EXPOSE 8000
 
 # Command to run the server
+USER sidecar
+
 CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000"]
