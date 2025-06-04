@@ -25,6 +25,10 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      otel-collector:
+        image: otel/opentelemetry-collector:0.92.0
+        ports:
+          - 4318:4318
 
     steps:
       - name: Checkout code
@@ -71,6 +75,11 @@ jobs:
           push_image: false
           # build_args: '' # If HF_TOKEN is an ARG in Dockerfile, it might be picked from env if set
           # For explicit secret build args, reusable workflow might need updates or use build-args with secrets.
+
+      - name: Configure OTEL environment
+        run: |
+          echo "OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318" >> .env
+          echo "OTEL_SERVICE_NAME=llm-sidecar" >> .env
 
       - name: Run LLM Sidecar Docker Container
         run: |
@@ -119,6 +128,11 @@ jobs:
         # env:
         #   REDIS_URL: redis://localhost:6379/0 # If orchestrator needs to connect to Redis directly
 
+      - name: Verify OTEL traces sent
+        run: |
+          docker logs ${{ job.services.otel-collector.id }} > otel-collector.log
+          grep "/v1/traces" otel-collector.log
+
       - name: Dump service logs on failure
         if: failure()
         run: |
@@ -138,6 +152,7 @@ jobs:
           path: |
             llm-sidecar-logs.txt
             vram-watchdog-logs.txt
+            otel-collector.log
           if-no-files-found: ignore
           retention-days: 7
 
