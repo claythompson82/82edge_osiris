@@ -18,7 +18,7 @@ services:
       # Mount the server.py from the root directory into the /app directory in the container
       # This ensures that the server code is correctly picked up by the Docker image
       # Adjust the source path if your server.py is located elsewhere relative to the compose file
-      - ../server.py:/app/server.py
+      - ../osiris/server.py:/app/server.py
       # It's good practice to also ensure the model directory is correctly handled.
       # If the model is downloaded during the build (as in the Dockerfile),
       # it will be part of the image. If you were to download it at runtime or

@@ -10,12 +10,14 @@ import sys
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 
-from server import FeedbackItem, submit_phi3_feedback # For tests 1 and 2
-from llm_sidecar.db import append_feedback as actual_append_feedback # For test 2, to mock its module
+from osiris.server import FeedbackItem, submit_phi3_feedback  # For tests 1 and 2
+from llm_sidecar.db import append_feedback as actual_append_feedback  # For test 2, to mock its module
 # For tests 3 and 4 (script testing)
-from scripts.harvest_feedback import main as harvest_main
-from scripts.migrate_feedback import main as migrate_main
-from scripts.migrate_feedback import FeedbackSchemaWithVersion as MigrationOutputSchema # To check migrated data
+from osiris.scripts.harvest_feedback import main as harvest_main
+from osiris.scripts.migrate_feedback import main as migrate_main
+from osiris.scripts.migrate_feedback import (
+    FeedbackSchemaWithVersion as MigrationOutputSchema,
+)
 
 # --- Helper Pydantic Models for Test Data & Table Creation ---
 
