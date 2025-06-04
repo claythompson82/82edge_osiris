@@ -3,15 +3,17 @@
 Below is a set of common tasks and environment notes for contributors.
 
 ## Table of Contents
-- [Environment setup](#environment-setup)
+- [Local development setup](#local-development-setup)
 - [Pre-commit install](#pre-commit-install)
 - [Local harness](#local-harness)
 - [Running sidecar and Redis](#running-sidecar-and-redis)
 - [Pointing tests at local sidecar](#pointing-tests-at-local-sidecar)
+- [Using the dev container](#using-the-dev-container)
 - [Common workflows](#common-workflows)
 - [CI cheatsheet](#ci-cheatsheet)
 - [Testing](#testing)
 - [Branch protection](#branch-protection)
+- [Contribution workflow](#contribution-workflow)
 - [Example environment](#example-environment)
 - [pyenv with poetry](#pyenv-with-poetry)
 - [venv with pip](#venv-with-pip)
@@ -19,8 +21,14 @@ Below is a set of common tasks and environment notes for contributors.
 - [Logging basics](#logging-basics)
 - [Extra resources](#extra-resources)
 
-## Environment setup
-Use either `pyenv` with Poetry or the standard `venv` module. Clone the repo and copy `.env.template` to `.env` first. For a pyenv workflow, install Python 3.11 and run `poetry install`. The lock file pins all packages. For a lightweight approach, create a `venv` with `python -m venv .venv` and activate it. Then install with `pip install -e .` plus `pip install -r requirements-tests.txt` for the extras.
+## Local development setup
+### Prerequisites
+1. Docker and Docker Compose
+2. Python 3.11
+3. Git and `pre-commit`
+
+Clone the repo and copy `.env.template` to `.env`. Adjust values as needed.
+Use either `pyenv` with Poetry or the standard `venv` module. For a pyenv workflow, install Python 3.11 and run `poetry install`. The lock file pins all packages. For a lightweight approach, create a `venv` with `python -m venv .venv` and activate it. Then install with `pip install -e .` plus `pip install -r requirements-tests.txt` for the extras.
 
 ## Pre-commit install
 Install the hooks with `pre-commit install` after installing the package. This ensures formatting and linting checks run automatically before each commit. Run `pre-commit autoupdate` to sync hook versions and `pre-commit run --all-files` one time to lint the entire repo.
@@ -41,6 +49,13 @@ Tests expect the sidecar URL at `OSIRIS_SIDECAR_URL`. When running a local insta
 export OSIRIS_SIDECAR_URL=http://localhost:8000
 ```
 This directs the integration tests at your local sidecar instead of staging.
+
+## Using the dev container
+VS Code users can develop inside a container without installing Python locally.
+Install the **Remote - Containers** extension, then choose **"Reopen in Container"**.
+The configuration under `.devcontainer/` builds the image from `Dockerfile`,
+installs the project in editable mode, and exposes ports `8000` and `6379`.
+The container has all test dependencies so you can run `pytest` immediately.
 
 ## Common workflows
 - Added a new reward function? Run:
@@ -70,6 +85,13 @@ Run `pytest` from the repo root. Use `-k` to filter tests. For coverage metrics 
 
 ## Branch protection
 Set up required checks with `scripts/ci/setup_branch_protection.sh`. This script uses the GitHub CLI and must be run by a repo admin. It configures the four checks listed in the CI cheatsheet and enforces a linear history on `main`.
+
+## Contribution workflow
+1. Create a feature branch from `main`.
+2. Install dependencies and run `pre-commit install`.
+3. Make your changes and run `pre-commit` followed by `pytest`.
+4. Push the branch and open a pull request.
+5. Address review comments and ensure CI passes before merging.
 
 ## Example environment
 The `.env.template` file documents all configurable variables. Copy it to `.env` and edit values such as API keys or model paths. Keep secrets out of source control.
@@ -136,6 +158,14 @@ You can also prune unused volumes via `docker volume prune`. Be careful, this de
 
 ## Debugging tips
 Set `DEBUG=true` in your `.env` to enable extra verbose traces. When diagnosing test failures, run pytest with `-vv` and check the `tests/logs` directory for captured output. Use `pdb.set_trace()` in the code to drop into an interactive debugger.
+
+Common logs can be followed with Docker:
+```bash
+docker compose logs -f llm-sidecar        # LLM API
+docker compose logs -f orchestrator       # Policy loop
+docker compose logs -f redis              # Event bus
+```
+LanceDB stores data under `./lancedb_data`. Inspect it with `ls lancedb_data` or the LanceDB CLI.
 
 ## File layout
 - `llm_sidecar/` – sidecar server code
