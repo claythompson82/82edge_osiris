@@ -437,7 +437,7 @@ async def generate_unified(req: UnifiedPromptRequest):
         return {"generated_text": txt}
 
     return {
-        "error": "Invalid model_id. Use 'hermes' or 'phi3'.",
+        "error": "Invalid model_id specified. Choose 'hermes' or 'phi3'.",
         "specified_model_id": req.model_id,
     }
 
