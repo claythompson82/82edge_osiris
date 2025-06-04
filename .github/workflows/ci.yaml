@@ -15,10 +15,13 @@ jobs:
         uses: actions/checkout@v4
 
 
-      - name: Install linters
+      - name: Install yamllint
         run: |
           sudo apt-get update
           sudo apt-get install -y yamllint
+
+      - name: Install actionlint
+        run: |
           set -eux
           ver="$(curl -sSL https://api.github.com/repos/rhysd/actionlint/releases/latest | jq -r .tag_name)"
           curl -sSL \
