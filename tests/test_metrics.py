@@ -66,3 +66,13 @@ def test_metrics_endpoint(run_compose):
     response = requests.get("http://localhost:8000/metrics")
     assert response.status_code == 200
     assert "python_gc_objects_collected_total" in response.text
+
+
+@pytest.mark.compose
+def test_health_endpoint(run_compose):
+    response = requests.get("http://localhost:8000/health")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] in {"ok", "partial_error", "error"}
+    assert "hermes_loaded" in data
+    assert "phi3_loaded" in data
