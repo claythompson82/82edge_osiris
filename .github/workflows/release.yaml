@@ -16,7 +16,7 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
     env:
       TAG: ${{ github.ref_name }}
@@ -24,6 +24,30 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install semantic-release
+        run: pip install python-semantic-release
+
+      - name: Determine next version
+        if: github.event_name == 'workflow_dispatch'
+        id: semver
+        run: |
+          NEXT_TAG=$(semantic-release version --print-tag --no-commit --no-tag --no-changelog --no-push)
+          echo "TAG=$NEXT_TAG" >> "$GITHUB_ENV"
+          echo "tag=$NEXT_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Create Git tag
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git tag "$TAG"
+          git push origin "$TAG"
 
       - name: Determine platforms
         id: platforms
@@ -57,4 +81,11 @@ jobs:
           registry_user: ${{ github.actor }}
           registry_password: ${{ secrets.GITHUB_TOKEN }}
           platforms: ${{ steps.platforms.outputs.PLATFORMS }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ env.TAG }}
+          name: ${{ env.TAG }}
+          generate_release_notes: true
 

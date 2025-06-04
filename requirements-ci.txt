@@ -1,3 +1,4 @@
 -r requirements.txt
 # light-weight stubs / testing libs
 onnxruntime==1.17.3         # CPU wheel only, tiny
+python-semantic-release==10.0.2
