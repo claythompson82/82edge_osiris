@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 # Import the loader module directly to access globals and functions for mocking/assertion
 from llm_sidecar import loader
-from server import app # For testing the /health endpoint
+from osiris.server import app  # For testing the /health endpoint
 
 # Attempt to import PeftModel, but allow tests to run if it's not critical for all
 try:

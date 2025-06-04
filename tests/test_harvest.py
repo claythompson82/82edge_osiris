@@ -10,13 +10,7 @@ import shutil
 import tempfile
 from unittest.mock import patch
 
-# Import the main function from the script to be tested
-import sys
-
-sys.path.insert(
-    0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "scripts"))
-)
-from harvest_feedback import main as harvest_main
+from osiris.scripts.harvest_feedback import main as harvest_main
 
 
 @pytest.fixture

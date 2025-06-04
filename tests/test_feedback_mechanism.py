@@ -10,12 +10,14 @@ from fastapi.testclient import TestClient
 
 # Adjust the import path according to your project structure
 # Assuming server.py is in the parent directory or PYTHONPATH is set up
-import sys
-# Add the parent directory to sys.path to allow imports from server.py
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-# Import after sys.path modification
-from server import app, FeedbackItem, PHI3_FEEDBACK_LOG_FILE, PHI3_FEEDBACK_DATA_FILE, load_recent_feedback, _generate_phi3_json
+from osiris.server import (
+    app,
+    FeedbackItem,
+    PHI3_FEEDBACK_LOG_FILE,
+    PHI3_FEEDBACK_DATA_FILE,
+    load_recent_feedback,
+    _generate_phi3_json,
+)
 
 # Helper for async mocking if needed
 async def mock_async_return_value(value):
@@ -33,8 +35,8 @@ class TestFeedbackMechanism(unittest.TestCase):
 
 
     # Test Case 1: Logging of Phi-3 Proposals and Hermes Assessments
-    @patch('server._generate_hermes_text')
-    @patch('server._generate_phi3_json') # This mock will be for the one called by propose_trade_adjustments
+    @patch('osiris.server._generate_hermes_text')
+    @patch('osiris.server._generate_phi3_json') # This mock will be for the one called by propose_trade_adjustments
     @patch('builtins.open', new_callable=mock_open) # Mock the built-in open
     def test_log_propose_trade_adjustments(self, mock_file_open, mock_internal_phi3_gen, mock_hermes_gen):
         mock_phi3_output = {"ticker": "TESTPHI3", "action": "adjust", "confidence": 0.9, "rationale": "Phi3 rationale"}
@@ -184,7 +186,7 @@ class TestFeedbackMechanism(unittest.TestCase):
     # This also indirectly tests the augmentation via the /propose_trade_adjustments/ endpoint.
     # To directly test _generate_phi3_json, we need to mock its internal dependencies like outlines
     @patch('outlines.generate.json')
-    @patch('server.load_recent_feedback') 
+    @patch('osiris.server.load_recent_feedback')
     async def test_prompt_augmentation_logic(self, mock_load_feedback, mock_outlines_gen_json_factory):
         # Mock for outlines.generate.json factory should return a callable (the generator instance)
         mock_generator_instance = MagicMock() # This will be the callable generator
