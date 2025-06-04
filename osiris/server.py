@@ -8,6 +8,12 @@ import os
 
 ENABLE_METRICS = os.getenv("ENABLE_METRICS", "false").lower() in ("1", "true", "yes")
 print(f"[Side-car] metrics enabled: {ENABLE_METRICS}")
+ENABLE_PROFILING = os.getenv("ENABLE_PROFILING", "false").lower() in (
+    "1",
+    "true",
+    "yes",
+)
+print(f"[Side-car] profiling enabled: {ENABLE_PROFILING}")
 import json
 import uuid
 import datetime
@@ -17,15 +23,34 @@ import asyncio  # Added for event handlers, though not strictly necessary if not
 import logging  # Added for consistency
 import base64
 import sentry_sdk
-from sentry_sdk.integrations.logging import LoggingIntegration
+
+try:
+    from sentry_sdk.integrations.logging import LoggingIntegration
+except Exception:  # pragma: no cover - optional sentry
+    LoggingIntegration = None
 import io
 
 import torch
 from fastapi import FastAPI, HTTPException, Response, Request
 from fastapi.responses import StreamingResponse
-from prometheus_fastapi_instrumentator import Instrumentator
+
+try:
+    from prometheus_fastapi_instrumentator import Instrumentator
+except Exception:  # pragma: no cover - optional dependency
+    Instrumentator = None
 from pydantic import BaseModel
-from common.otel_init import init_otel
+
+try:
+    from common.otel_init import init_otel
+except Exception:  # pragma: no cover - optional dependency
+
+    def init_otel(app=None):
+        return
+
+
+if ENABLE_PROFILING:
+    from pyinstrument import Profiler
+    from starlette.middleware.base import BaseHTTPMiddleware
 
 from llm_sidecar.loader import (
     load_hermes_model,
@@ -39,7 +64,10 @@ from llm_sidecar.tts import ChatterboxTTS
 
 
 # outlines (schema-guided generation for Phi-3)
-from outlines import generate as outlines_generate
+try:
+    from outlines import generate as outlines_generate
+except Exception:  # pragma: no cover - optional dependency
+    outlines_generate = None
 from llm_sidecar.db import append_feedback, log_hermes_score  # db module itself
 import llm_sidecar.db as db  # alias for explicit calls like db.append_feedback
 from llm_sidecar.event_bus import EventBus
@@ -72,6 +100,11 @@ JSON_SCHEMA_STR = """
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"[Side-car] running on {DEVICE}")
+
+# Stores the HTML output of the most recent request profile when
+# ENABLE_PROFILING is true. Initialized empty to avoid memory use when
+# profiling is disabled.
+last_profile_html = ""
 
 
 # ---------------------------------------------------------------------
@@ -110,13 +143,24 @@ class ScoreRequest(BaseModel):
 # FastAPI initialisation
 # ---------------------------------------------------------------------
 app = FastAPI()
-if ENABLE_METRICS:
+if ENABLE_METRICS and Instrumentator:
     Instrumentator().instrument(app).expose(app)
 init_otel(app)  # Initialize OpenTelemetry with the FastAPI app instance
-if os.getenv("ENABLE_METRICS", "false").lower() == "true":
-    from prometheus_fastapi_instrumentator import Instrumentator
-
+if os.getenv("ENABLE_METRICS", "false").lower() == "true" and Instrumentator:
     Instrumentator().instrument(app).expose(app)
+if ENABLE_PROFILING:
+
+    class ProfilingMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request: Request, call_next):
+            profiler = Profiler()
+            profiler.start()
+            response = await call_next(request)
+            profiler.stop()
+            global last_profile_html
+            last_profile_html = profiler.output_html()
+            return response
+
+    app.add_middleware(ProfilingMiddleware)
 event_bus = EventBus(redis_url="redis://localhost:6379/0")  # Global EventBus instance
 logger = logging.getLogger(__name__)  # For event handler logging
 
@@ -436,6 +480,9 @@ async def _generate_phi3_json(
 
     effective_prompt = f"{aug}{prompt}"
 
+    if outlines_generate is None:
+        return {"error": "Phi-3 generation library not available"}
+
     try:
         gen = outlines_generate.json(model, JSON_SCHEMA_STR, tokenizer=tokenizer)
         return gen(effective_prompt, max_tokens=max_length)
@@ -737,6 +784,16 @@ async def health():
         "mean_hermes_score_last_24h": mean_hermes_score_last_24h,
         "num_hermes_scores_last_24h": num_hermes_scores_last_24h,
     }
+
+
+@app.get("/debug/prof", tags=["debug"])
+async def get_last_profile() -> Response:
+    """Return the HTML profile from the most recent request."""
+    if not ENABLE_PROFILING:
+        raise HTTPException(status_code=404, detail="Profiling disabled")
+    if not last_profile_html:
+        return Response(content="No profile captured yet", media_type="text/plain")
+    return Response(content=last_profile_html, media_type="text/html")
 
 
 # Local dev entry-point

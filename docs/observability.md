@@ -11,6 +11,12 @@ OTEL_TRACES_SAMPLER=parentbased_always_on
 
 Adjust `OTEL_SERVICE_NAME` for other components (e.g. `osiris_orchestrator`). Traces can be collected with any OTLP compatible collector.
 
+## Profiling
+
+Set `ENABLE_PROFILING=true` to enable a lightweight request profiler on the `llm_sidecar` service. When active, the service records timing information for each request using `pyinstrument` and retains the latest report in memory. Retrieve the report from `/debug/prof`.
+
+Profiling is disabled by default to avoid overhead.
+
 ## Prometheus Alert Rules
 
 Osiris includes a set of predefined Prometheus alert rules to help monitor key aspects of the system. These rules are defined in `ops/prometheus/osiris_alerts.yaml`.
