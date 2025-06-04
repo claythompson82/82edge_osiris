@@ -52,7 +52,7 @@ jobs:
           timeout 30s bash -c 'until curl -sSf http://localhost:8000/health > /dev/null; do echo -n "."; sleep 1; done'
           echo "Server is up!"
         # This uses the /health endpoint. If it doesn't exist, a simple sleep might be needed,
-        # but is less reliable: sleep 20 
+        # but is less reliable: sleep 20
 
       - name: Call /speak endpoint and check response
         id: speak_test
@@ -63,7 +63,7 @@ jobs:
             http://localhost:8000/speak \
             --output response.wav \
             --write-out "%{http_code}")
-          
+
           echo "HTTP Status Code: $STATUS_CODE"
           echo "STATUS_CODE=$STATUS_CODE" >> $GITHUB_OUTPUT
 
@@ -87,7 +87,7 @@ jobs:
              exit 1
           fi
           echo "WAV header check passed."
-          
+
       - name: Verify HTTP Status (alternative using output)
         if: steps.speak_test.outputs.STATUS_CODE != '200'
         run: |
@@ -101,4 +101,3 @@ jobs:
           docker stop osiris_server || echo "Failed to stop container (it might have already stopped)."
           docker rm osiris_server || echo "Failed to remove container (it might have already been removed)."
           # No need to fail the job if cleanup commands fail, as the runner will be destroyed anyway.
-```

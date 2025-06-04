@@ -312,6 +312,7 @@ The console uses Server-Sent Events (SSE) via the `/stream/audio` endpoint, whic
 - **`.github/workflows/ci.yaml`**: Builds the main image, boots the container, and hits `/health` on every push & PR to `main`.
 - **`.github/workflows/ci-audio-smoke.yaml`**: Performs a smoke test on the TTS audio generation by calling `/speak` and verifying the WAV output.
 - **`.github/workflows/e2e-orchestrator.yaml`**: (Assumed from badge) Runs an end-to-end test of the orchestrator loop.
+- **Lint job**: Quick check that runs `actionlint` and `yamllint` on every pull request before Docker builds.
 
 
 Patience Profits!

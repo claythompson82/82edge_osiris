@@ -120,7 +120,7 @@ jobs:
             fi
           done
           echo "LanceDB service appears to be up and healthy."
-          
+
           echo "Checking LLM Sidecar service..."
           counter=0
           # Assuming llm-sidecar is defined in docker/compose.yaml and named 'llm-sidecar'
@@ -188,7 +188,7 @@ jobs:
           echo "Stopping tick publisher..."
           pkill -f scripts/ci_tick_publisher.py || echo "Tick publisher already stopped or not found."
           sleep 2
-      
+
       - name: Stop orchestrator
         run: |
           echo "Stopping orchestrator..."

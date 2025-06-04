@@ -1,13 +1,34 @@
+---
 name: CI
 
-on:
+"on":
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install linters
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y yamllint
+          curl -sSL https://github.com/rhysd/actionlint/releases/latest/download/actionlint_linux_amd64 -o actionlint
+          sudo install -m 0755 actionlint /usr/local/bin/actionlint
+
+      - name: Run actionlint
+        run: actionlint
+
+      - name: Run yamllint
+        run: yamllint --strict .
+
   build-and-test-llm-sidecar:
+    needs: lint
     runs-on: ubuntu-latest
     env:
       TORCH_VERSION: "2.2.2+cu121"
@@ -24,21 +45,21 @@ jobs:
       - name: Osiris Setup
         uses: ./.github/actions/osiris-setup
         with:
-          python-version: '3.10' # Or whatever is appropriate for this job if it uses Python directly
-          # docker-login-username: ${{ secrets.DOCKERHUB_USERNAME }} # Optional
+          python-version: '3.10'  # Or whatever is appropriate for this job if it uses Python directly
+          # docker-login-username: ${{ secrets.DOCKERHUB_USERNAME }}  # Optional
           # docker-login-password: ${{ secrets.DOCKERHUB_TOKEN }}   # Optional
-          install-requirements: 'false' # This job primarily deals with Docker, Python deps are in the image
-          system-packages: 'jq docker-compose' # Ensure these are available if scripts in the job use them
+          install-requirements: 'false'  # This job primarily deals with Docker, Python deps are in the image
+          system-packages: 'jq docker-compose'  # Ensure these are available if scripts in the job use them
 
       - name: Build llm-sidecar Docker image via reusable workflow
-        uses: ./.github/actions/docker_build # Changed this line
+        uses: ./.github/actions/docker_build  # Changed this line
         with:
           image_name: 'llm-sidecar'
-          # image_tag: 'latest' # Default is 'latest', so optional unless different tag needed
+          # image_tag: 'latest'  # Default is 'latest', so optional unless different tag needed
           dockerfile: 'docker/Dockerfile'
           context: 'docker'
           push_image: false
-          # build_args: 'TORCH_VERSION=${{ env.TORCH_VERSION }}' # Add if Dockerfile uses ARG TORCH_VERSION
+          # build_args: 'TORCH_VERSION=${{ env.TORCH_VERSION }}'  # Add if Dockerfile uses ARG TORCH_VERSION
 
       - name: Run llm-sidecar container
         run: |
