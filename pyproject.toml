@@ -1,0 +1,10 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "osiris"
+version = "0.0.0"
+
+[tool.setuptools.packages.find]
+include = ["osiris*", "llm_sidecar*", "osiris_policy*"]
