@@ -92,8 +92,9 @@ runs:
         push: ${{ inputs.push_image }}
         tags: "${{ inputs.image_name }}:${{ inputs.image_tag }}"
         build-args: ${{ steps.build_args_array.outputs.args }}
-        # TORCH_VERSION should be inherited from the calling workflow's env if Dockerfile uses ARG and RUN env.
-        # platforms: 'linux/amd64,linux/arm64' # Example: for multi-platform, add as input if needed
+        # TORCH_VERSION should be inherited from the calling workflow's environment
+        # If multi-platform images are needed, pass a platforms input such as
+        # 'linux/amd64,linux/arm64'
         cache-from: |
           type=gha
           type=local,src=~/.cache/buildx
