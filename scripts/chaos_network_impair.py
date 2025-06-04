@@ -28,10 +28,18 @@ def ensure_tc(container: str) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Introduce network latency and packet loss")
-    parser.add_argument("--container", default=os.environ.get("NET_CHAOS_CONTAINER", "llm-sidecar"))
-    parser.add_argument("--delay-ms", default=os.environ.get("NET_CHAOS_DELAY_MS", "200"))
-    parser.add_argument("--loss", default=os.environ.get("NET_CHAOS_LOSS_PERCENT", "10"))
+    parser = argparse.ArgumentParser(
+        description="Introduce network latency and packet loss"
+    )
+    parser.add_argument(
+        "--container", default=os.environ.get("NET_CHAOS_CONTAINER", "llm-sidecar")
+    )
+    parser.add_argument(
+        "--delay-ms", default=os.environ.get("NET_CHAOS_DELAY_MS", "200")
+    )
+    parser.add_argument(
+        "--loss", default=os.environ.get("NET_CHAOS_LOSS_PERCENT", "10")
+    )
     parser.add_argument(
         "--duration", type=int, default=int(os.environ.get("NET_CHAOS_DURATION", "30"))
     )

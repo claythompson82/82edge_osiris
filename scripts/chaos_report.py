@@ -6,13 +6,17 @@ import lancedb
 
 
 def container_running(name: str) -> bool:
-    result = subprocess.run([
-        "docker",
-        "inspect",
-        "-f",
-        "{{.State.Running}}",
-        name,
-    ], capture_output=True, text=True)
+    result = subprocess.run(
+        [
+            "docker",
+            "inspect",
+            "-f",
+            "{{.State.Running}}",
+            name,
+        ],
+        capture_output=True,
+        text=True,
+    )
     return result.stdout.strip() == "true"
 
 

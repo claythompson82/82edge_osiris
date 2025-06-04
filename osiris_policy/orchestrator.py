@@ -35,6 +35,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
 def _setup_tracer() -> "trace.Tracer":
     """Initialise OTLP tracing if OTEL_EXPORTER_OTLP_ENDPOINT is set."""
     endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
@@ -44,13 +45,12 @@ def _setup_tracer() -> "trace.Tracer":
     if not endpoint.startswith("http"):
         endpoint = f"http://{endpoint}"
     provider = TracerProvider()
-    processor = BatchSpanProcessor(
-        OTLPSpanExporter(endpoint=f"{endpoint}/v1/traces")
-    )
+    processor = BatchSpanProcessor(OTLPSpanExporter(endpoint=f"{endpoint}/v1/traces"))
     provider.add_span_processor(processor)
     trace.set_tracer_provider(provider)
     logger.info("OpenTelemetry tracing enabled")
     return trace.get_tracer("osiris.policy.orchestrator")
+
 
 tracer = _setup_tracer()
 
@@ -66,6 +66,7 @@ RISK_GATE_CONFIG = {
     "lancedb_path": "/app/lancedb_data",  # Align with llm_sidecar.db DB_ROOT
 }
 
+
 # --- State Definition ---
 class WorkflowState(TypedDict):
     query: str  # This will now be the stringified tick buffer or a summary
@@ -80,7 +81,9 @@ class WorkflowState(TypedDict):
     daily_pnl: Optional[float]  # Current Daily Profit and Loss
     risk_gate_decision: Optional[Dict[str, Any]]  # Output from risk_gate_accept
 
+
 # --- Node Implementations ---
+
 
 def query_market_node(state: WorkflowState) -> WorkflowState:
     with tracer.start_as_current_span("orchestrator.query_market"):
@@ -98,6 +101,7 @@ def query_market_node(state: WorkflowState) -> WorkflowState:
             f"Market query result for run_id {state.get('run_id', 'N/A')}: {market_query_result}"
         )
         return {**state, "market_query_result": market_query_result}
+
 
 async def generate_proposal_node(state: WorkflowState) -> WorkflowState:
     with tracer.start_as_current_span("orchestrator.generate_proposal"):
@@ -129,9 +133,10 @@ async def generate_proposal_node(state: WorkflowState) -> WorkflowState:
         logger.info(
             f"Sending to /generate?model_id=phi3 for run_id {state.get('run_id', 'N/A')}: {json.dumps(phi3_payload)}"
         )
+        sidecar_url = os.getenv("PHI3_API_URL", "http://localhost:8000")
         try:
             response = requests.post(
-                "http://localhost:8000/generate?model_id=phi3",  # TODO: Make sidecar URL configurable
+                f"{sidecar_url}/generate?model_id=phi3",
                 json=phi3_payload,
                 timeout=60,
             )
@@ -141,7 +146,10 @@ async def generate_proposal_node(state: WorkflowState) -> WorkflowState:
                 f"Received from /generate?model_id=phi3 for run_id {state.get('run_id', 'N/A')}: {json.dumps(phi3_response_json)}"
             )
 
-            if isinstance(phi3_response_json, dict) and "error" not in phi3_response_json:
+            if (
+                isinstance(phi3_response_json, dict)
+                and "error" not in phi3_response_json
+            ):
                 return {
                     **state,
                     "phi3_raw_proposal_request": phi3_payload,
@@ -157,25 +165,23 @@ async def generate_proposal_node(state: WorkflowState) -> WorkflowState:
                 }
 
         except requests.exceptions.RequestException as e:
-            error_message = (
-                f"HTTP request to Phi-3 failed for run_id {state.get('run_id', 'N/A')}: {e}"
-            )
+            error_message = f"HTTP request to Phi-3 failed for run_id {state.get('run_id', 'N/A')}: {e}"
             logger.error(error_message)
             return {**state, "error": error_message}
         except json.JSONDecodeError as e:
-            error_message = (
-                f"Failed to decode JSON response from /propose_trade_adjustments for run_id {state.get('run_id', 'N/A')}: {e}. Response text: {response.text if response else 'No response'}"
-            )
+            error_message = f"Failed to decode JSON response from /propose_trade_adjustments for run_id {state.get('run_id', 'N/A')}: {e}. Response text: {response.text if response else 'No response'}"
             logger.error(error_message)
-            return {**state, 'error': error_message}
+            return {**state, "error": error_message}
+
+
 async def publish_events_node(state: WorkflowState) -> WorkflowState:
     with tracer.start_as_current_span("orchestrator.publish_events"):
         run_id = state.get("run_id", "N/A")
         logger.info(f"Executing PublishEvents node for run_id: {run_id}...")
 
         event_bus = EventBus(
-            redis_url="redis://localhost:6379/0"
-        )  # TODO: Make this configurable
+            redis_url=os.getenv("EVENT_BUS_REDIS_URL", "redis://localhost:6379/0")
+        )
 
         phi3_proposal_from_state = state.get(
             "phi3_response", {"error": "Original proposal not found in state."}
@@ -212,11 +218,15 @@ async def publish_events_node(state: WorkflowState) -> WorkflowState:
 
         pta_response = state.get("propose_trade_adjustments_response")
         hermes_assessment_text = None
-        transaction_id = f"tx_run_{run_id}"  # Default, updated if pta_response is available
+        transaction_id = (
+            f"tx_run_{run_id}"  # Default, updated if pta_response is available
+        )
 
         try:
             await event_bus.connect()
-            logger.info(f"Event bus connected for run_id {run_id} in publish_events_node.")
+            logger.info(
+                f"Event bus connected for run_id {run_id} in publish_events_node."
+            )
 
             # --- Conditional: Hermes Evaluation and related events (if risk accepted AND no preceding error) ---
             # Check state["error"] *before* deciding to process PTA-related events
@@ -279,8 +289,12 @@ async def publish_events_node(state: WorkflowState) -> WorkflowState:
             logger.info(
                 f"Publishing 'advice.generated' for run_id {run_id}. Accepted: {risk_gate_verdict.get('accepted')}, Reason: {risk_gate_verdict.get('reason')}"
             )
-            await event_bus.publish("advice.generated", json.dumps(advice_event_payload))
-            logger.info(f"Successfully published 'advice.generated' for run_id {run_id}.")
+            await event_bus.publish(
+                "advice.generated", json.dumps(advice_event_payload)
+            )
+            logger.info(
+                f"Successfully published 'advice.generated' for run_id {run_id}."
+            )
 
             # --- Conditional: TTS for Hermes assessment (if hermes_assessment_text is available) ---
             if (
@@ -368,7 +382,8 @@ async def publish_events_node(state: WorkflowState) -> WorkflowState:
                                 "orchestrator_run_id": run_id,
                             }
                             await event_bus.publish(
-                                "hermes.assessment.spoken", json.dumps(tts_event_payload)
+                                "hermes.assessment.spoken",
+                                json.dumps(tts_event_payload),
                             )
                             logger.info(
                                 f"Published 'hermes.assessment.spoken' for tx {transaction_id} (run_id {run_id}) after acknowledgement."
@@ -399,7 +414,9 @@ async def publish_events_node(state: WorkflowState) -> WorkflowState:
                     except requests.exceptions.RequestException as e_tts_req:
                         tts_error_msg = f"TTS request failed for run_id {run_id}, transaction_id {transaction_id}: {e_tts_req}"
                         logger.error(tts_error_msg)
-                        state["error"] = f"{state.get('error', '')} {tts_error_msg}".strip()
+                        state["error"] = (
+                            f"{state.get('error', '')} {tts_error_msg}".strip()
+                        )
                     except Exception as e_tts_other:
                         tts_error_msg = f"Unexpected error in TTS processing for run_id {run_id}, transaction_id {transaction_id}"
                         logger.exception(tts_error_msg)
@@ -419,9 +436,13 @@ async def publish_events_node(state: WorkflowState) -> WorkflowState:
         except RedisError as e_redis:
             error_message = f"RedisError during event publishing for run_id {run_id}"
             logger.exception(error_message)
-            state["error"] = f"{state.get('error', '')} {error_message}: {e_redis}".strip()
+            state["error"] = (
+                f"{state.get('error', '')} {error_message}: {e_redis}".strip()
+            )
         except Exception as e_general:
-            error_message = f"Unexpected error during event publishing for run_id {run_id}"
+            error_message = (
+                f"Unexpected error during event publishing for run_id {run_id}"
+            )
             logger.exception(error_message)
             state["error"] = (
                 f"{state.get('error', '')} {error_message}: {e_general}".strip()
@@ -468,6 +489,7 @@ async def publish_events_node(state: WorkflowState) -> WorkflowState:
         logger.info(f"Final output for run_id {run_id}: {state_final_output_str}")
         return {**state, "final_output": state_final_output_str}
 
+
 async def risk_management_node(state: WorkflowState) -> WorkflowState:
     with tracer.start_as_current_span("orchestrator.risk_management"):
         run_id = state.get("run_id", "N/A")
@@ -491,9 +513,7 @@ async def risk_management_node(state: WorkflowState) -> WorkflowState:
         daily_pnl = state.get("daily_pnl")
 
         if not isinstance(phi3_response, dict) or not phi3_response:
-            error_message = (
-                f"Phi-3 proposal (phi3_response) is missing or invalid for run_id {run_id}."
-            )
+            error_message = f"Phi-3 proposal (phi3_response) is missing or invalid for run_id {run_id}."
             logger.error(error_message)
             return {
                 **state,
@@ -540,7 +560,8 @@ async def risk_management_node(state: WorkflowState) -> WorkflowState:
                 daily_pnl_before_trade=daily_pnl,
             )
             log_risk_advice(
-                advice_log_entry=advice_entry, db_path_str=RISK_GATE_CONFIG["lancedb_path"]
+                advice_log_entry=advice_entry,
+                db_path_str=RISK_GATE_CONFIG["lancedb_path"],
             )
             logger.info(
                 f"Logged risk advice for run_id {run_id} (advice_id: {advice_entry.advice_id})."
@@ -549,7 +570,9 @@ async def risk_management_node(state: WorkflowState) -> WorkflowState:
             return {**state, "risk_gate_decision": decision_result}
 
         except Exception as e:
-            error_message = f"Error during risk_gate_accept or logging for run_id {run_id}"
+            error_message = (
+                f"Error during risk_gate_accept or logging for run_id {run_id}"
+            )
             logger.exception(error_message)  # Automatically includes exception info
             return {
                 **state,
@@ -559,6 +582,7 @@ async def risk_management_node(state: WorkflowState) -> WorkflowState:
                     "reason": f"{error_message}: {e}",
                 },
             }
+
 
 # --- Graph Assembly ---
 def build_graph():
@@ -639,6 +663,7 @@ def build_graph():
     # For now, a linear flow. Errors are propagated in the state.
 
     return workflow.compile()
+
 
 # --- Market Tick Listener & Workflow Trigger ---
 async def market_tick_listener(
@@ -721,6 +746,7 @@ async def market_tick_listener(
         logger.info("Closing EventBus connection for market tick listener.")
         await event_bus.close()
 
+
 async def process_workflow_run(graph_app: StateGraph, initial_state: WorkflowState):
     """Process a single workflow run, including logging its final state."""
     run_id = initial_state.get("run_id", "unknown_run")
@@ -785,6 +811,7 @@ async def process_workflow_run(graph_app: StateGraph, initial_state: WorkflowSta
         f"Console output for run {run_id}: {final_output_str if final_output_str else 'No final_output string.'}"
     )
 
+
 # --- CLI ---
 async def main_async(args):
     init_otel()  # Initialize OpenTelemetry
@@ -819,6 +846,7 @@ async def main_async(args):
         graph_app=graph_app,
     )
 
+
 def run_orchestrator() -> None:
     """Entry point for running the orchestrator from the CLI."""
     parser = argparse.ArgumentParser(
@@ -846,6 +874,7 @@ def run_orchestrator() -> None:
     args = parser.parse_args()
     with tracer.start_as_current_span("orchestrator.run"):
         asyncio.run(main_async(args))
+
 
 if __name__ == "__main__":
     run_orchestrator()
