@@ -78,8 +78,7 @@ runs:
       shell: bash
       run: |
         if [ -n "${{ inputs.build_args }}" ]; then
-          echo "args=$(echo "${{ inputs.build_args }}" | tr ',' '
-')" >> $GITHUB_OUTPUT
+          echo "args=$(echo \"${{ inputs.build_args }}\" | tr ',' '\n')" >> $GITHUB_OUTPUT
         else
           echo "args=" >> $GITHUB_OUTPUT
         fi

@@ -64,10 +64,10 @@ jobs:
           # For now, let's assume the script's use of /models/ is okay if it's within workspace context.
           # A safer approach might be to modify nightly_qlora.sh to accept a base path or use relative paths.
           # However, sticking to the prompt's implication that the script manages this:
-          
+
           # Set an environment variable for the script to use if it's adapted for it.
-          # export NIGHTLY_ADAPTER_BASE_PATH="${{ github.workspace }}/models" 
-          
+          # export NIGHTLY_ADAPTER_BASE_PATH="${{ github.workspace }}/models"
+
           # Run the script. It should create its dated subdirectory within /models/phi3/adapters.
           # Because the script uses absolute paths like /models/...,
           # we need to ensure this path is either:
@@ -85,7 +85,7 @@ jobs:
 
           echo "Running nightly_qlora.sh..."
           scripts/nightly_qlora.sh
-          
+
           # For artifact upload, we need to know the path. The script creates a dated folder.
           # We can capture the date suffix or upload the parent /models/phi3/adapters directory.
           # Store the date for artifact naming or path construction if needed later.
