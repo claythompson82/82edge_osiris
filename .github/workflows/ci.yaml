@@ -20,14 +20,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y yamllint
 
-      - name: Install actionlint
-        run: |
-          set -eux
-          ver="$(curl -sSL https://api.github.com/repos/rhysd/actionlint/releases/latest | jq -r .tag_name)"
-          curl -sSL \
-            "https://github.com/rhysd/actionlint/releases/download/${ver}/actionlint_${ver#v}_linux_amd64.tar.gz" \
-            | tar -xz -C /usr/local/bin actionlint
-          actionlint --version
+
+      - name: Set up actionlint
+        uses: rhysd/actionlint@v1
+        with:
+          version: latest          # keeps us on the newest release
 
       - name: Run actionlint
         run: actionlint
