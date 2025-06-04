@@ -469,8 +469,8 @@ helm upgrade --install osiris-canary helm/osiris \
 | Links | Links |
 | --- | --- |
 | [Docs](docs/) | [Developer Guide](docs/DEV_GUIDE.md) |
-| [DGM Paper](docs/research/DGM_mapping.md) | [Prometheus Alerts](ops/prometheus/alerts.yaml) |
-| [Helm Chart](helm/osiris) | |
+| [Load Testing](docs/LOAD_TESTING.md) | [Prometheus Alerts](ops/prometheus/alerts.yaml) |
+| [DGM Paper](docs/research/DGM_mapping.md) | [Helm Chart](helm/osiris) |
 
 [ci-badge]: https://github.com/OWNER/REPO/actions/workflows/ci.yaml/badge.svg
 [ci]: https://github.com/OWNER/REPO/actions/workflows/ci.yaml
