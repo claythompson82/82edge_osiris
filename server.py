@@ -436,10 +436,10 @@ async def generate_unified(req: UnifiedPromptRequest):
             return {"error": txt}
         return {"generated_text": txt}
 
-    return {
-        "error": "Invalid model_id specified. Choose 'hermes' or 'phi3'.",
-        "specified_model_id": req.model_id,
-    }
+    raise HTTPException(
+        status_code=422,
+        detail="Invalid model_id specified. Choose 'hermes' or 'phi3'.",
+    )
 
 
 @app.post("/generate/hermes/", tags=["hermes"])
