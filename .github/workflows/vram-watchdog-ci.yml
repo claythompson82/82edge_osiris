@@ -1,0 +1,48 @@
+name: VRAM Watchdog CI Test
+
+on:
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  watchdog-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Osiris Setup
+        uses: ./.github/actions/osiris-setup
+        with:
+          install-requirements: 'false'
+          system-packages: 'docker-compose'
+
+      - name: Copy .env template
+        run: cp .env.template .env
+
+      - name: Start llm-sidecar
+        run: docker compose -f docker/compose.yaml up -d llm-sidecar
+
+      - name: Run VRAM watchdog script in CPU mode
+        run: |
+          mkdir -p ./watchdog_logs
+          CPU_MODE=1 \
+          CPU_THRESHOLD_MIB=1 \
+          CONSECUTIVE_CHECKS_LIMIT=1 \
+          MAX_ITERATIONS=2 \
+          INTERVAL=1 \
+          LOG_FILE=$(pwd)/watchdog_logs/vram_watchdog.log \
+          bash scripts/vram_watchdog.sh
+
+      - name: Upload watchdog log
+        uses: actions/upload-artifact@v4
+        with:
+          name: vram-watchdog-log
+          path: watchdog_logs/vram_watchdog.log
+          if-no-files-found: ignore
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker/compose.yaml down
+

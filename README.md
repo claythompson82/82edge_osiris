@@ -190,6 +190,10 @@ This setup will start the simulator feeding data into Redis, and the orchestrato
 * polls `nvidia-smi` every 60 s;
 * if usage > **10.5 GB** for 3 consecutive reads it restarts `llm-sidecar`.
 
+When `CPU_MODE=1` the script reads host memory usage instead of VRAM. This
+allows basic logic testing in CI without a GPU. Use `MAX_ITERATIONS` to limit
+loops for short runs.
+
 ---
 
 ## API Endpoints
