@@ -89,3 +89,8 @@ jobs:
           name: ${{ env.TAG }}
           generate_release_notes: true
 
+  deploy-docs:
+    needs: build-and-push
+    uses: ./.github/workflows/docs.yml
+    secrets: inherit
+
