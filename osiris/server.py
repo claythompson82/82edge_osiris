@@ -177,9 +177,23 @@ print("[Side-car] models ready.")
 # ---------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------
+_feedback_cache: List[Dict[str, Any]] = []
+_feedback_mtime: Optional[float] = None
+
+
 def _load_recent_feedback(max_examples: int = 3) -> List[Dict[str, Any]]:
-    if not os.path.exists(PHI3_FEEDBACK_DATA_FILE):
+    global _feedback_cache, _feedback_mtime
+
+    try:
+        mtime = os.path.getmtime(PHI3_FEEDBACK_DATA_FILE)
+    except FileNotFoundError:
+        _feedback_cache = []
+        _feedback_mtime = None
         return []
+
+    if _feedback_mtime == mtime:
+        return _feedback_cache[-max_examples:]
+
     items: List[Dict[str, Any]] = []
     with open(PHI3_FEEDBACK_DATA_FILE, "r") as f:
         for line in f:
@@ -191,6 +205,9 @@ def _load_recent_feedback(max_examples: int = 3) -> List[Dict[str, Any]]:
                     items.append(obj)
             except Exception as err:
                 print(f"[Feedback-load] skipping line: {err}")
+
+    _feedback_cache = items
+    _feedback_mtime = mtime
     return items[-max_examples:]
 
 
