@@ -220,24 +220,20 @@ async def test_meta_loop_applies_good_patch(
     # assert target_file_path.read_text() == test_patch["after"]
     log.info("Test passed: meta_loop applied a good patch.")
 
-# TODO: Add test for meta_loop_rolls_back_bad_patch
-# Similar to above, but proofable_reward returns a negative value,
-# and we assert that _rollback is called and the patch is not in APPLIED_LOG.
-# Need to mock _rollback as well for that.
-
+# Test that a negative reward triggers rollback and traces are tagged.
 # TODO: Add test for meta_loop_skips_unproven_patch
 # Similar, but _prove_patch returns False. Assert _apply_patch is not called.
 
 @pytest.mark.asyncio
 @mock.patch('dgm_kernel.meta_loop.generate_patch')
 @mock.patch('dgm_kernel.meta_loop._verify_patch')
+@mock.patch('dgm_kernel.meta_loop._rollback', wraps=meta_loop._rollback)
 @mock.patch('dgm_kernel.meta_loop._apply_patch')
-@mock.patch('dgm_kernel.meta_loop._rollback')
 @mock.patch('dgm_kernel.meta_loop.proofable_reward')
 async def test_meta_loop_rolls_back_bad_patch(
     mock_reward,
-    mock_rollback,
     mock_apply_patch,
+    mock_rollback,
     mock_prove_patch,
     mock_generate_patch,
     fake_redis,
@@ -260,8 +256,8 @@ async def test_meta_loop_rolls_back_bad_patch(
 
     mock_generate_patch.return_value = patch
     mock_prove_patch.return_value = (True, 9.0)
-    mock_apply_patch.return_value = True
-    mock_reward.return_value = -1.0
+    mock_apply_patch.side_effect = lambda p: (Path(p["target"]).write_text(p["after"]), True)[1]
+    mock_reward.return_value = -0.5
 
     traces = await meta_loop.fetch_recent_traces()
     patch_data = await meta_loop.generate_patch(traces)
@@ -275,8 +271,14 @@ async def test_meta_loop_rolls_back_bad_patch(
                     json.dumps(patch_data | {"reward": new_r, "verification_score": score}),
                 )
             else:
+                for t in traces:
+                    t["rolled_back"] = True
+                    meta_loop.REDIS.lpush(meta_loop.ROLLED_BACK_LOG, json.dumps(t))
                 meta_loop._rollback(patch_data)
 
     mock_rollback.assert_called_once_with(patch)
+    assert target_file.read_text() == before
     assert fake_redis.llen(meta_loop.APPLIED_LOG) == 0
+    rb_entries = [json.loads(v) for v in fake_redis.lrange(meta_loop.ROLLED_BACK_LOG, 0, -1)]
+    assert rb_entries == [{"id": "trace1", "value": 100, "rolled_back": True}]
 

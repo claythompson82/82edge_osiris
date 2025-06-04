@@ -20,6 +20,7 @@ REDIS = redis.Redis(host="redis", port=6379, decode_responses=True) # Updated in
 PATCH_QUEUE = "dgm:patch_queue"        # ← incoming JSON patches
 TRACE_QUEUE = "dgm:recent_traces"      # ← recent trading traces (jsonl)
 APPLIED_LOG  = "dgm:applied_patches"   # ← audit trail
+ROLLED_BACK_LOG = "dgm:rolled_back_traces"  # ← traces that triggered rollback
 
 # ────────────────────────────────────────────────────────────────────────────
 # ▼ 1.  fetch_recent_traces()  (pull N traces from Redis)
@@ -168,6 +169,9 @@ async def meta_loop():
             else:
                 log.warning("Patch rolled back, reward=%.4f", new_r)
                 _rollback(patch)
+                for t in traces:
+                    t["rolled_back"] = True
+                    REDIS.lpush(ROLLED_BACK_LOG, json.dumps(t))
         else:
             log.error(f"Failed to apply patch for target: {patch.get('target')}")
             # _rollback(patch) # Consider if rollback is safe if apply itself failed.
@@ -224,6 +228,9 @@ if __name__ == "__main__":
                 else:
                     log.warning("Patch rolled back (once), reward=%.4f", new_r)
                     _rollback(patch)
+                    for t in traces:
+                        t["rolled_back"] = True
+                        REDIS.lpush(ROLLED_BACK_LOG, json.dumps(t))
             else:
                 log.error(f"Failed to apply patch (once) for target: {patch.get('target')}")
 
