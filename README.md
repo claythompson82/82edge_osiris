@@ -416,6 +416,18 @@ azrPlanner:
   # ... other configuration ...
 ```
 
+### Canary Deployment
+
+Use `helm/osiris/values-canary.yaml` to deploy a canary release. This file
+configures a single replica with 10% of incoming traffic routed to the canary
+namespace and enables full OpenTelemetry tracing.
+
+```bash
+helm upgrade --install osiris-canary helm/osiris \
+  -f helm/osiris/values-canary.yaml \
+  --namespace osiris-canary --create-namespace
+```
+
 ### Environment Variables (AZR Planner)
 
 *   *(No specific environment variables are currently defined or used by the stub service beyond standard Uvicorn/FastAPI configurations.)*
