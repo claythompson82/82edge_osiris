@@ -8,7 +8,7 @@ from contextlib import redirect_stdout
 
 # Modules to test
 from osiris_policy import orchestrator as policy_orchestrator
-from llm_sidecar.db import OrchestratorRunLog # For type checking in log_run assertion
+from llm_sidecar.db import OrchestratorRunSchema # For type checking in log_run assertion
 
 # Helper to create mock HTTP responses
 def _mock_response(status_code=200, json_data=None, text_data=None, raise_for_status=None):
@@ -100,12 +100,12 @@ class TestOrchestratorCLI(unittest.IsolatedAsyncioTestCase):
         # 3. log_run call
         mock_log_run.assert_called_once()
         args, _ = mock_log_run.call_args
-        logged_run_data: OrchestratorRunLog = args[0]
+        logged_run_data: OrchestratorRunSchema = args[0]
         
         self.assertEqual(logged_run_data.input_query, test_query)
         self.assertEqual(logged_run_data.status, "SUCCESS")
         self.assertIsNone(logged_run_data.error_message)
-        # The final_output in OrchestratorRunLog is a dict representation of the CLI output string
+        # The final_output in OrchestratorRunSchema is a dict representation of the CLI output string
         # The CLI output string itself is final_state_dict["final_output"]
         # The orchestrator parses this string back to dict for log_run.
         expected_logged_output_data = {"status": "success", "data": mock_pta_success_response_data}
@@ -163,7 +163,7 @@ class TestOrchestratorCLI(unittest.IsolatedAsyncioTestCase):
         # 3. log_run call
         mock_log_run.assert_called_once()
         args, _ = mock_log_run.call_args
-        logged_run_data: OrchestratorRunLog = args[0]
+        logged_run_data: OrchestratorRunSchema = args[0]
         
         self.assertEqual(logged_run_data.input_query, test_query)
         self.assertEqual(logged_run_data.status, "FAILURE")
@@ -206,7 +206,7 @@ class TestOrchestratorCLI(unittest.IsolatedAsyncioTestCase):
         # 1. log_run should be called
         mock_log_run.assert_called_once()
         args, _ = mock_log_run.call_args
-        logged_run_data: OrchestratorRunLog = args[0]
+        logged_run_data: OrchestratorRunSchema = args[0]
         
         self.assertEqual(logged_run_data.input_query, test_query)
         # Status is SUCCESS because core pipeline (LLM calls) finished. Event publish error is secondary.
