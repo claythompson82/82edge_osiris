@@ -48,6 +48,9 @@ jobs:
           install-requirements: 'true' # This will handle requirements.txt
           system-packages: 'jq docker-compose' # Ensure docker-compose (and jq just in case)
 
+      - name: Install test-only deps
+        run:  pip install -r requirements-tests.txt
+
       - name: Install Python dependencies
         run: |
           # requirements.txt is handled by osiris-setup
