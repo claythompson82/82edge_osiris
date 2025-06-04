@@ -6,7 +6,7 @@ from datetime import datetime
 from fastapi.testclient import TestClient
 
 # Import the loader module directly to access globals and functions for mocking/assertion
-from llm_sidecar import loader
+from osiris.llm_sidecar import loader
 from osiris.server import app  # For testing the /health endpoint
 
 # Attempt to import PeftModel, but allow tests to run if it's not critical for all
@@ -27,12 +27,12 @@ class TestAdapterLoading(unittest.TestCase):
         # Ensure that any mocks applied directly to loader's globals are cleared if necessary,
         # though typically unittest.mock handles this for its own patch objects.
 
-    @mock.patch('llm_sidecar.loader.AutoTokenizer.from_pretrained')
-    @mock.patch('llm_sidecar.loader.ORTModelForCausalLM.from_pretrained')
-    @mock.patch('llm_sidecar.loader.PeftModel.from_pretrained')
-    @mock.patch('llm_sidecar.loader.os.path.exists')
-    @mock.patch('llm_sidecar.loader.os.path.isdir')
-    @mock.patch('llm_sidecar.loader.os.listdir')
+    @mock.patch('osiris.llm_sidecar.loader.AutoTokenizer.from_pretrained')
+    @mock.patch('osiris.llm_sidecar.loader.ORTModelForCausalLM.from_pretrained')
+    @mock.patch('osiris.llm_sidecar.loader.PeftModel.from_pretrained')
+    @mock.patch('osiris.llm_sidecar.loader.os.path.exists')
+    @mock.patch('osiris.llm_sidecar.loader.os.path.isdir')
+    @mock.patch('osiris.llm_sidecar.loader.os.listdir')
     def test_load_latest_adapter_success(
         self,
         mock_listdir,
@@ -90,12 +90,12 @@ class TestAdapterLoading(unittest.TestCase):
         self.assertIsNotNone(loader.phi3_model) # Ensure model is set (to the PeftModel)
 
 
-    @mock.patch('llm_sidecar.loader.AutoTokenizer.from_pretrained')
-    @mock.patch('llm_sidecar.loader.ORTModelForCausalLM.from_pretrained')
-    @mock.patch('llm_sidecar.loader.PeftModel.from_pretrained')
-    @mock.patch('llm_sidecar.loader.os.path.exists')
-    @mock.patch('llm_sidecar.loader.os.path.isdir')
-    @mock.patch('llm_sidecar.loader.os.listdir')
+    @mock.patch('osiris.llm_sidecar.loader.AutoTokenizer.from_pretrained')
+    @mock.patch('osiris.llm_sidecar.loader.ORTModelForCausalLM.from_pretrained')
+    @mock.patch('osiris.llm_sidecar.loader.PeftModel.from_pretrained')
+    @mock.patch('osiris.llm_sidecar.loader.os.path.exists')
+    @mock.patch('osiris.llm_sidecar.loader.os.path.isdir')
+    @mock.patch('osiris.llm_sidecar.loader.os.listdir')
     def test_load_adapter_no_valid_adapters_found(
         self,
         mock_listdir,
@@ -124,10 +124,10 @@ class TestAdapterLoading(unittest.TestCase):
         self.assertIsNotNone(loader.phi3_model) # Base model should still be loaded
 
 
-    @mock.patch('llm_sidecar.loader.AutoTokenizer.from_pretrained')
-    @mock.patch('llm_sidecar.loader.ORTModelForCausalLM.from_pretrained')
-    @mock.patch('llm_sidecar.loader.PeftModel.from_pretrained')
-    @mock.patch('llm_sidecar.loader.os.path.exists')
+    @mock.patch('osiris.llm_sidecar.loader.AutoTokenizer.from_pretrained')
+    @mock.patch('osiris.llm_sidecar.loader.ORTModelForCausalLM.from_pretrained')
+    @mock.patch('osiris.llm_sidecar.loader.PeftModel.from_pretrained')
+    @mock.patch('osiris.llm_sidecar.loader.os.path.exists')
     def test_load_adapter_base_path_does_not_exist(
         self,
         mock_exists, # Only need to mock os.path.exists for this test regarding adapter path
@@ -159,11 +159,11 @@ class TestHealthEndpoint(unittest.TestCase):
         # if tests in other classes might modify it.
         # However, for this class, we mock it directly in tests.
 
-    @mock.patch('llm_sidecar.loader.phi3_adapter_date', "2023-10-25")
+    @mock.patch('osiris.llm_sidecar.loader.phi3_adapter_date', "2023-10-25")
     # Mock the model/tokenizer loading status as well for a consistent health check
-    @mock.patch('llm_sidecar.loader.get_phi3_model_and_tokenizer', return_value=(True, True))
-    @mock.patch('llm_sidecar.loader.get_hermes_model_and_tokenizer', return_value=(True, True))
-    @mock.patch('llm_sidecar.loader.os.path.exists') # For MICRO_LLM_MODEL_PATH
+    @mock.patch('osiris.llm_sidecar.loader.get_phi3_model_and_tokenizer', return_value=(True, True))
+    @mock.patch('osiris.llm_sidecar.loader.get_hermes_model_and_tokenizer', return_value=(True, True))
+    @mock.patch('osiris.llm_sidecar.loader.os.path.exists') # For MICRO_LLM_MODEL_PATH
     def test_health_endpoint_with_adapter_date(self, mock_path_exists, mock_hermes, mock_phi3):
         """Test /health endpoint when phi3_adapter_date is set."""
         mock_path_exists.return_value = True # Assume phi3 model file exists
@@ -174,10 +174,10 @@ class TestHealthEndpoint(unittest.TestCase):
         self.assertEqual(json_response.get("phi3_adapter_date"), "2023-10-25")
         self.assertEqual(json_response.get("status"), "ok")
 
-    @mock.patch('llm_sidecar.loader.phi3_adapter_date', None)
-    @mock.patch('llm_sidecar.loader.get_phi3_model_and_tokenizer', return_value=(True, True))
-    @mock.patch('llm_sidecar.loader.get_hermes_model_and_tokenizer', return_value=(True, True))
-    @mock.patch('llm_sidecar.loader.os.path.exists') # For MICRO_LLM_MODEL_PATH
+    @mock.patch('osiris.llm_sidecar.loader.phi3_adapter_date', None)
+    @mock.patch('osiris.llm_sidecar.loader.get_phi3_model_and_tokenizer', return_value=(True, True))
+    @mock.patch('osiris.llm_sidecar.loader.get_hermes_model_and_tokenizer', return_value=(True, True))
+    @mock.patch('osiris.llm_sidecar.loader.os.path.exists') # For MICRO_LLM_MODEL_PATH
     def test_health_endpoint_without_adapter_date(self, mock_path_exists, mock_hermes, mock_phi3):
         """Test /health endpoint when phi3_adapter_date is None."""
         mock_path_exists.return_value = True # Assume phi3 model file exists
