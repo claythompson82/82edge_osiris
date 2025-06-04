@@ -148,6 +148,12 @@ redis:
 # Placeholder for other global settings
 global: {}
 
+otel:
+  enabled: false
+
+musetalk:
+  useGpu: true
+
 prometheus:
   rules:
     create: true # Set to true to deploy the PrometheusRule custom resource
