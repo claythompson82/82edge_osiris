@@ -1,0 +1,88 @@
+name: Deploy Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment_path:
+        description: 'Terraform environment path'
+        required: true
+        default: 'infra/terraform/environments/dev'
+      healthcheck_url:
+        description: 'URL for post-deployment health check'
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Osiris setup
+        uses: ./.github/actions/osiris-setup
+        with:
+          install-requirements: 'false'
+          system-packages: 'jq'
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform init
+        working-directory: ${{ inputs.environment_path }}
+        run: terraform init
+
+      - name: Terraform apply
+        working-directory: ${{ inputs.environment_path }}
+        run: terraform apply -auto-approve
+
+      - name: Capture release info
+        id: info
+        working-directory: ${{ inputs.environment_path }}
+        run: |
+          echo "release=$(terraform output -raw release_name)" >> "$GITHUB_OUTPUT"
+          echo "namespace=$(terraform output -raw namespace)" >> "$GITHUB_OUTPUT"
+
+      - name: Post-deployment health check
+        id: health
+        env:
+          URL: ${{ inputs.healthcheck_url }}
+        run: |
+          set +e
+          for i in {1..5}; do
+            if curl -fs "$URL"; then
+              echo "status=success" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying..."
+            sleep 10
+          done
+          echo "status=failed" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Roll back release
+        if: steps.health.outputs.status == 'failed'
+        env:
+          RELEASE: ${{ steps.info.outputs.release }}
+          NAMESPACE: ${{ steps.info.outputs.namespace }}
+        run: |
+          PREV_REV=$(helm history "$RELEASE" -n "$NAMESPACE" -o json | jq -r '.[-2].revision')
+          echo "Rolling back to revision $PREV_REV"
+          helm rollback "$RELEASE" "$PREV_REV" -n "$NAMESPACE"
+
+      - name: Notify rollback event
+        if: steps.health.outputs.status == 'failed'
+        uses: actions/github-script@v7
+        env:
+          RELEASE: ${{ steps.info.outputs.release }}
+          NAMESPACE: ${{ steps.info.outputs.namespace }}
+        with:
+          script: |
+            await github.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'Deployment rollback executed',
+              body: `Rollback of ${process.env.RELEASE} in namespace ${process.env.NAMESPACE} triggered due to failed health checks.`
+            })
