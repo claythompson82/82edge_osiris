@@ -38,6 +38,36 @@ jobs:
       - name: Run pre-commit
         run: pre-commit run --all-files
 
+  obs-smoke:
+    if: github.event_name == 'pull_request'
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Osiris Setup
+        uses: ./.github/actions/osiris-setup
+        with:
+          install-requirements: 'false'
+          system-packages: 'docker-compose curl'
+
+      - name: Copy .env template
+        run: cp .env.template .env
+
+      - name: Start sidecar
+        run: docker compose -f docker/compose.yaml up -d llm-sidecar
+
+      - name: Check metrics endpoint
+        run: |
+          sleep 5
+          set -o pipefail
+          curl -sf http://localhost:8000/metrics | grep 'vram_usage_bytes'
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker/compose.yaml down
+
   build-and-test-llm-sidecar:
     needs: lint
     runs-on: ubuntu-latest
