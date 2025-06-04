@@ -1,0 +1,33 @@
+version: '3.8'
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.92.0
+    command: ["--config=/etc/otel-config.yaml"]
+    volumes:
+      - ./tests/otel-collector-config.yaml:/etc/otel-config.yaml
+    ports:
+      - "4318:4318"
+  llm-sidecar:
+    image: python:3.10-slim
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONPATH=/app
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+    command: python tests/mock_sidecar.py
+    depends_on:
+      - otel-collector
+    ports:
+      - "8000:8000"
+  orchestrator:
+    image: python:3.10-slim
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONPATH=/app
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+    command: python tests/mock_orchestrator.py
+    depends_on:
+      - otel-collector
