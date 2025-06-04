@@ -164,7 +164,6 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install -r requirements-tests.txt
-
       - name: Run Pytest
         run: |
           pytest tests/test_harvest.py
