@@ -1,0 +1,24 @@
+.git
+.gitignore
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.swp
+*.swo
+*.egg-info
+.eggs
+.venv
+# Unused directories
+tests/
+docs/
+research/
+nightly_trainer/
+infra/
+helm/
+services/
+ops/
+static/
+resources/
+sim/
+lancedb_data/

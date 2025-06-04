@@ -3,8 +3,11 @@ version: '3.8' # Specify Docker Compose version
 services:
   llm-sidecar:
     build:
-      context: . # Use the current directory (docker/) as the build context
-      dockerfile: Dockerfile # Specify the Dockerfile name
+      # Use the repository root as build context so the Dockerfile can access
+      # shared modules and scripts. A .dockerignore file at the root keeps the
+      # context small.
+      context: ..
+      dockerfile: docker/Dockerfile
     ports:
       - "8000:8000" # Map host port 8000 to container port 8000
     deploy:
