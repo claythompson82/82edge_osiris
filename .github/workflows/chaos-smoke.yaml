@@ -14,6 +14,11 @@ jobs:
       CHAOS_MODE: "1"
       PYTHONUNBUFFERED: "1"
       LANCEDB_URI: "./lancedb_data" # Path used by orchestrator and sidecar if they read this env var
+      NET_CHAOS_DURATION: "40"
+      NET_CHAOS_DELAY_MS: "200"
+      NET_CHAOS_LOSS_PERCENT: "10"
+      DISK_CHAOS_DURATION: "40"
+      DISK_CHAOS_SIZE_MB: "500"
       # Note: The actual LanceDB server inside Docker will use /app/lancedb_data due to volume mapping.
       # Clients (orchestrator, ci_check_advice.py) running on the host will use ./lancedb_data.
       # Ensure osiris_policy/orchestrator.py and llm_sidecar/db.py are configured to use
@@ -180,6 +185,27 @@ jobs:
           python scripts/ci_tick_publisher.py --duration 70 & # Run for 70s, main test waits 80s
           sleep 5 # Give tick publisher a moment to start
 
+      - name: Start network chaos in background
+        run: |
+          echo "Starting network impairment chaos..."
+          python scripts/chaos_network_impair.py \
+            --container llm-sidecar \
+            --duration ${{ env.NET_CHAOS_DURATION }} \
+            --delay-ms ${{ env.NET_CHAOS_DELAY_MS }} \
+            --loss ${{ env.NET_CHAOS_LOSS_PERCENT }} &
+          echo $! > network_chaos.pid
+          sleep 2
+
+      - name: Start disk fill chaos in background
+        run: |
+          echo "Starting disk fill chaos..."
+          python scripts/chaos_disk_fill.py \
+            --container llm-sidecar \
+            --duration ${{ env.DISK_CHAOS_DURATION }} \
+            --size ${{ env.DISK_CHAOS_SIZE_MB }} &
+          echo $! > disk_chaos.pid
+          sleep 2
+
       - name: Wait for test duration (chaos + operations)
         run: |
           echo "Running test cycle for 80 seconds..."
@@ -189,6 +215,22 @@ jobs:
         run: |
           echo "Stopping chaos script..."
           pkill -f scripts/chaos_restarts.py || echo "Chaos script already stopped or not found."
+          sleep 2
+
+      - name: Stop network chaos
+        run: |
+          echo "Stopping network chaos..."
+          if [ -f network_chaos.pid ]; then kill $(cat network_chaos.pid) || true; fi
+          pkill -f scripts/chaos_network_impair.py || true
+          rm -f network_chaos.pid
+          sleep 2
+
+      - name: Stop disk fill chaos
+        run: |
+          echo "Stopping disk fill chaos..."
+          if [ -f disk_chaos.pid ]; then kill $(cat disk_chaos.pid) || true; fi
+          pkill -f scripts/chaos_disk_fill.py || true
+          rm -f disk_chaos.pid
           sleep 2
 
       - name: Stop tick publisher
@@ -207,6 +249,13 @@ jobs:
         run: |
           echo "Checking for advice generated in LanceDB..."
           python scripts/ci_check_advice.py --db-path ${{ env.LANCEDB_URI }} --retries 3 --retry-delay 5
+
+      - name: Generate chaos report
+        run: |
+          python scripts/chaos_report.py --db-path ${{ env.LANCEDB_URI }} > chaos_report.txt
+          cat chaos_report.txt
+          echo '### Chaos Test Summary' >> $GITHUB_STEP_SUMMARY
+          cat chaos_report.txt >> $GITHUB_STEP_SUMMARY
 
       - name: Cleanup Docker services
         if: always() # Always run this step
