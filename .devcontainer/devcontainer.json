@@ -1,0 +1,9 @@
+{
+    "name": "Osiris Dev",
+    "build": {
+        "dockerfile": "../Dockerfile",
+        "context": ".."
+    },
+    "forwardPorts": [8000, 6379],
+    "postCreateCommand": "pip install -e . && pip install -r requirements-tests.txt"
+}

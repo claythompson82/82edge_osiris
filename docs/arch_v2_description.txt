@@ -118,11 +118,3 @@ This document describes the components and interactions of the v2 architecture, 
 *   Arrows should be labeled with the type of interaction (HTTP, Event name, Data type like "Run Log" or "Feedback Data").
 *   Use dotted lines or a different color for conceptual flows like the Nightly QLoRA process if it's not a direct, real-time interaction with the core request-response cycle.
 
-This description should provide a solid foundation for creating the `arch_v2.drawio` diagram. Okay, I've created the architecture description file `docs/arch_v2_description.txt`.
-
-Next, I'll update `README.md`. I need to:
-1.  Add the placeholder for the new architecture diagram and a link to the description file.
-2.  Find and remove or comment out any existing architecture diagram.
-3.  Add the GitHub Actions status badge for `e2e-orchestrator.yaml`. I will use `OWNER/REPO` as placeholders for now.
-
-First, let's read the current `README.md` to see if there's an existing architecture diagram.
