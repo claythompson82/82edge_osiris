@@ -318,3 +318,51 @@ async def test_meta_loop_rolls_back_bad_patch(
         json.loads(v) for v in fake_redis.lrange(meta_loop.ROLLED_BACK_LOG, 0, -1)
     ]
     assert rb_entries == [{"id": "trace1", "value": 100, "rolled_back": True}]
+
+@pytest.mark.asyncio
+@mock.patch("dgm_kernel.meta_loop.generate_patch")
+@mock.patch("dgm_kernel.meta_loop._verify_patch")
+@mock.patch("dgm_kernel.meta_loop._rollback", wraps=meta_loop._rollback)
+@mock.patch("dgm_kernel.meta_loop._apply_patch")
+@mock.patch("dgm_kernel.meta_loop.proofable_reward")
+async def test_meta_loop_skips_unproven_patch(
+    mock_reward,
+    mock_apply_patch,
+    mock_rollback,
+    mock_verify_patch,
+    mock_generate_patch,
+    fake_redis,
+    tmp_path,
+):
+    """Ensure patches rejected by verification do not get applied."""
+    trace = {"id": "trace1", "value": 100}
+    fake_redis.lpush(meta_loop.TRACE_QUEUE, json.dumps(trace))
+
+    target_file = tmp_path / "osiris_policy" / "strategy.py"
+    target_file.parent.mkdir(parents=True, exist_ok=True)
+    before = "# Initial strategy content\n"
+    target_file.write_text(before)
+
+    patch = {
+        "target": str(target_file),
+        "before": before,
+        "after": before + "# bad\n",
+        "rationale": "bad patch",
+    }
+
+    mock_generate_patch.return_value = patch
+    mock_verify_patch.return_value = (False, 5.0)
+
+    traces = await meta_loop.fetch_recent_traces()
+    patch_data = await meta_loop.generate_patch(traces)
+    accepted, _ = await meta_loop._verify_patch(traces, patch_data)
+    if accepted:
+        if meta_loop._apply_patch(patch_data):
+            _ = sum(meta_loop.proofable_reward(t, patch_data.get("after")) for t in traces)
+
+    mock_apply_patch.assert_not_called()
+    mock_reward.assert_not_called()
+    mock_rollback.assert_not_called()
+    assert fake_redis.llen(meta_loop.APPLIED_LOG) == 0
+    assert fake_redis.llen(meta_loop.ROLLED_BACK_LOG) == 0
+    assert target_file.read_text() == before
