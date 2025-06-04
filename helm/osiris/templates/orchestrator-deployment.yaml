@@ -47,9 +47,18 @@ spec:
           # Example of mounting config from values.yaml if orchestrator.config is used
           {{- if .Values.orchestrator.config }}
           envFrom:
-          - configMapRef:
-              name: {{ include "osiris.fullname" . }}-orchestrator-config
+            - configMapRef:
+                name: {{ include "osiris.fullname" . }}-orchestrator-config
           {{- end }}
+        {{- if .Values.otelCollectorSidecar.enabled }}
+          - name: otel-collector
+            image: "{{ .Values.otelCollectorSidecar.image.repository }}:{{ .Values.otelCollectorSidecar.image.tag }}"
+            imagePullPolicy: {{ .Values.otelCollectorSidecar.image.pullPolicy }}
+            args: ["--config=/etc/otel/config.yaml"]
+            volumeMounts:
+              - name: otel-collector-config
+                mountPath: /etc/otel
+        {{- end }}
       {{- with .Values.orchestrator.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -58,7 +67,13 @@ spec:
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.orchestrator.tolerations }}
-      tolerations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- with .Values.orchestrator.tolerations }}
+        tolerations:
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- if .Values.otelCollectorSidecar.enabled }}
+        volumes:
+          - name: otel-collector-config
+            configMap:
+              name: {{ include "osiris.fullname" . }}-otel-collector-config
+        {{- end }}

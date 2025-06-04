@@ -8,6 +8,10 @@ metadata:
     app.kubernetes.io/component: orchestrator
 data:
   {{- range $key, $value := .Values.orchestrator.config }}
+  {{- if and $.Values.otelCollectorSidecar.enabled (eq $key "OTEL_EXPORTER_OTLP_ENDPOINT") }}
+  {{ $key }}: {{ $.Values.otelCollectorSidecar.endpoint | quote }}
+  {{- else }}
   {{ $key }}: {{ $value | quote }}
+  {{- end }}
   {{- end }}
 {{- end }}

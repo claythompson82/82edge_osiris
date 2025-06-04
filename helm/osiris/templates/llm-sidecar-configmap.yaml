@@ -8,6 +8,10 @@ metadata:
     app.kubernetes.io/component: llm-sidecar
 data:
   {{- range $key, $value := .Values.llmSidecar.config }}
+  {{- if and $.Values.otelCollectorSidecar.enabled (eq $key "OTEL_EXPORTER_OTLP_ENDPOINT") }}
+  {{ $key }}: {{ $.Values.otelCollectorSidecar.endpoint | quote }}
+  {{- else }}
   {{ $key }}: {{ $value | quote }}
+  {{- end }}
   {{- end }}
 {{- end }}
