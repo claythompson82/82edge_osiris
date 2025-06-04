@@ -20,3 +20,7 @@ def _server_getattr(name):
 
 _server_module.__getattr__ = _server_getattr
 sys.modules[__name__ + ".server"] = _server_module
+
+__version__ = "0.2.1"
+
+from . import *
