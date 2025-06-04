@@ -1,8 +1,6 @@
 # dgm_kernel/meta_loop.py
 """
 Darwin Gödel Machine – self-improvement meta-loop (async capable)
-
-TODOs are marked ▼
 """
 
 from __future__ import annotations
@@ -86,7 +84,8 @@ async def generate_patch(
 ) -> dict | None:  # Return type updated to include None
     """
     Emit a JSON patch using an LLM or search routine.
-    ▼ TODO: Replace with actual patch generation logic.
+    TODO(https://github.com/82edge/osiris/issues/99):
+        Replace with full patch generation logic.
     """
     return draft_patch(traces)
 

@@ -2,9 +2,11 @@ from unittest.mock import patch, MagicMock, AsyncMock
 import uvicorn
 
 # Patch heavy model loading before importing server
-with patch('llm_sidecar.loader.load_hermes_model'), \
-     patch('llm_sidecar.loader.load_phi3_model'), \
-     patch('llm_sidecar.tts.ChatterboxTTS'):
+with (
+    patch("llm_sidecar.loader.load_hermes_model"),
+    patch("llm_sidecar.loader.load_phi3_model"),
+    patch("llm_sidecar.tts.ChatterboxTTS"),
+):
     import osiris.server as server
 
 # Patch generation helpers to return quickly

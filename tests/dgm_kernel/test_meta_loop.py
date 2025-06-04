@@ -248,8 +248,7 @@ async def test_meta_loop_applies_good_patch(
 
 
 # Test that a negative reward triggers rollback and traces are tagged.
-# TODO: Add test for meta_loop_skips_unproven_patch
-# Similar, but _prove_patch returns False. Assert _apply_patch is not called.
+# Similar logic is covered in test_meta_loop_skips_unproven_patch below.
 
 
 @pytest.mark.asyncio
@@ -319,6 +318,7 @@ async def test_meta_loop_rolls_back_bad_patch(
     ]
     assert rb_entries == [{"id": "trace1", "value": 100, "rolled_back": True}]
 
+
 @pytest.mark.asyncio
 @mock.patch("dgm_kernel.meta_loop.generate_patch")
 @mock.patch("dgm_kernel.meta_loop._verify_patch")
@@ -358,7 +358,9 @@ async def test_meta_loop_skips_unproven_patch(
     accepted, _ = await meta_loop._verify_patch(traces, patch_data)
     if accepted:
         if meta_loop._apply_patch(patch_data):
-            _ = sum(meta_loop.proofable_reward(t, patch_data.get("after")) for t in traces)
+            _ = sum(
+                meta_loop.proofable_reward(t, patch_data.get("after")) for t in traces
+            )
 
     mock_apply_patch.assert_not_called()
     mock_reward.assert_not_called()

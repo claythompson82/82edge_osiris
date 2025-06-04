@@ -13,7 +13,6 @@ jobs:
       CHAOS_MODE: "1"
       PYTHONUNBUFFERED: "1"
       LANCEDB_URI: "./lancedb_data"
-      REDIS_CONTAINER_ID: ${{ job.services.redis.id }}
 
     services:
       redis:
@@ -81,6 +80,9 @@ jobs:
           done
           echo "Redis is up."
           sleep 5
+
+      - name: Export Redis container ID
+        run: echo "REDIS_CONTAINER_ID=${{ job.services.redis.id }}" >> "$GITHUB_ENV"
 
       - name: Run LanceDB migrations
         run: docker compose -f docker/compose.yaml exec -T llm-sidecar python /app/scripts/migrate_lancedb_20250604.py
