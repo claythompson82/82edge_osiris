@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 
 from osiris.server import FeedbackItem, submit_phi3_feedback  # For tests 1 and 2
-from llm_sidecar.db import append_feedback as actual_append_feedback  # For test 2, to mock its module
+from osiris.llm_sidecar.db import append_feedback as actual_append_feedback  # For test 2, to mock its module
 # For tests 3 and 4 (script testing)
 from osiris.scripts.harvest_feedback import main as harvest_main
 from osiris.scripts.migrate_feedback import main as migrate_main
@@ -71,8 +71,8 @@ async def test_feedback_item_model_defaults_version():
 @pytest.mark.asyncio
 async def test_submit_phi3_feedback_stores_version(mocker):
     """Tests that submit_phi3_feedback passes the schema_version to append_feedback."""
-    # Mock llm_sidecar.db.append_feedback
-    mocked_append = mocker.patch("llm_sidecar.db.append_feedback")
+    # Mock osiris.llm_sidecar.db.append_feedback
+    mocked_append = mocker.patch("osiris.llm_sidecar.db.append_feedback")
 
     # Test with default schema_version
     feedback_item_default = FeedbackItem(
@@ -281,9 +281,9 @@ async def test_migrate_feedback_py_script(tmp_path_factory, monkeypatch):
     def mock_lancedb_connect_migrate(path):
         assert str(path) == str(db_path)
         return lancedb.connect(path) # Connect to the actual temp path
-    monkeypatch.setattr("scripts.migrate_feedback.lancedb.connect", mock_lancedb_connect_migrate)
+    monkeypatch.setattr("osiris.scripts.migrate_feedback.lancedb.connect", mock_lancedb_connect_migrate)
     # Also mock os.makedirs in migrate_feedback if it's there, to avoid issues with tmp_path
-    monkeypatch.setattr("scripts.migrate_feedback.os.makedirs", lambda path, exist_ok=False: None, raising=False)
+    monkeypatch.setattr("osiris.scripts.migrate_feedback.os.makedirs", lambda path, exist_ok=False: None, raising=False)
 
 
     # Run the migration script's main function
