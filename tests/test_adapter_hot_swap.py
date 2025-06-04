@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 # Import the loader module directly to access globals and functions for mocking/assertion
 from osiris.llm_sidecar import loader
-from osiris.server import app  # For testing the /health endpoint
+from server import app # For testing the /health endpoint
 
 # Attempt to import PeftModel, but allow tests to run if it's not critical for all
 try:
@@ -73,7 +73,7 @@ class TestAdapterLoading(unittest.TestCase):
                 return True
             return False
         mock_exists.side_effect = exists_side_effect
-
+        
         # Mock PeftModel return value
         mock_peft_model_instance = mock.MagicMock()
         mock_peft_from_pretrained.return_value = mock_peft_model_instance
@@ -110,7 +110,7 @@ class TestAdapterLoading(unittest.TestCase):
         mock_tokenizer_from_pretrained.return_value = mock.MagicMock()
 
         mock_listdir.return_value = ['invalid_dir1', '20231020_not_a_dir', 'another_invalid']
-
+        
         # Base adapter path exists and is a directory
         mock_exists.side_effect = lambda path: path == ADAPTER_BASE_PATH or path == loader.MICRO_LLM_MODEL_PATH
         mock_isdir.side_effect = lambda path: path == ADAPTER_BASE_PATH
@@ -167,7 +167,7 @@ class TestHealthEndpoint(unittest.TestCase):
     def test_health_endpoint_with_adapter_date(self, mock_path_exists, mock_hermes, mock_phi3):
         """Test /health endpoint when phi3_adapter_date is set."""
         mock_path_exists.return_value = True # Assume phi3 model file exists
-
+        
         response = self.client.get("/health")
         self.assertEqual(response.status_code, 200)
         json_response = response.json()

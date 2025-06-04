@@ -5,7 +5,7 @@ import importlib # For reloading the module
 import json # For fields that are stored as JSON strings
 
 # Initial import of the module. Its state will be patched and reloaded.
-import llm_sidecar.db
+import osiris.llm_sidecar.db as llm_sidecar_db
 
 def test_db_initialization_and_operations(monkeypatch):
     """
@@ -16,29 +16,29 @@ def test_db_initialization_and_operations(monkeypatch):
         tmp_db_root = pathlib.Path(tmpdir_name)
 
         # Patch _tables and _db to ensure they are reset for the reloaded module
-        monkeypatch.setattr(llm_sidecar.db, '_tables', {})
-        monkeypatch.setattr(llm_sidecar.db, '_db', None)
+        monkeypatch.setattr(llm_sidecar_db, '_tables', {})
+        monkeypatch.setattr(llm_sidecar_db, '_db', None)
 
         # Keep a reference to the original lancedb.connect
         # This is assuming lancedb is an attribute of the llm_sidecar.db module
-        original_lancedb_connect = llm_sidecar.db.lancedb.connect
+        original_lancedb_connect = llm_sidecar_db.lancedb.connect
 
         # Define a wrapper for lancedb.connect that always uses the temp directory
         def mock_lancedb_connect(path, **kwargs):
             # Force connection to the temporary directory
             return original_lancedb_connect(tmp_db_root, **kwargs)
 
-        monkeypatch.setattr(llm_sidecar.db.lancedb, 'connect', mock_lancedb_connect)
+        monkeypatch.setattr(llm_sidecar_db.lancedb, 'connect', mock_lancedb_connect)
 
         # Also, ensure DB_ROOT in the module itself is set for any direct uses of it,
         # although the connect patch is the primary mechanism now.
-        monkeypatch.setattr(llm_sidecar.db, 'DB_ROOT', tmp_db_root)
+        monkeypatch.setattr(llm_sidecar_db, 'DB_ROOT', tmp_db_root)
 
 
         # Reload the module. This will execute `_db = lancedb.connect(DB_ROOT)`
         # which will now call our mock_lancedb_connect.
         # It also calls init_db() at the end of the module.
-        db_module = importlib.reload(llm_sidecar.db)
+        db_module = importlib.reload(llm_sidecar_db)
 
         # 1. Assert that the three tables exist
         # Access _db via the reloaded module instance. It should be connected to tmp_db_root.

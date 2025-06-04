@@ -4,7 +4,7 @@ import json
 import logging
 from unittest.mock import patch, AsyncMock
 
-from llm_sidecar.event_bus import EventBus, RedisError
+from osiris.llm_sidecar.event_bus import EventBus, RedisError
 # Ensure fakeredis is installed for testing (e.g., in requirements-dev.txt)
 # pip install fakeredis[pyaio]
 try:
@@ -214,7 +214,7 @@ class TestEventBus(unittest.IsolatedAsyncioTestCase):
                          "Handler should not receive messages published after EventBus is closed.")
 
 
-    @patch('llm_sidecar.event_bus.redis.Redis.ping', new_callable=AsyncMock)
+    @patch('osiris.llm_sidecar.event_bus.redis.Redis.ping', new_callable=AsyncMock)
     async def test_connection_error_on_connect(self, mock_ping):
         mock_ping.side_effect = RedisError("Simulated Redis connection error")
         
