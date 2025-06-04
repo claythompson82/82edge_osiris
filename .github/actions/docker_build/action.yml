@@ -105,3 +105,9 @@ runs:
       if: always() && inputs.push_image == true && inputs.registry_user != '' && inputs.registry_password != ''
       shell: bash
       run: docker logout
+
+    - name: Install repo (editable)
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install -e .
