@@ -1,0 +1,23 @@
+<svg width="320" height="60" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="black" />
+    </marker>
+  </defs>
+  <rect x="10" y="10" width="70" height="30" fill="lightblue" stroke="black"/>
+  <text x="20" y="30" font-family="Arial" font-size="12">Generate</text>
+
+  <rect x="90" y="10" width="60" height="30" fill="lightgreen" stroke="black"/>
+  <text x="105" y="30" font-family="Arial" font-size="12">Prove</text>
+
+  <rect x="160" y="10" width="60" height="30" fill="khaki" stroke="black"/>
+  <text x="175" y="30" font-family="Arial" font-size="12">Apply</text>
+
+  <rect x="230" y="10" width="80" height="30" fill="pink" stroke="black"/>
+  <text x="240" y="30" font-family="Arial" font-size="12">Fine-Tune</text>
+
+  <line x1="80" y1="25" x2="90" y2="25" stroke="black" marker-end="url(#arrow)"/>
+  <line x1="150" y1="25" x2="160" y2="25" stroke="black" marker-end="url(#arrow)"/>
+  <line x1="220" y1="25" x2="230" y2="25" stroke="black" marker-end="url(#arrow)"/>
+  <line x1="310" y1="25" x2="10" y2="25" stroke="black" marker-end="url(#arrow)" stroke-dasharray="4,2"/>
+</svg>
