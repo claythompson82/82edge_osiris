@@ -31,7 +31,7 @@ jobs:
           key: ${{ runner.os }}-torch-${{ env.TORCH_VERSION }}
 
       - name: Build osiris-ci-app Docker image via reusable workflow
-        uses: ./.github/workflows/docker_build.yml
+        uses: ./.github/actions/docker_build # Changed this line
         with:
           image_name: 'osiris-ci-app'
           # image_tag: 'latest' # Default is 'latest'
