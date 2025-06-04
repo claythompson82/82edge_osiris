@@ -39,6 +39,11 @@ inputs:
     required: false
     type: string
     default: ''
+  platforms:
+    description: 'Comma-separated list of target platforms for multi-arch builds (e.g., "linux/amd64,linux/arm64")'
+    required: false
+    type: string
+    default: ''
 
 outputs:
   image_digest:
@@ -75,6 +80,7 @@ runs:
       run: pip install -r requirements-tests.txt
 
     - name: Set up QEMU
+      if: inputs.platforms != ''
       uses: docker/setup-qemu-action@v3
 
     - name: Set up Docker Buildx
@@ -107,9 +113,7 @@ runs:
         push: ${{ inputs.push_image }}
         tags: "${{ inputs.image_name }}:${{ inputs.image_tag }}"
         build-args: ${{ steps.build_args_array.outputs.args }}
-        # TORCH_VERSION should be inherited from the calling workflow's environment
-        # If multi-platform images are needed, pass a platforms input such as
-        # 'linux/amd64,linux/arm64'
+        platforms: ${{ inputs.platforms }}
         cache-from: |
           type=gha
           type=local,src=~/.cache/buildx

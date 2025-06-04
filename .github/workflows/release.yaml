@@ -1,0 +1,60 @@
+name: Release Docker Images
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      multi:
+        description: 'Build multi-platform images (linux/amd64, linux/arm64)'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      TAG: ${{ github.ref_name }}
+      MULTI: ${{ inputs.multi || 'false' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Determine platforms
+        id: platforms
+        run: |
+          if [ "${{ env.MULTI }}" = "true" ]; then
+            echo "PLATFORMS=linux/amd64,linux/arm64" >> "$GITHUB_OUTPUT"
+          else
+            echo "PLATFORMS=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and push llm-sidecar
+        uses: ./.github/actions/docker_build
+        with:
+          image_name: ghcr.io/${{ github.repository_owner }}/llm-sidecar
+          image_tag: ${{ env.TAG }}
+          dockerfile: docker/Dockerfile
+          context: docker
+          push_image: true
+          registry_user: ${{ github.actor }}
+          registry_password: ${{ secrets.GITHUB_TOKEN }}
+          platforms: ${{ steps.platforms.outputs.PLATFORMS }}
+
+      - name: Build and push azr_planner
+        uses: ./.github/actions/docker_build
+        with:
+          image_name: ghcr.io/${{ github.repository_owner }}/azr_planner
+          image_tag: ${{ env.TAG }}
+          dockerfile: services/azr_planner/Dockerfile
+          context: .
+          push_image: true
+          registry_user: ${{ github.actor }}
+          registry_password: ${{ secrets.GITHUB_TOKEN }}
+          platforms: ${{ steps.platforms.outputs.PLATFORMS }}
+
