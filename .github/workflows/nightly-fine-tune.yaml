@@ -53,7 +53,7 @@ jobs:
           image_name: 'llm_sidecar'
           image_tag: 'latest' # Explicitly 'latest' as in the original command
           dockerfile: 'docker/Dockerfile' # Path from repo root
-          context: '.' # Build context is the repo root
+          context: 'docker' # Build context points to docker/ for correct COPY paths
           push_image: false
           # build_args: '' # No specific build_args mentioned
 
