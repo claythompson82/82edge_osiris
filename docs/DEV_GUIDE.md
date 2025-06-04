@@ -17,14 +17,7 @@ This document outlines the recommended steps for a local development setup.
    pip install -e .
    ```
 
-3. Install the test dependencies to run the test-suite:
+## Testing
 
-   ```bash
-   pip install -r requirements-tests.txt
-   ```
+pip install -r requirements-tests.txt before running pytest.
 
-4. Run the tests to verify your environment:
-
-   ```bash
-   pytest
-   ```
