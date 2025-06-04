@@ -217,7 +217,14 @@ jobs:
           pip install -r requirements-tests.txt
       - name: Run Pytest
         run: |
-          pytest tests/test_harvest.py
+          pytest -n auto --junitxml=pytest-results.xml tests/test_harvest.py
+      - name: Upload Pytest Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results-python
+          path: pytest-results.xml
+          if-no-files-found: ignore
 
   observability-tests:
     if: ${{ github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-observability-tests')) || (github.event_name == 'workflow_dispatch' && github.event.inputs.enable-obs-tests == 'true') }}
@@ -244,7 +251,14 @@ jobs:
 
       - name: Run observability tests
         run: |
-          pytest tests/test_traces.py
+          pytest -n auto --junitxml=pytest-results.xml tests/test_traces.py
+      - name: Upload Observability Pytest Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results-obs
+          path: pytest-results.xml
+          if-no-files-found: ignore
 
       - name: Collect OTEL logs
         if: failure()

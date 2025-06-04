@@ -1,2 +1,3 @@
 httpx >= 0.27
 lancedb >= 0.4
+pytest-xdist>=3.5
