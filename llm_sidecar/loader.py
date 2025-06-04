@@ -103,7 +103,7 @@ def load_phi3_model():
         # Inputs to generate will need .to(device)
 
         # Load PEFT adapter if available
-        global phi3_adapter_date # Ensure we are updating the global variable
+        global phi3_adapter_date  # Ensure we are updating the global variable
         adapter_base_path = "/app/models/phi3/adapters/"
         latest_adapter_path = get_latest_adapter_dir(adapter_base_path)
 
@@ -115,24 +115,32 @@ def load_phi3_model():
                 # This might need adjustment if ORTModelForCausalLM's output isn't directly usable.
                 # For now, we proceed assuming it is.
                 phi3_model = PeftModel.from_pretrained(phi3_model, latest_adapter_path)
-                
+
                 # Extract date string from path and format it
-                adapter_dir_name = os.path.basename(latest_adapter_path) # e.g., "20231022"
+                adapter_dir_name = os.path.basename(
+                    latest_adapter_path
+                )  # e.g., "20231022"
                 try:
                     date_obj = datetime.strptime(adapter_dir_name, "%Y%m%d")
                     phi3_adapter_date = date_obj.strftime("%Y-%m-%d")
-                    print(f"Successfully loaded PEFT adapter {latest_adapter_path} with date {phi3_adapter_date}")
+                    print(
+                        f"Successfully loaded PEFT adapter {latest_adapter_path} with date {phi3_adapter_date}"
+                    )
                 except ValueError as ve:
-                    print(f"Warning: Could not parse date from adapter directory name {adapter_dir_name}: {ve}. Adapter date will not be set.")
-                    phi3_adapter_date = None # Reset if parsing fails
+                    print(
+                        f"Warning: Could not parse date from adapter directory name {adapter_dir_name}: {ve}. Adapter date will not be set."
+                    )
+                    phi3_adapter_date = None  # Reset if parsing fails
 
             except Exception as peft_e:
-                print(f"Error loading PEFT adapter from {latest_adapter_path}: {peft_e}")
+                print(
+                    f"Error loading PEFT adapter from {latest_adapter_path}: {peft_e}"
+                )
                 print("Proceeding with the base Phi-3 model without adapter.")
-                phi3_adapter_date = None # Ensure it's None if adapter loading fails
+                phi3_adapter_date = None  # Ensure it's None if adapter loading fails
         else:
             print("No PEFT adapter found for Phi-3, using base model.")
-            phi3_adapter_date = None # Explicitly set to None
+            phi3_adapter_date = None  # Explicitly set to None
 
         print("Phi-3 ONNX model and tokenizer loaded successfully.")
     except Exception as e:

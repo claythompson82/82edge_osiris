@@ -12,6 +12,7 @@ from opentelemetry.instrumentation.logging import LoggingInstrumentor
 _original_fastapi_instrument_app = FastAPIInstrumentor.instrument_app
 _original_fastapi_uninstrument_app = FastAPIInstrumentor.uninstrument_app
 
+
 def init_otel(app=None):
     """
     Initializes OpenTelemetry if the OTEL_EXPORTER_OTLP_ENDPOINT environment variable is set.
@@ -20,7 +21,9 @@ def init_otel(app=None):
     otel_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 
     if not otel_endpoint:
-        logging.info("OTEL_EXPORTER_OTLP_ENDPOINT not set, OpenTelemetry will not be initialized.")
+        logging.info(
+            "OTEL_EXPORTER_OTLP_ENDPOINT not set, OpenTelemetry will not be initialized."
+        )
         return
 
     logging.info(f"Initializing OpenTelemetry with OTLP endpoint: {otel_endpoint}")
@@ -38,7 +41,7 @@ def init_otel(app=None):
             # Check if already instrumented to prevent double instrumentation in some dev environments (like uvicorn --reload)
             if not getattr(app, "_otel_instrumented", False):
                 FastAPIInstrumentor.instrument_app(app)
-                app._otel_instrumented = True # Mark as instrumented
+                app._otel_instrumented = True  # Mark as instrumented
             else:
                 logging.info("FastAPI app already instrumented. Skipping.")
         else:
@@ -47,19 +50,18 @@ def init_otel(app=None):
             # For now, we assume FastAPIInstrumentor is the primary concern for app-specific instrumentation.
             pass
 
-
         # Instrument logging
         # Check if already instrumented
         if not getattr(LoggingInstrumentor, "_otel_instrumented", False):
             LoggingInstrumentor().instrument()
-            LoggingInstrumentor._otel_instrumented = True # Mark as instrumented
+            LoggingInstrumentor._otel_instrumented = True  # Mark as instrumented
         else:
             logging.info("Logging already instrumented. Skipping.")
-
 
         logging.info("OpenTelemetry initialized successfully.")
     except Exception as e:
         logging.error(f"Failed to initialize OpenTelemetry: {e}", exc_info=True)
+
 
 if __name__ == "__main__":
     # Example usage (for testing purposes)

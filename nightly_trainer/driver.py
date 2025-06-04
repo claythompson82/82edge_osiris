@@ -2,7 +2,10 @@ import argparse
 import logging
 
 # Configure basic logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
 
 def main():
     """
@@ -13,7 +16,7 @@ def main():
         "--task-set",
         type=str,
         required=True,
-        help="The set of tasks to run (e.g., 'marketforge')."
+        help="The set of tasks to run (e.g., 'marketforge').",
     )
 
     args = parser.parse_args()
@@ -22,6 +25,7 @@ def main():
         logging.info("trainer loop stub")
     else:
         logging.warning(f"Unknown task set: {args.task_set}")
+
 
 if __name__ == "__main__":
     main()

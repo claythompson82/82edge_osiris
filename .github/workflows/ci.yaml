@@ -32,6 +32,12 @@ jobs:
       - name: Run yamllint
         run: yamllint --strict .
 
+      - name: Install pre-commit
+        run: pip install pre-commit
+
+      - name: Run pre-commit
+        run: pre-commit run --all-files
+
   build-and-test-llm-sidecar:
     needs: lint
     runs-on: ubuntu-latest

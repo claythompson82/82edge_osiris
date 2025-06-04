@@ -15,6 +15,9 @@ This document outlines the recommended steps for a local development setup.
 
    ```bash
    pip install -e .
+   pip install pre-commit
+   pre-commit install
+   pre-commit autoupdate && pre-commit run --all-files
    ```
 
 - `pip install -r requirements-tests.txt` installs extras needed only for running tests.

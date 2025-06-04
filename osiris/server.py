@@ -10,8 +10,8 @@ import uuid
 import datetime
 import traceback
 from typing import Optional, Dict, Any, List
-import asyncio # Added for event handlers, though not strictly necessary if not using complex async logic within them beyond print
-import logging # Added for consistency
+import asyncio  # Added for event handlers, though not strictly necessary if not using complex async logic within them beyond print
+import logging  # Added for consistency
 import base64
 import sentry_sdk
 from sentry_sdk.integrations.logging import LoggingIntegration
@@ -36,8 +36,8 @@ from llm_sidecar.tts import ChatterboxTTS
 
 # outlines (schema-guided generation for Phi-3)
 from outlines import generate as outlines_generate
-from llm_sidecar.db import append_feedback, log_hermes_score # db module itself
-import llm_sidecar.db as db # alias for explicit calls like db.append_feedback
+from llm_sidecar.db import append_feedback, log_hermes_score  # db module itself
+import llm_sidecar.db as db  # alias for explicit calls like db.append_feedback
 from llm_sidecar.event_bus import EventBus
 from llm_sidecar.hermes_plugin import score_with_hermes
 
@@ -68,6 +68,7 @@ JSON_SCHEMA_STR = """
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"[Side-car] running on {DEVICE}")
+
 
 # ---------------------------------------------------------------------
 # Pydantic Models
@@ -105,16 +106,19 @@ class ScoreRequest(BaseModel):
 # FastAPI initialisation
 # ---------------------------------------------------------------------
 app = FastAPI()
-init_otel(app) # Initialize OpenTelemetry with the FastAPI app instance
-event_bus = EventBus(redis_url="redis://localhost:6379/0") # Global EventBus instance
-logger = logging.getLogger(__name__) # For event handler logging
+init_otel(app)  # Initialize OpenTelemetry with the FastAPI app instance
+event_bus = EventBus(redis_url="redis://localhost:6379/0")  # Global EventBus instance
+logger = logging.getLogger(__name__)  # For event handler logging
 
 print("[Side-car] loading models …")
 load_hermes_model()
 load_phi3_model()
 # Initialize ChatterboxTTS with the event_bus instance
-tts_model = ChatterboxTTS(model_dir=CHATTERBOX_MODEL_DIR, device=DEVICE, event_bus=event_bus)
+tts_model = ChatterboxTTS(
+    model_dir=CHATTERBOX_MODEL_DIR, device=DEVICE, event_bus=event_bus
+)
 print("[Side-car] models ready.")
+
 
 # ---------------------------------------------------------------------
 # Helpers
@@ -135,24 +139,31 @@ def _load_recent_feedback(max_examples: int = 3) -> List[Dict[str, Any]]:
                 print(f"[Feedback-load] skipping line: {err}")
     return items[-max_examples:]
 
+
 # ---------------------------------------------------------------------
 # End-points
 # ---------------------------------------------------------------------
 @app.post("/score/hermes/", tags=["scoring"])
-async def score_proposal_with_hermes_endpoint(req: ScoreRequest): # Renamed function to avoid conflict if any
+async def score_proposal_with_hermes_endpoint(
+    req: ScoreRequest,
+):  # Renamed function to avoid conflict if any
     proposal_id = uuid.uuid4()
 
     # Run in executor to avoid blocking the main event loop if score_with_hermes is CPU bound
     loop = asyncio.get_event_loop()
-    hermes_score = await loop.run_in_executor(None, score_with_hermes, req.proposal, req.context)
+    hermes_score = await loop.run_in_executor(
+        None, score_with_hermes, req.proposal, req.context
+    )
 
     if hermes_score == -1.0:
-        raise HTTPException(status_code=500, detail="Failed to score proposal with Hermes model.")
+        raise HTTPException(
+            status_code=500, detail="Failed to score proposal with Hermes model."
+        )
 
     try:
         score_data = db.HermesScoreSchema(
             proposal_id=proposal_id,
-            score=hermes_score
+            score=hermes_score,
             # timestamp is handled by default_factory
             # reasoning is optional
         )
@@ -164,7 +175,9 @@ async def score_proposal_with_hermes_endpoint(req: ScoreRequest): # Renamed func
         # Log the error and potentially raise an HTTPException if storing the score is critical
         logger.error(f"Failed to log Hermes score for proposal_id {proposal_id}: {e}")
         # Depending on requirements, you might want to inform the client or handle silently
-        raise HTTPException(status_code=500, detail=f"Score generated but failed to log: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Score generated but failed to log: {e}"
+        )
 
     return {"proposal_id": str(proposal_id), "score": hermes_score}
 
@@ -180,7 +193,7 @@ async def audio_byte_stream_generator(request: Request):
     # It's important that the EventBus used here is the same instance as the one
     # publishing messages, or at least configured to connect to the same Redis.
     # The global `event_bus` instance is used here.
-    
+
     # Create a temporary queue for this client to receive messages
     # This approach uses a new subscription for each client.
     # For many concurrent clients, consider a fan-out mechanism if performance becomes an issue.
@@ -195,26 +208,26 @@ async def audio_byte_stream_generator(request: Request):
     # For simplicity, let's assume EventBus.subscribe can take a callback directly
     # and returns a subscription ID or similar that can be used to unsubscribe.
     # Or, more practically, we might need a way to register and unregister client queues.
-    
+
     # A simple way for this example: use a generic subscribe that calls our listener.
     # This means all connected /stream/audio clients will get all messages.
     # This is okay for SSE if clients just pick up what's new.
-    
+
     # Let's assume event_bus.subscribe handles the Redis pub/sub listening.
     # The callback `_listener` will be invoked by the event_bus when a message arrives.
-    
+
     # The challenge: `event_bus.subscribe` as defined in `event_bus.py` (not shown here)
     # typically registers a handler for a channel. If it's a single handler,
     # multiple client connections to this endpoint would compete for messages from the queue.
     # A better approach is for the event_bus to manage multiple subscribers (queues) per channel.
     # Let's assume the current EventBus can be subscribed to by multiple internal listeners/queues.
     # Or, we adapt: the event_bus puts messages into a list of queues, and this is one such queue.
-    
+
     # For this example, let's refine the interaction with a hypothetical enhanced EventBus
     # or use a simpler direct Redis listener if EventBus doesn't support multiple client queues well.
     # Given the existing EventBus structure, direct Redis interaction for this specific streaming case might be cleaner.
     # However, to stick to the existing `event_bus` abstraction:
-    
+
     # Let's assume `event_bus.listen_to_channel` is a new method that returns an async generator.
     # This is a hypothetical simplification for the example.
     # async for message in event_bus.listen_to_channel("audio.bytes"):
@@ -228,12 +241,12 @@ async def audio_byte_stream_generator(request: Request):
     # This part would need careful implementation based on the actual EventBus capabilities.
     # A simple (but potentially resource-intensive for many clients) way:
     # Each client gets its own Redis connection and listener.
-    
+
     # A more robust way using the existing event_bus:
     # The event_bus would need to support adding/removing listeners (queues) for a channel.
     # Let's say we have:
     # sub_id = await event_bus.add_channel_listener("audio.bytes", queue)
-    
+
     # This is a placeholder for how one might integrate.
     # For a concrete implementation, one might need to adjust EventBus or use redis-py directly here.
     # Assume `event_bus.listen_to_channel_sse` is a method designed for this.
@@ -244,7 +257,7 @@ async def audio_byte_stream_generator(request: Request):
     # Fallback to a conceptual loop that would integrate with a suitable EventBus:
     # This requires `event_bus` to have a way to register a queue or callback
     # and clean up upon client disconnection.
-    
+
     # Let's assume a simple queue registration with the event_bus:
     await event_bus.register_listener_queue("audio.bytes", queue)
     try:
@@ -253,10 +266,10 @@ async def audio_byte_stream_generator(request: Request):
             if await request.is_disconnected():
                 print("[AudioStream] Client disconnected.")
                 break
-            
+
             try:
                 # Wait for a message from the queue with a timeout
-                message = await asyncio.wait_for(queue.get(), timeout=1.0) 
+                message = await asyncio.wait_for(queue.get(), timeout=1.0)
                 if message:
                     # SSE format: "data: <message>\n\n"
                     yield f"data: {message}\n\n"
@@ -264,7 +277,7 @@ async def audio_byte_stream_generator(request: Request):
             except asyncio.TimeoutError:
                 # No message received, send a keep-alive comment or just continue
                 # SSE comments start with a colon
-                yield ": keep-alive\n\n" 
+                yield ": keep-alive\n\n"
                 continue
             except Exception as e:
                 print(f"[AudioStream] Error getting message from queue: {e}")
@@ -284,12 +297,16 @@ async def handle_proposal_created(payload: str):
     logger.info(f"EVENT [phi3.proposal.created]: {payload}")
     print(f"EVENT [phi3.proposal.created]: {payload}")
 
+
 async def handle_proposal_assessed(payload: str):
     logger.info(f"EVENT [phi3.proposal.assessed]: {payload}")
     print(f"EVENT [phi3.proposal.assessed]: {payload}")
 
+
 async def handle_feedback_submitted_event(payload: str):
-    logger.info(f"EVENT [phi3.feedback.submitted]: Received payload: {payload[:200]}...") # Log snippet
+    logger.info(
+        f"EVENT [phi3.feedback.submitted]: Received payload: {payload[:200]}..."
+    )  # Log snippet
     try:
         feedback_data = json.loads(payload)
         # Ensure db.append_feedback is called correctly.
@@ -297,14 +314,25 @@ async def handle_feedback_submitted_event(payload: str):
         # and also `from llm_sidecar.db import append_feedback`
         # Using the aliased import for clarity here.
         db.append_feedback(feedback_data)
-        logger.info(f"EVENT [phi3.feedback.submitted]: Feedback {feedback_data.get('transaction_id')} processed and stored.")
-        print(f"EVENT [phi3.feedback.submitted]: Feedback {feedback_data.get('transaction_id')} processed and stored.")
+        logger.info(
+            f"EVENT [phi3.feedback.submitted]: Feedback {feedback_data.get('transaction_id')} processed and stored."
+        )
+        print(
+            f"EVENT [phi3.feedback.submitted]: Feedback {feedback_data.get('transaction_id')} processed and stored."
+        )
     except json.JSONDecodeError as e:
-        logger.error(f"EVENT [phi3.feedback.submitted]: ERROR - Could not decode JSON payload: {payload}. Error: {e}")
-        print(f"EVENT [phi3.feedback.submitted]: ERROR - Could not decode JSON payload: {payload}. Error: {e}")
+        logger.error(
+            f"EVENT [phi3.feedback.submitted]: ERROR - Could not decode JSON payload: {payload}. Error: {e}"
+        )
+        print(
+            f"EVENT [phi3.feedback.submitted]: ERROR - Could not decode JSON payload: {payload}. Error: {e}"
+        )
     except Exception as e:
-        logger.error(f"EVENT [phi3.feedback.submitted]: ERROR - processing feedback: {e}")
+        logger.error(
+            f"EVENT [phi3.feedback.submitted]: ERROR - processing feedback: {e}"
+        )
         print(f"EVENT [phi3.feedback.submitted]: ERROR - processing feedback: {e}")
+
 
 # ---------------------------------------------------------------------
 # FastAPI Event Lifecycle
@@ -320,7 +348,9 @@ async def startup_event_handler():
         try:
             sentry_traces_sample_rate = float(sentry_traces_sample_rate_str)
         except ValueError:
-            logger.warning(f"[Sentry] Invalid SENTRY_TRACES_SAMPLE_RATE: {sentry_traces_sample_rate_str}. Defaulting to 0.2.")
+            logger.warning(
+                f"[Sentry] Invalid SENTRY_TRACES_SAMPLE_RATE: {sentry_traces_sample_rate_str}. Defaulting to 0.2."
+            )
             sentry_traces_sample_rate = 0.2
 
     if sentry_dsn:
@@ -330,10 +360,10 @@ async def startup_event_handler():
             traces_sample_rate=sentry_traces_sample_rate,
             integrations=[
                 LoggingIntegration(
-                    level=logging.INFO,        # Capture info and above as breadcrumbs
-                    event_level=logging.ERROR  # Send errors as events
+                    level=logging.INFO,  # Capture info and above as breadcrumbs
+                    event_level=logging.ERROR,  # Send errors as events
                 )
-            ]
+            ],
         )
         logger.info("[Sentry] SDK initialized.")
         print("[Sentry] SDK initialized.")
@@ -347,7 +377,9 @@ async def startup_event_handler():
         await event_bus.connect()
         await event_bus.subscribe("phi3.proposal.created", handle_proposal_created)
         await event_bus.subscribe("phi3.proposal.assessed", handle_proposal_assessed)
-        await event_bus.subscribe("phi3.feedback.submitted", handle_feedback_submitted_event)
+        await event_bus.subscribe(
+            "phi3.feedback.submitted", handle_feedback_submitted_event
+        )
         logger.info("EventBus connected and subscriptions active.")
         print("EventBus connected and subscriptions active.")
     except Exception as e:
@@ -361,6 +393,7 @@ async def startup_event_handler():
     # print("[Side-car] TTS model initialized with event_bus.")
     # Current server.py initializes tts_model at startup using the global event_bus, which should be fine.
 
+
 @app.on_event("shutdown")
 async def shutdown_event_handler():
     logger.info("FastAPI shutdown: Closing EventBus...")
@@ -368,6 +401,7 @@ async def shutdown_event_handler():
     await event_bus.close()
     logger.info("EventBus closed.")
     print("EventBus closed.")
+
 
 # ---------------------------------------------------------------------
 # Helpers (existing)
@@ -403,15 +437,16 @@ async def _generate_phi3_json(
         }
 
 
-async def _generate_hermes_text(
-    prompt: str, max_length: int, model, tokenizer
-) -> str:
+async def _generate_hermes_text(prompt: str, max_length: int, model, tokenizer) -> str:
     if not model or not tokenizer:
         return "Error: Hermes model / tokenizer unavailable."
     try:
         inputs = tokenizer(prompt, return_tensors="pt").to(DEVICE)
         out = model.generate(
-            **inputs, max_length=max_length, do_sample=False, eos_token_id=tokenizer.eos_token_id
+            **inputs,
+            max_length=max_length,
+            do_sample=False,
+            eos_token_id=tokenizer.eos_token_id,
         )
         return tokenizer.decode(out[0], skip_special_tokens=True)
     except Exception as e:
@@ -482,7 +517,9 @@ async def propose_trade(req: PromptRequest):
     hermes_text = await _generate_hermes_text(
         hermes_prompt, req.max_length * 2, hermes_model, hermes_tok
     )
-    transaction_id = str(uuid.uuid4()) # Define transaction_id once for logging and events
+    transaction_id = str(
+        uuid.uuid4()
+    )  # Define transaction_id once for logging and events
 
     # log
     try:
@@ -495,23 +532,28 @@ async def propose_trade(req: PromptRequest):
         with open(PHI3_FEEDBACK_LOG_FILE, "a") as f:
             json.dump(entry, f)
             f.write("\n")
-        
+
         # Publish events
         await event_bus.publish("phi3.proposal.created", json.dumps(phi3_json))
         # For assessment, let's include the proposal's transaction_id for context
         assessment_event_payload = {
-            "proposal_transaction_id": transaction_id, # Correlate with the proposal
+            "proposal_transaction_id": transaction_id,  # Correlate with the proposal
             "assessment_text": hermes_text,
-            "timestamp": entry["timestamp"] # Use the same timestamp
+            "timestamp": entry["timestamp"],  # Use the same timestamp
         }
-        await event_bus.publish("phi3.proposal.assessed", json.dumps(assessment_event_payload))
+        await event_bus.publish(
+            "phi3.proposal.assessed", json.dumps(assessment_event_payload)
+        )
 
     except Exception as e:
         print("[Log/Event Publish] write error or event publish error:", e)
         logger.error(f"[Log/Event Publish] write error or event publish error: {e}")
 
-
-    return {"transaction_id": transaction_id, "phi3_proposal": phi3_json, "hermes_assessment": hermes_text}
+    return {
+        "transaction_id": transaction_id,
+        "phi3_proposal": phi3_json,
+        "hermes_assessment": hermes_text,
+    }
 
 
 @app.get("/stream/audio", tags=["tts", "streaming"])
@@ -520,12 +562,14 @@ async def stream_audio(request: Request):
     Streams base64 encoded audio chunks via Server-Sent Events (SSE).
     Clients connect to this endpoint to receive live audio data.
     """
-    return StreamingResponse(audio_byte_stream_generator(request), media_type="text/event-stream")
+    return StreamingResponse(
+        audio_byte_stream_generator(request), media_type="text/event-stream"
+    )
 
 
 @app.post("/speak", tags=["tts"])
 async def speak(req: SpeakRequest):
-    if not tts_model: # Ensure tts_model is initialized
+    if not tts_model:  # Ensure tts_model is initialized
         raise HTTPException(status_code=503, detail="TTS model not available.")
     try:
         ref_wav = None
@@ -555,7 +599,9 @@ async def speak(req: SpeakRequest):
                 # further adjustments to ChatterboxTTS or temp file handling here.
                 # For the sake of this example, we will pass None if b64 is provided until robust handling is added.
                 # This is a known limitation in this snippet.
-                print(f"ref_wav_b64 provided but not fully implemented for TTS ref_speech yet.")
+                print(
+                    f"ref_wav_b64 provided but not fully implemented for TTS ref_speech yet."
+                )
                 # To properly use ref_wav_b64, one would typically save the decoded bytes to a temporary file
                 # and pass that file's path to model.get_ref_speech.
                 # Example:
@@ -570,7 +616,7 @@ async def speak(req: SpeakRequest):
         # Call the async synth method
         audio_data = await tts_model.synth(
             text=req.text,
-            ref_wav=ref_wav, # This needs to be a path or tensor as per Chatterbox
+            ref_wav=ref_wav,  # This needs to be a path or tensor as per Chatterbox
             exaggeration=req.exaggeration,
         )
         return Response(content=audio_data, media_type="audio/wav")
@@ -580,23 +626,27 @@ async def speak(req: SpeakRequest):
 
 
 @app.post("/feedback/phi3/", tags=["feedback"])
-async def submit_phi3_feedback(feedback: FeedbackItem): # Renamed from submit_feedback to submit_phi3_feedback as per issue
+async def submit_phi3_feedback(
+    feedback: FeedbackItem,
+):  # Renamed from submit_feedback to submit_phi3_feedback as per issue
     feedback.timestamp = datetime.datetime.utcnow().isoformat()
     feedback_dict = feedback.model_dump()
-    
+
     try:
         # Original append_feedback call
-        db.append_feedback(feedback_dict) # Using aliased db module
-        
+        db.append_feedback(feedback_dict)  # Using aliased db module
+
         # Publish event after successful storage
         await event_bus.publish("phi3.feedback.submitted", feedback.model_dump_json())
-        
+
         return {
             "message": "Feedback stored in LanceDB and event published",
             "transaction_id": feedback.transaction_id,
         }
     except Exception as e:
-        logger.error(f"Error submitting feedback or publishing event for {feedback.transaction_id}: {e}")
+        logger.error(
+            f"Error submitting feedback or publishing event for {feedback.transaction_id}: {e}"
+        )
         # Decide if you want to raise HTTPException for client, or just log
         # For now, let's return an error message to the client as well.
 
@@ -632,23 +682,33 @@ async def health():
     try:
         hermes_scores_table = db._tables.get("hermes_scores")
         if hermes_scores_table:
-            twenty_four_hours_ago_dt = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=24)
+            twenty_four_hours_ago_dt = datetime.datetime.now(
+                datetime.timezone.utc
+            ) - datetime.timedelta(hours=24)
             twenty_four_hours_ago_iso = twenty_four_hours_ago_dt.isoformat()
 
             # Query using .to_list() to avoid pandas dependency here
-            results = hermes_scores_table.search() \
-                                       .where(f"timestamp >= '{twenty_four_hours_ago_iso}'") \
-                                       .select(["score"]) \
-                                       .to_list()
+            results = (
+                hermes_scores_table.search()
+                .where(f"timestamp >= '{twenty_four_hours_ago_iso}'")
+                .select(["score"])
+                .to_list()
+            )
 
             if results:
                 num_hermes_scores_last_24h = len(results)
                 # Ensure scores are valid numbers before summing
-                valid_scores = [item['score'] for item in results if 'score' in item and isinstance(item['score'], (int, float))]
-                if valid_scores: # if there are any valid scores
+                valid_scores = [
+                    item["score"]
+                    for item in results
+                    if "score" in item and isinstance(item["score"], (int, float))
+                ]
+                if valid_scores:  # if there are any valid scores
                     total_score = sum(valid_scores)
-                    if num_hermes_scores_last_24h > 0: # Recalculate num_hermes_scores_last_24h based on valid_scores length if necessary
-                                                       # or ensure that items in 'results' always have valid scores
+                    if (
+                        num_hermes_scores_last_24h > 0
+                    ):  # Recalculate num_hermes_scores_last_24h based on valid_scores length if necessary
+                        # or ensure that items in 'results' always have valid scores
                         mean_hermes_score_last_24h = total_score / len(valid_scores)
                 # If no valid_scores, mean_hermes_score_last_24h remains None
             # If results is empty, num_hermes_scores_last_24h remains 0 and mean_hermes_score_last_24h remains None
@@ -672,7 +732,8 @@ async def health():
 # Local dev entry-point
 if __name__ == "__main__":
     import uvicorn
+
     # Setup basic logging for dev environment if not configured elsewhere
-    logging.basicConfig(level=logging.INFO) 
+    logging.basicConfig(level=logging.INFO)
 
     uvicorn.run(app, host="0.0.0.0", port=8000)

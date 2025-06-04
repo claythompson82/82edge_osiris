@@ -36,6 +36,7 @@ def migrate():
 
     try:
         from llm_sidecar.db import OrchestratorRunSchema
+
         new_table = db.create_table(NEW_TABLE, schema=OrchestratorRunSchema)
     except Exception:
         new_table = db.create_table(NEW_TABLE)

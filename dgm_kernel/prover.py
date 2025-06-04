@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 log = logging.getLogger(__name__)
 
+
 @dataclass
 class VerifiedPatch:
     is_valid: bool
@@ -30,7 +31,7 @@ def prove_patch(id: str, diff: str, patch_code: str) -> VerifiedPatch:
     forbidden_paths = [
         re.compile(r"^\.env"),
         re.compile(r"^secrets/"),
-        re.compile(r"/__?snapshots__?/")
+        re.compile(r"/__?snapshots__?/"),
     ]
 
     for line in diff.splitlines():
@@ -40,9 +41,12 @@ def prove_patch(id: str, diff: str, patch_code: str) -> VerifiedPatch:
                 path = path[2:]
             for pattern in forbidden_paths:
                 if pattern.search(path):
-                    return VerifiedPatch(is_valid=False, reason=f"forbidden path {path}")
+                    return VerifiedPatch(
+                        is_valid=False, reason=f"forbidden path {path}"
+                    )
 
     return VerifiedPatch(is_valid=True, reason="passed")
+
 
 def _get_pylint_score(patch_code: str) -> float:
     """
@@ -53,24 +57,34 @@ def _get_pylint_score(patch_code: str) -> float:
     # Create a temporary file path variable to ensure it's defined for finally block
     tmp_file_path_for_pylint = None
     try:
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as tmp_file:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".py", delete=False
+        ) as tmp_file:
             tmp_file.write(patch_code)
             tmp_file_path_for_pylint = tmp_file.name
 
         process = subprocess.run(
             ["pylint", tmp_file_path_for_pylint],
-            capture_output=True, text=True, timeout=30
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
 
-        match = re.search(r"Your code has been rated at (-?\d+\.?\d*)/10", process.stdout)
+        match = re.search(
+            r"Your code has been rated at (-?\d+\.?\d*)/10", process.stdout
+        )
         if match:
             score = float(match.group(1))
             log.info(f"Pylint score for temp patch: {score}/10")
         else:
-            log.warning(f"Could not parse Pylint score from output. stdout: {process.stdout[:500]}, stderr: {process.stderr[:500]}")
+            log.warning(
+                f"Could not parse Pylint score from output. stdout: {process.stdout[:500]}, stderr: {process.stderr[:500]}"
+            )
 
     except FileNotFoundError:
-        log.error("pylint command not found. Please ensure pylint is installed and in PATH.")
+        log.error(
+            "pylint command not found. Please ensure pylint is installed and in PATH."
+        )
     except subprocess.TimeoutExpired:
         log.error(f"Pylint execution timed out for {tmp_file_path_for_pylint}.")
     except Exception as e:
