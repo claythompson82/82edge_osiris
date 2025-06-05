@@ -493,7 +493,8 @@ helm upgrade --install osiris-canary helm/osiris \
 | [Docs](docs/) | [Developer Guide](docs/DEV_GUIDE.md) |
 | [Day 2 Ops](docs/DAY2_OPERATIONS.md) | [Troubleshooting](docs/ADVANCED_TROUBLESHOOTING.md) |
 | [Load Testing](docs/LOAD_TESTING.md) | [Prometheus Alerts](ops/prometheus/alerts.yaml) |
-| [DGM Paper](docs/research/DGM_mapping.md) | [Helm Chart](helm/osiris) |
+| [Production DB Strategy](docs/PROD_DB_STRATEGY.md) | [Helm Chart](helm/osiris) |
+| [DGM Paper](docs/research/DGM_mapping.md) | [Observability](docs/observability.md) |
 
 [ci-badge]: https://github.com/OWNER/REPO/actions/workflows/ci.yaml/badge.svg
 [ci]: https://github.com/OWNER/REPO/actions/workflows/ci.yaml
