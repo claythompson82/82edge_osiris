@@ -511,6 +511,7 @@ helm upgrade --install osiris-canary helm/osiris \
 | [Load Testing](docs/LOAD_TESTING.md) | [Prometheus Alerts](ops/prometheus/alerts.yaml) |
 | [Production DB Strategy](docs/PROD_DB_STRATEGY.md) | [Helm Chart](helm/osiris) |
 | [DGM Paper](docs/research/DGM_mapping.md) | [Observability](docs/observability.md) |
+| [Cookbook](docs/COOKBOOK.md) | [Quality Loop](docs/quality_loop.md) |
 
 [ci-badge]: https://github.com/OWNER/REPO/actions/workflows/ci.yaml/badge.svg
 [ci]: https://github.com/OWNER/REPO/actions/workflows/ci.yaml
