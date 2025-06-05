@@ -16,11 +16,11 @@ This guide covers common tasks for maintaining a running Osiris deployment.
 ### LanceDB
 - Data is stored under `/app/lancedb_data` in the `llm-sidecar` container.
 - Mount this path as a persistent volume to keep history between restarts.
-- Periodically copy the directory to durable storage (e.g., S3) and restore it by mounting the saved files.
+- Periodically copy the directory to durable storage (e.g., S3) and restore it by mounting the saved files. See [Production Data Strategy](PROD_DB_STRATEGY.md) for high availability options and an example Terraform module that syncs data to S3.
 
 ### Redis
 - The default Docker setup runs Redis with ephemeral storage. For persistence use a volume or enable RDB/AOF in a custom configuration.
-- To back up, copy the `dump.rdb` or `appendonly.aof` files from the Redis data directory.
+- To back up, copy the `dump.rdb` or `appendonly.aof` files from the Redis data directory. Additional HA guidance is available in [Production Data Strategy](PROD_DB_STRATEGY.md).
 
 ### Fine‑tuned Adapters
 - If you run `scripts/nightly_qlora.sh` or `scripts/run_qlora.py`, save the adapters written to the `--output_dir`.
