@@ -470,6 +470,22 @@ When enabled, ingress and egress traffic between the orchestrator,
 `llm_sidecar`, Redis and LanceDB is restricted to the minimal paths required for
 the application to function.
 
+### Autoscaling and Disruption Budgets
+
+The Helm chart supports optional Horizontal Pod Autoscalers and PodDisruptionBudgets.
+Enable them with:
+
+```bash
+helm upgrade --install osiris helm/osiris \
+  --set orchestrator.autoscaling.enabled=true \
+  --set orchestrator.pdb.enabled=true \
+  --set llmSidecar.autoscaling.enabled=true \
+  --set llmSidecar.pdb.enabled=true
+```
+
+HPA limits are configured under each component's `autoscaling` block, and the
+`pdb` section defines the minimum available pods during node maintenance.
+
 ### Canary Deployment
 
 Use `helm/osiris/values-canary.yaml` to deploy a canary release. This file

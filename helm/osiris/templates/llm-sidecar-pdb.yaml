@@ -1,0 +1,20 @@
+{{- if .Values.llmSidecar.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "osiris.fullname" . }}-llm-sidecar
+  labels:
+    {{- include "osiris.labels" . | nindent 4 }}
+    app.kubernetes.io/component: llm-sidecar
+spec:
+  selector:
+    matchLabels:
+      {{- include "osiris.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: llm-sidecar
+  {{- if .Values.llmSidecar.pdb.minAvailable }}
+  minAvailable: {{ .Values.llmSidecar.pdb.minAvailable }}
+  {{- end }}
+  {{- if .Values.llmSidecar.pdb.maxUnavailable }}
+  maxUnavailable: {{ .Values.llmSidecar.pdb.maxUnavailable }}
+  {{- end }}
+{{- end }}

@@ -130,3 +130,11 @@ The diagram below (`arch_v2.drawio.svg`) visualises these relationships.
 | `OTEL_SERVICE_NAME` | Derived | `llm-sidecar` when `otel.enabled` is true | Sets the service name for traces. |
 | `musetalk.useGpu` | `helm/osiris/values.yaml` | `true` | Schedules MuseTalk container on a GPU node via `nvidia.com/gpu.present=true`. |
 | `otelCollectorSidecar.enabled` | `helm/osiris/values.yaml` | `false` | Deploys an OpenTelemetry Collector sidecar in each pod. |
+
+### Scaling & Resilience toggles
+| Key | Path | Default | Description |
+|-----|------|---------|-------------|
+| `orchestrator.autoscaling.enabled` | `helm/osiris/values.yaml` | `false` | Enables a Horizontal Pod Autoscaler for the orchestrator deployment. |
+| `orchestrator.pdb.minAvailable` | `helm/osiris/values.yaml` | `1` | Minimum orchestrator pods that must remain available during voluntary disruptions. |
+| `llmSidecar.autoscaling.enabled` | `helm/osiris/values.yaml` | `false` | Enables a Horizontal Pod Autoscaler for the llm-sidecar deployment. |
+| `llmSidecar.pdb.minAvailable` | `helm/osiris/values.yaml` | `1` | Minimum llm-sidecar pods to keep running during disruptions. |

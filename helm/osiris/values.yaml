@@ -46,6 +46,9 @@ orchestrator:
     minReplicas: 1
     maxReplicas: 5
     targetCPUUtilizationPercentage: 80
+  pdb:
+    enabled: false
+    minAvailable: 1
   nodeSelector: {}
   tolerations: []
   affinity: {}
@@ -95,6 +98,12 @@ llmSidecar:
   securityContext: {} # Default empty map
   autoscaling:
     enabled: false
+    minReplicas: 1
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 80
+  pdb:
+    enabled: false
+    minAvailable: 1
   tolerations: [] # For GPU nodes if they have taints (e.g., nvidia.com/gpu=present:NoSchedule)
   affinity: {}
   config: # Placeholder for application-specific configurations

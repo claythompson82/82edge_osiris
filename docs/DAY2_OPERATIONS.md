@@ -30,6 +30,8 @@ This guide covers common tasks for maintaining a running Osiris deployment.
 - The `llm_sidecar` service can be scaled horizontally. When using Docker Compose increase `--scale llm-sidecar=<N>`.
 - For Kubernetes, adjust `replicaCount` in `helm/osiris/values.yaml` or enable the `autoscaling` section.
 - Ensure Redis and LanceDB have sufficient resources before scaling the orchestrator or sidecars.
+- When `autoscaling.enabled` is true, the chart creates a Horizontal Pod Autoscaler using the settings under each component's `autoscaling` block.
+- Set `pdb.enabled` to `true` to create a PodDisruptionBudget that keeps at least `minAvailable` pods running during node maintenance.
 
 ## Upgrading Osiris
 1. Pull the latest container images or build them from the updated repository.

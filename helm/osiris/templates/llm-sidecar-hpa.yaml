@@ -1,0 +1,23 @@
+{{- if .Values.llmSidecar.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "osiris.fullname" . }}-llm-sidecar
+  labels:
+    {{- include "osiris.labels" . | nindent 4 }}
+    app.kubernetes.io/component: llm-sidecar
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "osiris.fullname" . }}-llm-sidecar
+  minReplicas: {{ .Values.llmSidecar.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.llmSidecar.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.llmSidecar.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}

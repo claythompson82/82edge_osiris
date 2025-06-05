@@ -1,0 +1,20 @@
+{{- if .Values.orchestrator.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "osiris.fullname" . }}-orchestrator
+  labels:
+    {{- include "osiris.labels" . | nindent 4 }}
+    app.kubernetes.io/component: orchestrator
+spec:
+  selector:
+    matchLabels:
+      {{- include "osiris.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: orchestrator
+  {{- if .Values.orchestrator.pdb.minAvailable }}
+  minAvailable: {{ .Values.orchestrator.pdb.minAvailable }}
+  {{- end }}
+  {{- if .Values.orchestrator.pdb.maxUnavailable }}
+  maxUnavailable: {{ .Values.orchestrator.pdb.maxUnavailable }}
+  {{- end }}
+{{- end }}
