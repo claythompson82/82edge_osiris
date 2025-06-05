@@ -1,6 +1,6 @@
 # Makefile for LLM Sidecar
 
-.PHONY: rebuild logs
+.PHONY: rebuild logs ci-lock
 
 # Default service for logs if not specified
 SVC ?= llm-sidecar
@@ -10,6 +10,10 @@ rebuild:
 
 logs:
 	@docker compose logs -f $(SVC)
+
+ci-lock:
+	poetry lock --check
+	docker compose config --quiet
 
 # Example usage:
 # make rebuild
