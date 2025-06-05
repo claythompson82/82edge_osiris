@@ -8,7 +8,11 @@ import os
 from typing import TypedDict, Dict, Any, Optional, List
 
 # LangGraph
-from langgraph.graph import StateGraph, END
+try:
+    from langgraph.graph import StateGraph, END
+except Exception:  # pragma: no cover - optional dependency for tests
+    StateGraph = None
+    END = None
 
 # EventBus
 from llm_sidecar.event_bus import EventBus, RedisError

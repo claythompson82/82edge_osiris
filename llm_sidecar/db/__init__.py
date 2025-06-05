@@ -199,7 +199,13 @@ def cli_main(argv: Optional[List[str]] = None):
 
 
 # Initialize the database and tables when the module is loaded
-init_db()
+try:
+    init_db()
+except Exception as e:  # pragma: no cover - best effort for test env
+    print(f"init_db failed during import: {e}")
+    feedback_tbl = None
+    osiris_runs_tbl = None
+    hermes_scores_tbl = None
 
 if __name__ == "__main__":
     cli_main()
