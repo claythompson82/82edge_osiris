@@ -34,7 +34,9 @@ def run_command(cmd: List[str]) -> Tuple[str, str | None]:
     return (result.stdout or result.stderr).strip(), None
 
 
-def check_tool(name: str, cmd: List[str], min_version: str | None = None) -> CheckResult:
+def check_tool(
+    name: str, cmd: List[str], min_version: str | None = None
+) -> CheckResult:
     output, error = run_command(cmd)
     if error:
         return CheckResult(name, False, error)

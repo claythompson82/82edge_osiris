@@ -210,6 +210,7 @@ def _load_recent_feedback(max_examples: int = 3) -> List[Dict[str, Any]]:
     _feedback_mtime = mtime
     return items[-max_examples:]
 
+
 # Backwards compatibility for tests
 load_recent_feedback = _load_recent_feedback
 

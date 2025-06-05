@@ -18,6 +18,9 @@ required-version = "24.4.2"
 target-version = "py310"
 line-length = 88
 required-version = "0.4.4"
+exclude = ["osiris/scripts/*"]
+
+[tool.ruff.lint]
 select = ["E9"]
 
 [tool.semantic_release]

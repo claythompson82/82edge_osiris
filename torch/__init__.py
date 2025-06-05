@@ -3,4 +3,5 @@ class _Cuda:
     def is_available():
         return False
 
+
 cuda = _Cuda()

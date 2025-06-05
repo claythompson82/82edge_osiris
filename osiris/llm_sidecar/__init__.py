@@ -5,6 +5,7 @@ import sys
 import types
 
 import pathlib
+
 _base = importlib.import_module("llm_sidecar")
 __all__ = list(getattr(_base, "__all__", dir(_base)))
 __path__ = list(getattr(_base, "__path__", []))
