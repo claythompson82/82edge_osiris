@@ -60,3 +60,18 @@ Press `Ctrl+C` to stop k6 when done. Shut down the stack with:
 ```bash
 docker compose down
 ```
+
+## Service Level Objectives
+
+The k6 scripts define Service Level Objectives (SLOs) for the most
+important endpoints. Each script sets [k6 thresholds](https://k6.io/docs/using-k6/thresholds/)
+so the summary output clearly shows whether the targets are met.
+
+| Endpoint | Success rate | Latency |
+| -------- | ------------ | ------- |
+| `POST /generate` | 99.9% | p95 < 800&nbsp;ms, p99 < 1200&nbsp;ms |
+| `GET /health` and `GET /metrics` | 99.9% | p95 < 400&nbsp;ms |
+| `POST /propose_trade_adjustments/` | 99.5% | p95 < 1500&nbsp;ms |
+
+When a test run finishes, k6 prints a pass/fail summary for each of
+these thresholds so you can quickly see if the SLOs were honored.
