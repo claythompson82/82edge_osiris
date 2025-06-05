@@ -1,0 +1,20 @@
+pip-tools
+black==24.2.0
+ruff==0.4.4
+pytest
+pytest-asyncio
+httpx<0.28
+pandas
+sentry-sdk
+opentelemetry-api
+opentelemetry-sdk
+opentelemetry-exporter-otlp
+fakeredis
+hypothesis
+pytest-xdist
+lancedb
+redis
+requests
+numpy<2
+protobuf~=5.29
+# Add any other direct test-time imports previously reported as missing.

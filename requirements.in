@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+torch
+torchaudio
+transformers
+python-multipart
+aiohttp
+sse-starlette
+# Add other direct runtime dependencies as identified from the project.
+# For now, keeping it minimal as per the immediate issue description context.
+numpy<2
+optimum[onnxruntime]
+protobuf~=5.29
