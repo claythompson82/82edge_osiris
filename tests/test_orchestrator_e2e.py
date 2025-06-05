@@ -8,7 +8,9 @@ import requests
 import lancedb
 import redis
 
-COMPOSE_FILE = os.path.join(os.path.dirname(__file__), "docker-compose.orchestrator-e2e.yaml")
+COMPOSE_FILE = os.path.join(
+    os.path.dirname(__file__), "docker-compose.orchestrator-e2e.yaml"
+)
 DB_DIR = os.path.join(os.path.dirname(__file__), "e2e_lancedb_data")
 
 
@@ -22,7 +24,9 @@ def setup_module(module):
     # wait for sidecar to be ready
     for _ in range(30):
         try:
-            r = requests.post("http://localhost:8000/generate/", json={"prompt": "ping"})
+            r = requests.post(
+                "http://localhost:8000/generate/", json={"prompt": "ping"}
+            )
             if r.status_code == 200:
                 break
         except Exception:

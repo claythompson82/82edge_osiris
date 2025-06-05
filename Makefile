@@ -25,7 +25,6 @@ openapi:
 # Check code formatting without modifying files
 format-check:
 	black --check .
-	ruff format --check .
 
 # Run static analysis linters
 lint-check:
