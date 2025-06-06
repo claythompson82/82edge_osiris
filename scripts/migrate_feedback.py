@@ -135,6 +135,11 @@ def migrate_data():
     )
 
 
+def main():
+    """Entry point for command-line usage."""
+    migrate_data()
+
+
 if __name__ == "__main__":
     # Ensure the lancedb_data directory exists, similar to db.py, for consistency if script is run standalone
     # and the main app hasn't created it yet (though for a migration, it's expected to exist).
@@ -143,4 +148,4 @@ if __name__ == "__main__":
         os.makedirs(db_dir)
         print(f"Created database directory: {db_dir}")
 
-    migrate_data()
+    main()

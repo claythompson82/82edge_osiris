@@ -24,12 +24,12 @@ openapi:
 
 # Check code formatting without modifying files
 format-check:
-	black --check .
+	python -m black --check .
 
 # Run static analysis linters
 lint-check:
-	ruff check .
-	actionlint
+	python -m ruff check .
+	@command -v actionlint >/dev/null && actionlint || echo "actionlint not installed"
 
 # Execute tests with a coverage report
 test-coverage:
@@ -47,3 +47,16 @@ run-dev-sidecar:
 # Serve documentation locally
 docs-serve:
 	mkdocs serve -f mkdocs.yml
+
+# Check for up-to-date lock files
+lock:
+	pip-compile --dry-run --quiet --generate-hashes --output-file=requirements.txt requirements.in -c constraints_cpu.txt
+	pip-compile --dry-run --quiet --generate-hashes --output-file=requirements-dev.txt requirements-dev.in -c constraints_cpu.txt
+
+# Ensure Docker is available
+docker-check:
+	@docker info > /dev/null 2>&1 || (echo "Docker is not running" && exit 1)
+
+# CI job to verify locks when running in CI
+ci-lock:
+	@if [ -n "$(CI)" ]; then $(MAKE) lock; else echo "Skipping lock check"; fi

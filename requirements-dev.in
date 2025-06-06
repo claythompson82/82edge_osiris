@@ -1,0 +1,5 @@
+-r requirements-tests.txt
+black==24.2.0
+ruff==0.4.4
+pip-tools
+pytest
