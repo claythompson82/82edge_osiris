@@ -1,7 +1,6 @@
 fastapi
 redis
 numpy
-torch
 transformers
 httpx
 python-dotenv
