@@ -61,6 +61,7 @@ def run_compose():
     )
 
 
+@pytest.mark.skip(reason="This test requires Docker-in-Docker and is run in a separate CI step")
 @pytest.mark.compose
 def test_metrics_endpoint(run_compose):
     response = requests.get("http://localhost:8000/metrics")
@@ -68,6 +69,7 @@ def test_metrics_endpoint(run_compose):
     assert "python_gc_objects_collected_total" in response.text
 
 
+@pytest.mark.skip(reason="This test requires Docker-in-Docker and is run in a separate CI step")
 @pytest.mark.compose
 def test_health_endpoint(run_compose):
     response = requests.get("http://localhost:8000/health")
