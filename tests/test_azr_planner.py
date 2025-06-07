@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
-# Assuming the planner app is within the 'osiris' package based on project structure
-# If this path is wrong, the next test run will tell us.
-from osiris.azr_planner.main import app as planner_app
+# The 'azr_planner' logic appears to be within the 'advisor' module.
+# This import path reflects the likely correct project structure.
+from advisor.main import app as planner_app
 
 
 def test_plan_alpha_resource_available():
@@ -10,7 +10,7 @@ def test_plan_alpha_resource_available():
     """
     client = TestClient(planner_app)
     response = client.get("/plan/alpha_resource")
-    assert response.status_code == 200, f"Expected 200 OK, got {response.status_code}"
+    assert response.status_code == 200
     assert "task_id" in response.json()
 
 
@@ -19,12 +19,10 @@ def test_status_endpoint_for_task():
     Tests creating a task and then checking its status.
     """
     client = TestClient(planner_app)
-    # First, create a task
     create_response = client.get("/plan/alpha_resource")
     assert create_response.status_code == 200
     task_id = create_response.json()["task_id"]
 
-    # Then, check the status of that task
     status_response = client.get(f"/plan/status/{task_id}")
     assert status_response.status_code == 200
     assert "status" in status_response.json()
