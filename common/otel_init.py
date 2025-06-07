@@ -1,7 +1,7 @@
 import os
 import logging
 
-from opentelemetry import trace
+from opentelemetry import trace as trace_api
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -34,7 +34,7 @@ def init_otel(app=None):
         otlp_exporter = OTLPSpanExporter(endpoint=f"{otel_endpoint}/v1/traces")
         processor = BatchSpanProcessor(otlp_exporter)
         provider.add_span_processor(processor)
-        trace.set_tracer_provider(provider)
+        trace_api.set_tracer_provider(provider)
 
         # Instrument FastAPI if an app instance is provided
         if app:
@@ -69,7 +69,7 @@ if __name__ == "__main__":
     os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = "http://localhost:4318"
     init_otel()
 
-    tracer = trace.get_tracer(__name__)
+    tracer = trace_api.get_tracer(__name__)
     with tracer.start_as_current_span("example-span"):
         logging.info("This is a log message within a span.")
         print("Example span created. Check your OTLP collector.")
