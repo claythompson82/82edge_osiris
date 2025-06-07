@@ -1,5 +1,9 @@
 from fastapi.testclient import TestClient
-from services.azr_planner.main import app  # Assuming 'app' is directly importable
+
+# Import the FastAPI application from the azr_planner service. The
+# azr_planner code lives under the `services` package in this repository,
+# so the correct import path includes that prefix.
+from services.azr_planner.main import app
 
 client = TestClient(app)
 
