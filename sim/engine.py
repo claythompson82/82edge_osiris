@@ -3,8 +3,46 @@ import json
 import time
 import asyncio
 import argparse
+import random
 from datetime import datetime
+from typing import List, Dict
+import numpy as np
+from tsaug import TimeWarp
 from llm_sidecar.event_bus import EventBus, RedisError
+
+
+def apply_gaussian_noise(bars: List[Dict[str, float]], std_ratio: float) -> List[Dict[str, float]]:
+    """Apply Gaussian noise to OHLCV values in-place."""
+    for bar in bars:
+        keys = ["open", "high", "low", "close", "volume"]
+        if "adj_close" in bar:
+            keys.append("adj_close")
+        for k in keys:
+            val = bar[k]
+            noise = random.gauss(0, std_ratio * val)
+            bar[k] = val + noise
+    return bars
+
+
+def apply_time_warp(bars: List[Dict[str, float]]) -> List[Dict[str, float]]:
+    """Apply time warping to the OHLCV series using tsaug."""
+    if not bars:
+        return bars
+    feature_keys = ["open", "high", "low", "close", "volume"]
+    if "adj_close" in bars[0]:
+        feature_keys.append("adj_close")
+
+    data = np.array([[bar[k] for k in feature_keys] for bar in bars], dtype=float)
+    aug = TimeWarp()
+    warped = aug.augment(data.reshape(1, len(bars), len(feature_keys)))[0]
+
+    for i, bar in enumerate(bars):
+        for j, key in enumerate(feature_keys):
+            value = float(warped[i, j])
+            if key == "volume" and value < 0:
+                value = 0.0
+            bar[key] = value
+    return bars
 
 
 async def publish_market_data(
@@ -13,10 +51,13 @@ async def publish_market_data(
     channel_name: str,
     delay_seconds: float = 1.0,
     from_date_str: str = None,
+    augment: bool = False,
+    noise_std_ratio: float = 0.001,
 ):
     """
     Reads OHLCV data from a CSV file and publishes each bar as a JSON dictionary
-    to the specified Redis channel.
+    to the specified Redis channel. Optional data augmentation can be applied
+    using Gaussian noise and time warping.
     """
     event_bus = EventBus(redis_url=redis_url)
 
@@ -84,7 +125,7 @@ async def publish_market_data(
                     )
                     return
 
-            processed_rows = 0
+            bars: List[Dict[str, float]] = []
             for row_num, row in enumerate(reader):
                 try:
                     current_row_ts_str = row[timestamp_header]
@@ -135,14 +176,7 @@ async def publish_market_data(
                     if "Adj Close" in row:  # Optional: Add Adj Close if present
                         bar_data["adj_close"] = float(row["Adj Close"])
 
-                    message_json = json.dumps(bar_data)
-                    await event_bus.publish(channel_name, message_json)
-                    processed_rows += 1
-                    print(
-                        f"Published bar {processed_rows} (Row {row_num + 1}): {message_json} to '{channel_name}'"
-                    )
-
-                    await asyncio.sleep(delay_seconds)  # Simulate real-time data feed
+                    bars.append(bar_data)
 
                 except ValueError as ve:  # Handles float conversion errors primarily
                     print(
@@ -157,6 +191,21 @@ async def publish_market_data(
                         f"An unexpected error occurred while processing row {row_num + 1}: {e}"
                     )
                     continue
+
+            # Apply augmentation and publish
+            if augment:
+                bars = apply_gaussian_noise(bars, noise_std_ratio)
+                bars = apply_time_warp(bars)
+
+            processed_rows = 0
+            for bar in bars:
+                message_json = json.dumps(bar)
+                await event_bus.publish(channel_name, message_json)
+                processed_rows += 1
+                print(
+                    f"Published bar {processed_rows}: {message_json} to '{channel_name}'"
+                )
+                await asyncio.sleep(delay_seconds)
 
     except FileNotFoundError:
         print(f"Error: CSV file not found at {csv_filepath}")
@@ -207,6 +256,18 @@ async def main():
         help="Start publishing data from this date (YYYY-MM-DD).",
     )
 
+    parser.add_argument(
+        "--augment_data",
+        action="store_true",
+        help="Enable data augmentation (Gaussian noise and TimeWarp).",
+    )
+    parser.add_argument(
+        "--noise_std_ratio",
+        type=float,
+        default=0.001,
+        help="Standard deviation ratio for Gaussian noise (default: 0.001).",
+    )
+
     args = parser.parse_args()
 
     actual_delay = args.delay
@@ -240,6 +301,8 @@ async def main():
         args.channel,
         delay_seconds=actual_delay,
         from_date_str=args.from_date,
+        augment=args.augment_data,
+        noise_std_ratio=args.noise_std_ratio,
     )
 
 
