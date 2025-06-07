@@ -85,6 +85,7 @@ pycparser==2.22
     # via cffi
 pydantic==2.11.5
     # via
+    #   -r /app/requirements-core.in
     #   fastapi
     #   lancedb
 pydantic-core==2.33.2
