@@ -27,11 +27,12 @@ from advisor.risk_gate import (
 )
 import datetime
 
-from common.otel_init import init_otel
-from opentelemetry import trace
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+try:
+    from common.otel_init import init_otel
+except Exception:  # pragma: no cover - optional dependency
+
+    def init_otel(*_args, **_kwargs):
+        return
 
 # Configure basic logging
 logging.basicConfig(
@@ -40,20 +41,41 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def _setup_tracer() -> "trace.Tracer":
-    """Initialise OTLP tracing if OTEL_EXPORTER_OTLP_ENDPOINT is set."""
+def _setup_tracer() -> "Any":
+    """Initialise OTLP tracing if OpenTelemetry is available and configured."""
+    try:
+        from opentelemetry import trace as ot_trace
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+    except Exception:  # pragma: no cover - optional dependency
+        logger.info("OpenTelemetry not available; traces disabled.")
+
+        class _DummySpan:
+            def __enter__(self):
+                return None
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+        class _DummyTracer:
+            def start_as_current_span(self, _name):
+                return _DummySpan()
+
+        return _DummyTracer()
+
     endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
     if not endpoint:
         logger.info("OTEL_EXPORTER_OTLP_ENDPOINT not set; traces disabled.")
-        return trace.get_tracer("osiris.policy.orchestrator")
+        return ot_trace.get_tracer("osiris.policy.orchestrator")
     if not endpoint.startswith("http"):
         endpoint = f"http://{endpoint}"
     provider = TracerProvider()
     processor = BatchSpanProcessor(OTLPSpanExporter(endpoint=f"{endpoint}/v1/traces"))
     provider.add_span_processor(processor)
-    trace.set_tracer_provider(provider)
+    ot_trace.set_tracer_provider(provider)
     logger.info("OpenTelemetry tracing enabled")
-    return trace.get_tracer("osiris.policy.orchestrator")
+    return ot_trace.get_tracer("osiris.policy.orchestrator")
 
 
 tracer = _setup_tracer()
