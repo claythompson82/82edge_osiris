@@ -1,6 +1,6 @@
 import argparse
 import json
-import requests
+import httpx
 import logging
 import asyncio  # Added for new event-driven model
 import time  # Added for timestamp
@@ -139,11 +139,12 @@ async def generate_proposal_node(state: WorkflowState) -> WorkflowState:
         )
         sidecar_url = os.getenv("PHI3_API_URL", "http://localhost:8000")
         try:
-            response = requests.post(
-                f"{sidecar_url}/generate?model_id=phi3",
-                json=phi3_payload,
-                timeout=60,
-            )
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{sidecar_url}/generate?model_id=phi3",
+                    json=phi3_payload,
+                    timeout=60,
+                )
             response.raise_for_status()
             phi3_response_json = response.json()
             logger.info(
@@ -168,7 +169,7 @@ async def generate_proposal_node(state: WorkflowState) -> WorkflowState:
                     "phi3_response": phi3_response_json,
                 }
 
-        except requests.exceptions.RequestException as e:
+        except httpx.RequestError as e:
             error_message = f"HTTP request to Phi-3 failed for run_id {state.get('run_id', 'N/A')}: {e}"
             logger.error(error_message)
             return {**state, "error": error_message}
@@ -323,9 +324,12 @@ async def publish_events_node(state: WorkflowState) -> WorkflowState:
 
                     try:
                         # 2. Trigger TTS Synthesis via /speak Endpoint
-                        tts_http_response = requests.post(
-                            "http://localhost:8000/speak", json=tts_payload, timeout=30
-                        )  # Removed headers={"Accept": "audio/wav"} as we don't consume audio here
+                        async with httpx.AsyncClient() as client:
+                            tts_http_response = await client.post(
+                                "http://localhost:8000/speak",
+                                json=tts_payload,
+                                timeout=30,
+                            )
                         tts_http_response.raise_for_status()
                         logger.info(
                             f"TTS request successful for run_id {run_id}, transaction_id {transaction_id}."
@@ -415,7 +419,7 @@ async def publish_events_node(state: WorkflowState) -> WorkflowState:
                                 f"Run_id {run_id}, transaction_id {transaction_id}: TTS acknowledgement not received. Skipping 'hermes.assessment.spoken' event and 'last_speak_ms' key setting."
                             )
 
-                    except requests.exceptions.RequestException as e_tts_req:
+                    except httpx.RequestError as e_tts_req:
                         tts_error_msg = f"TTS request failed for run_id {run_id}, transaction_id {transaction_id}: {e_tts_req}"
                         logger.error(tts_error_msg)
                         state["error"] = (
@@ -588,6 +592,50 @@ async def risk_management_node(state: WorkflowState) -> WorkflowState:
             }
 
 
+async def evaluate_proposal_node(state: WorkflowState) -> WorkflowState:
+    """Send the Phi-3 proposal to Hermes for optional assessment."""
+    with tracer.start_as_current_span("orchestrator.evaluate_proposal"):
+        run_id = state.get("run_id", "N/A")
+        logger.info(f"Executing EvaluateProposal node for run_id: {run_id}...")
+
+        if state.get("error"):
+            return state
+
+        phi3_response = state.get("phi3_response")
+        if not isinstance(phi3_response, dict):
+            error_msg = f"Phi-3 response missing or invalid for run_id {run_id}."
+            logger.error(error_msg)
+            return {**state, "error": error_msg}
+
+        sidecar_url = os.getenv("PHI3_API_URL", "http://localhost:8000")
+        prompt = json.dumps(phi3_response)
+        payload = {"prompt": prompt, "max_length": 512}
+
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    f"{sidecar_url}/propose_trade_adjustments/",
+                    json=payload,
+                    timeout=60,
+                )
+            resp.raise_for_status()
+            resp_json = resp.json()
+            logger.info(
+                f"Received Hermes assessment for run_id {run_id}: {json.dumps(resp_json)}"
+            )
+            return {**state, "propose_trade_adjustments_response": resp_json}
+        except httpx.RequestError as e:
+            error_message = f"HTTP request to Hermes failed for run_id {run_id}: {e}"
+            logger.error(error_message)
+            return {**state, "error": error_message}
+        except json.JSONDecodeError as e:
+            error_message = (
+                f"Failed to decode JSON from Hermes for run_id {run_id}: {e}."
+            )
+            logger.error(error_message)
+            return {**state, "error": error_message}
+
+
 # --- Graph Assembly ---
 def build_graph():
     workflow = StateGraph(WorkflowState)
@@ -598,16 +646,7 @@ def build_graph():
     # Let's make all async nodes for consistency with event bus operations.
     # query_market_node is sync, but StateGraph handles mixing if graph.invoke is fine.
     # For simplicity now, let's assume all are potentially async and use ainvoke.
-    # Reverting query_market_node to be synchronous as it has no async calls.
-    # generate_proposal_node and evaluate_proposal_node use `requests` which is sync.
-    # To use `ainvoke` properly, these nodes should be async and use an async http client (e.g. httpx)
-    # For now, let's make them synchronous and use `graph.invoke()`.
-    # If EventBus publish node remains async, then graph.ainvoke is better.
-    # Let's adjust node definitions or graph invocation.
-
-    # For this iteration, let's assume synchronous execution for HTTP nodes for simplicity with `requests`.
-    # The `publish_events_node` *must* be async due to `EventBus`.
-    # This means the graph *must* be run with `ainvoke`.
+    # All HTTP calls now use the async httpx client so the graph is fully async.
     # Synchronous nodes are automatically wrapped by LangGraph to be compatible with `ainvoke`.
 
     workflow.add_node(
