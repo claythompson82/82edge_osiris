@@ -1,7 +1,11 @@
 from fastapi.testclient import TestClient
-from services.azr_planner.main import app  # Assuming 'app' is directly importable
 
-client = TestClient(app)
+# The AZR planner service lives under `services/azr_planner/main.py`.  Import
+# the FastAPI `app` instance from that module so the tests can exercise the
+# service endpoints.
+from services.azr_planner.main import app as planner_app
+
+client = TestClient(planner_app)
 
 
 def test_plan_alpha_resource_available():
