@@ -33,6 +33,7 @@ import io
 import torch
 from fastapi import FastAPI, HTTPException, Response, Request
 from fastapi.responses import StreamingResponse
+from contextlib import asynccontextmanager
 
 try:
     from prometheus_fastapi_instrumentator import Instrumentator
@@ -412,8 +413,8 @@ async def handle_feedback_submitted_event(payload: str):
 # ---------------------------------------------------------------------
 # FastAPI Event Lifecycle
 # ---------------------------------------------------------------------
-@app.on_event("startup")
-async def startup_event_handler():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     # Sentry initialization
     sentry_dsn = os.getenv("SENTRY_DSN")
     sentry_env = os.getenv("SENTRY_ENV")
@@ -468,15 +469,17 @@ async def startup_event_handler():
     # print("[Side-car] TTS model initialized with event_bus.")
     # Current server.py initializes tts_model at startup using the global event_bus, which should be fine.
 
+    try:
+        yield
+    finally:
+        logger.info("FastAPI shutdown: Closing EventBus...")
+        print("FastAPI shutdown: Closing EventBus...")
+        await event_bus.close()
+        logger.info("EventBus closed.")
+        print("EventBus closed.")
 
-@app.on_event("shutdown")
-async def shutdown_event_handler():
-    logger.info("FastAPI shutdown: Closing EventBus...")
-    print("FastAPI shutdown: Closing EventBus...")
-    await event_bus.close()
-    logger.info("EventBus closed.")
-    print("EventBus closed.")
 
+app.router.lifespan_context = lifespan
 
 # ---------------------------------------------------------------------
 # Helpers (existing)
