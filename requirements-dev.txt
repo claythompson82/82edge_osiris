@@ -58,7 +58,10 @@ pytest==8.4.0
     # via
     #   -r /app/requirements-dev.in
     #   pytest-asyncio
+    #   pytest-mock
 pytest-asyncio==1.0.0
+    # via -r /app/requirements-dev.in
+pytest-mock==3.14.1
     # via -r /app/requirements-dev.in
 redis==6.2.0
     # via
