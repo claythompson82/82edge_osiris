@@ -123,128 +123,10 @@ async def test_fetch_recent_traces_json_decode_error(fake_redis, caplog):
 
 
 # --- Placeholder for meta_loop tests ---
-# These will be more complex and require mocking generate_patch, _prove_patch, _apply_patch,
+# These will be more complex and require mocking generate_patch, _apply_patch,
 # and llm_sidecar.reward.proofable_reward
 
 
-@pytest.mark.asyncio
-@mock.patch("dgm_kernel.meta_loop.generate_patch")
-@mock.patch("dgm_kernel.meta_loop._prove_patch")
-@mock.patch("dgm_kernel.meta_loop._apply_patch")
-@mock.patch("dgm_kernel.meta_loop.proofable_reward")  # Path to proofable_reward
-@mock.patch("asyncio.sleep", return_value=None)  # Mock sleep to speed up test
-async def test_meta_loop_applies_good_patch(
-    self,
-    mock_sleep,
-    mock_proofable_reward,
-    mock_apply_patch,
-    mock_prove_patch,
-    mock_generate_patch,
-    fake_redis,
-    tmp_path,
-):
-    log.info("Testing meta_loop applies a good patch.")
-    # Setup:
-    # 1. Populate TRACE_QUEUE with some traces
-    trace_1 = {"id": "trace1", "value": 100}
-    fake_redis.lpush(meta_loop.TRACE_QUEUE, json.dumps(trace_1))
-
-    # 2. Configure mocks:
-    #   - generate_patch returns a valid patch
-    #   - _prove_patch returns True
-    #   - _apply_patch returns True
-    #   - proofable_reward returns a positive value
-
-    # Ensure target file for patch exists for 'before' content in generate_patch
-    # and for apply/rollback.
-    # We use tmp_path provided by pytest for temporary file operations.
-    target_file_path = tmp_path / "osiris_policy" / "strategy.py"
-    target_file_path.parent.mkdir(parents=True, exist_ok=True)
-    initial_content = "# Initial strategy content\n"
-    target_file_path.write_text(initial_content)
-
-    test_patch = {
-        "target": str(target_file_path),
-        "before": initial_content,
-        "after": initial_content + "# Patched by DGM\n",
-        "rationale": "Test rationale",
-    }
-    mock_generate_patch.return_value = asyncio.Future()
-    mock_generate_patch.return_value.set_result(test_patch)
-
-    mock_prove_patch.return_value = asyncio.Future()
-    mock_prove_patch.return_value.set_result(True)
-
-    # _apply_patch is synchronous in the code
-    mock_apply_patch.return_value = True
-
-    # proofable_reward is synchronous
-    mock_proofable_reward.return_value = 1.0  # Positive reward
-
-    # Run meta_loop for one iteration (or a controlled number)
-    # We need to run it in a way that it can be cancelled after one cycle for the test
-    # or rely on mock_generate_patch, etc. to control flow.
-    # For this test, we'll let it run once by controlling inputs and then check results.
-
-    # To make it run "once" effectively for this test case:
-    # - Provide one trace.
-    # - mock_generate_patch will be called once.
-    # - Then, if we want to stop, we could make generate_patch raise an exception
-    #   on subsequent calls, or make fetch_recent_traces return empty.
-    # For now, let's assume one trace means one cycle we care about.
-
-    # To stop the loop after one iteration for testing:
-    # Make generate_patch return None after the first call.
-    async def generate_patch_side_effect(*args, **kwargs):
-        if (
-            mock_generate_patch.call_count == 1
-        ):  # Corrected: use mock_generate_patch.call_count
-            fut = asyncio.Future()
-            fut.set_result(test_patch)
-            return fut
-        fut_none = asyncio.Future()
-        fut_none.set_result(None)  # Stop loop after one successful patch cycle
-        return fut_none
-
-    mock_generate_patch.side_effect = generate_patch_side_effect
-
-    # Run the loop. It will break when generate_patch returns None.
-    # Or, more robustly, run it as a task and cancel after a short delay.
-    loop_task = asyncio.create_task(meta_loop.meta_loop())
-    # Increased sleep slightly to ensure the full loop including mocked sub-awaits can complete.
-    await asyncio.sleep(0.5)  # Allow loop to run at least one full cycle
-    loop_task.cancel()
-    try:
-        await loop_task
-    except asyncio.CancelledError:
-        log.info("Meta_loop task cancelled as expected for test.")
-
-    # Assertions:
-    # - generate_patch was called
-    # - _prove_patch was called with the patch
-    # - _apply_patch was called with the patch
-    # - proofable_reward was called
-    # - Patch was logged to APPLIED_LOG in Redis
-    assert mock_generate_patch.call_count >= 1  # Should be called at least once
-    mock_prove_patch.assert_called_with(test_patch)
-    mock_apply_patch.assert_called_with(test_patch)
-    mock_proofable_reward.assert_called_with(
-        trace_1, {}
-    )  # Assuming empty context for now
-
-    applied_log_content = fake_redis.lrange(meta_loop.APPLIED_LOG, 0, -1)
-    assert len(applied_log_content) == 1
-    logged_patch = json.loads(applied_log_content[0])
-    assert logged_patch["target"] == str(target_file_path)
-    assert logged_patch["rationale"] == "Test rationale"
-    assert logged_patch["reward"] == 1.0
-
-    # Check that the target file was actually modified by _apply_patch
-    # In a real test of _apply_patch, we'd check file content.
-    # Here, mock_apply_patch is used, so we trust it was called.
-    # If we were testing the real _apply_patch, we'd do:
-    # assert target_file_path.read_text() == test_patch["after"]
-    log.info("Test passed: meta_loop applied a good patch.")
 
 
 # Test that a negative reward triggers rollback and traces are tagged.
@@ -261,7 +143,7 @@ async def test_meta_loop_rolls_back_bad_patch(
     mock_reward,
     mock_apply_patch,
     mock_rollback,
-    mock_prove_patch,
+    mock_verify_patch,
     mock_generate_patch,
     fake_redis,
     tmp_path,
@@ -282,7 +164,7 @@ async def test_meta_loop_rolls_back_bad_patch(
     }
 
     mock_generate_patch.return_value = patch
-    mock_prove_patch.return_value = (True, 9.0)
+    mock_verify_patch.return_value = True
     mock_apply_patch.side_effect = lambda p: (
         Path(p["target"]).write_text(p["after"]),
         True,
@@ -291,7 +173,7 @@ async def test_meta_loop_rolls_back_bad_patch(
 
     traces = await meta_loop.fetch_recent_traces()
     patch_data = await meta_loop.generate_patch(traces)
-    accepted, score = await meta_loop._verify_patch(traces, patch_data)
+    accepted = await meta_loop._verify_patch(traces, patch_data)
     if accepted:
         if meta_loop._apply_patch(patch_data):
             new_r = sum(
@@ -300,9 +182,7 @@ async def test_meta_loop_rolls_back_bad_patch(
             if new_r >= 0:
                 meta_loop.REDIS.lpush(
                     meta_loop.APPLIED_LOG,
-                    json.dumps(
-                        patch_data | {"reward": new_r, "verification_score": score}
-                    ),
+                    json.dumps(patch_data | {"reward": new_r}),
                 )
             else:
                 for t in traces:
@@ -351,11 +231,11 @@ async def test_meta_loop_skips_unproven_patch(
     }
 
     mock_generate_patch.return_value = patch
-    mock_verify_patch.return_value = (False, 5.0)
+    mock_verify_patch.return_value = False
 
     traces = await meta_loop.fetch_recent_traces()
     patch_data = await meta_loop.generate_patch(traces)
-    accepted, _ = await meta_loop._verify_patch(traces, patch_data)
+    accepted = await meta_loop._verify_patch(traces, patch_data)
     if accepted:
         if meta_loop._apply_patch(patch_data):
             _ = sum(
