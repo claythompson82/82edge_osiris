@@ -12,6 +12,9 @@ import json
 import argparse
 import subprocess
 import tempfile
+import os
+import uuid
+import difflib
 import redis  # Changed from 'from redis import Redis'
 from pathlib import Path
 
@@ -33,6 +36,22 @@ PATCH_QUEUE = "dgm:patch_queue"  # ← incoming JSON patches
 TRACE_QUEUE = "dgm:recent_traces"  # ← recent trading traces (jsonl)
 APPLIED_LOG = "dgm:applied_patches"  # ← audit trail
 ROLLED_BACK_LOG = "dgm:rolled_back_traces"  # ← traces that triggered rollback
+
+# Rate limiting configuration (seconds between successful patches)
+PATCH_RATE_LIMIT_SECONDS = int(os.environ.get("DGM_PATCH_RATE_LIMIT_SECONDS", 3600))
+
+# History file tracking applied patches
+PATCH_HISTORY_FILE = Path(__file__).resolve().parent.parent / "patch_history.json"
+
+# Initialize last patch time from history if available
+_last_patch_time = 0.0
+if PATCH_HISTORY_FILE.exists():
+    try:
+        history = json.loads(PATCH_HISTORY_FILE.read_text())
+        if isinstance(history, list) and history:
+            _last_patch_time = history[-1].get("timestamp", 0.0)
+    except Exception as e:  # pragma: no cover - history shouldn't crash startup
+        log.error(f"Failed to read patch history: {e}")
 
 # ────────────────────────────────────────────────────────────────────────────
 # ▼ 1.  fetch_recent_traces()  (pull N traces from Redis)
@@ -226,8 +245,22 @@ def _apply_patch(patch: dict) -> bool:
     return True
 
 
+def _record_patch_history(entry: dict) -> None:
+    """Append a patch entry to PATCH_HISTORY_FILE in a JSON list."""
+    history = []
+    if PATCH_HISTORY_FILE.exists():
+        try:
+            history = json.loads(PATCH_HISTORY_FILE.read_text())
+        except json.JSONDecodeError:
+            log.error("Corrupted patch history; resetting file")
+            history = []
+    history.append(entry)
+    PATCH_HISTORY_FILE.write_text(json.dumps(history, indent=2))
+
+
 async def meta_loop():
     """Run the main async supervisor loop (runs forever)."""
+    global _last_patch_time
     while True:
         traces = await fetch_recent_traces()
         if not traces:
@@ -256,20 +289,45 @@ async def meta_loop():
             log.debug("Sandbox output:\n%s", sandbox_logs)
             continue
 
+        now = time.time()
+        if now - _last_patch_time < PATCH_RATE_LIMIT_SECONDS:
+            log.info("Rate limit active, skipping patch application.")
+            continue
+
         if _apply_patch(patch):
             # Evaluate reward on the same trace batch
             new_r = sum(
                 proofable_reward(t, patch.get("after")) for t in traces
             )  # Pass patch content to reward
             if new_r >= 0:  # simple non-regression gate for now
+                patch_id = str(uuid.uuid4())
+                diff = "".join(
+                    difflib.unified_diff(
+                        patch.get("before", "").splitlines(),
+                        patch.get("after", "").splitlines(),
+                        fromfile="before",
+                        tofile="after",
+                        lineterm="",
+                    )
+                )
                 REDIS.lpush(
                     APPLIED_LOG,
-                    json.dumps(patch | {"reward": new_r}),
+                    json.dumps(patch | {"reward": new_r, "patch_id": patch_id}),
+                )
+                _record_patch_history(
+                    {
+                        "patch_id": patch_id,
+                        "timestamp": now,
+                        "diff": diff,
+                        "reward": new_r,
+                        "sandbox_exit_code": exit_code,
+                    }
                 )
                 log.info(
                     "Patch applied ✔️  reward=%.4f",
                     new_r,
                 )
+                _last_patch_time = now
             else:
                 log.warning("Patch rolled back, reward=%.4f", new_r)
                 _rollback(patch)
@@ -313,6 +371,7 @@ if __name__ == "__main__":
 
         # Define a new async function to run the loop once
         async def run_once():
+            global _last_patch_time
             traces = await fetch_recent_traces()
             if not traces:
                 log.info("No traces found, exiting.")
@@ -338,19 +397,44 @@ if __name__ == "__main__":
                 log.debug("Sandbox output:\n%s", sandbox_logs)
                 return
 
+            now = time.time()
+            if now - _last_patch_time < PATCH_RATE_LIMIT_SECONDS:
+                log.info("Rate limit active, skipping patch application.")
+                return
+
             if _apply_patch(patch):
                 new_r = sum(
                     proofable_reward(t, patch.get("after")) for t in traces
                 )  # Pass patch content to reward
                 if new_r >= 0:
+                    patch_id = str(uuid.uuid4())
+                    diff = "".join(
+                        difflib.unified_diff(
+                            patch.get("before", "").splitlines(),
+                            patch.get("after", "").splitlines(),
+                            fromfile="before",
+                            tofile="after",
+                            lineterm="",
+                        )
+                    )
                     REDIS.lpush(
                         APPLIED_LOG,
-                        json.dumps(patch | {"reward": new_r}),
+                        json.dumps(patch | {"reward": new_r, "patch_id": patch_id}),
+                    )
+                    _record_patch_history(
+                        {
+                            "patch_id": patch_id,
+                            "timestamp": now,
+                            "diff": diff,
+                            "reward": new_r,
+                            "sandbox_exit_code": exit_code,
+                        }
                     )
                     log.info(
                         "Patch applied (once) ✔️  reward=%.4f",
                         new_r,
                     )
+                    _last_patch_time = now
                 else:
                     log.warning("Patch rolled back (once), reward=%.4f", new_r)
                     _rollback(patch)
