@@ -11,3 +11,4 @@ lancedb
 pandas
 tenacity
 pydantic
+sentry-sdk
