@@ -29,3 +29,4 @@ opentelemetry-sdk
 opentelemetry-exporter-otlp
 opentelemetry-api
 prometheus-fastapi-instrumentator>=6.1
+PyGithub
