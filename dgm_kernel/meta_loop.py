@@ -22,6 +22,7 @@ from dgm_kernel.prover import (
     prove_patch,
     _get_pylint_score as _prover_pylint_score,
 )
+from dgm_kernel.sandbox import run_patch_in_sandbox
 
 log = logging.getLogger(__name__)
 
@@ -197,7 +198,7 @@ def _apply_patch(patch: dict) -> bool:
     importlib.invalidate_caches()
     # Ensure the module path is in a format importlib can use
     # e.g., osiris_policy.strategy if target is osiris_policy/strategy.py
-    module_name = str(tgt.with_suffix("")).replace("/", ".")
+    module_name = str(tgt.with_suffix("")).replace("/", ".").lstrip(".")
     try:
         module = importlib.import_module(module_name)
         importlib.reload(module)
@@ -247,6 +248,14 @@ async def meta_loop():
             # REDIS.lpush("dgm:rejected_patches", json.dumps(patch))
             continue
 
+        sandbox_ok, sandbox_logs, exit_code = run_patch_in_sandbox(patch)
+        if not sandbox_ok:
+            log.warning(
+                "Patch failed sandbox test (exit code %s).", exit_code
+            )
+            log.debug("Sandbox output:\n%s", sandbox_logs)
+            continue
+
         if _apply_patch(patch):
             # Evaluate reward on the same trace batch
             new_r = sum(
@@ -277,7 +286,7 @@ def _rollback(patch: dict):
     tgt = Path(patch["target"])
     tgt.write_text(patch["before"])
     importlib.invalidate_caches()
-    module_name = str(tgt.with_suffix("")).replace("/", ".")
+    module_name = str(tgt.with_suffix("")).replace("/", ".").lstrip(".")
     try:
         module = importlib.import_module(module_name)
         importlib.reload(module)
@@ -319,6 +328,14 @@ if __name__ == "__main__":
                 log.warning(
                     f"Patch for {patch.get('target')} was not approved, exiting."
                 )
+                return
+
+            sandbox_ok, sandbox_logs, exit_code = run_patch_in_sandbox(patch)
+            if not sandbox_ok:
+                log.warning(
+                    "Patch failed sandbox test (exit code %s).", exit_code
+                )
+                log.debug("Sandbox output:\n%s", sandbox_logs)
                 return
 
             if _apply_patch(patch):
