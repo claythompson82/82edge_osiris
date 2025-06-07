@@ -5,6 +5,8 @@ import os
 import re
 from collections import Counter, defaultdict
 
+import pytest
+
 COMPOSE_FILE = os.path.join(os.path.dirname(__file__), "docker-compose.traces.yaml")
 
 
@@ -67,6 +69,7 @@ def teardown_module(module):
     subprocess.run(_compose_cmd("down", "-v"), check=True)
 
 
+@pytest.mark.skip(reason="This test requires Docker-in-Docker and is run in a separate CI step")
 def test_traces_collected():
     requests.post("http://localhost:8000/generate/", json={"prompt": "test"})
     time.sleep(3)
@@ -78,6 +81,7 @@ def test_traces_collected():
     assert counts.get("orchestrator.run", 0) >= 1
 
 
+@pytest.mark.skip(reason="This test requires Docker-in-Docker and is run in a separate CI step")
 def test_trace_correlation_and_parenting():
     requests.post("http://localhost:8000/generate/", json={"prompt": "chain"})
     time.sleep(3)
