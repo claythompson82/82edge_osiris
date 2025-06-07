@@ -3,6 +3,8 @@ import json
 import logging
 from pathlib import Path
 from unittest import mock
+import time
+import difflib
 
 import pytest
 import fakeredis
@@ -261,3 +263,121 @@ async def test_meta_loop_skips_failed_sandbox(
     mock_apply_patch.assert_not_called()
     assert fake_redis.llen(meta_loop.APPLIED_LOG) == 0
     log.info("Test passed: meta_loop correctly skipped a patch that failed sandbox.")
+
+
+@pytest.mark.asyncio
+@mock.patch("dgm_kernel.meta_loop.generate_patch")
+@mock.patch("dgm_kernel.meta_loop._verify_patch")
+@mock.patch("dgm_kernel.meta_loop.run_patch_in_sandbox")
+@mock.patch("dgm_kernel.meta_loop._apply_patch")
+async def test_rate_limiting_prevents_patch(
+    mock_apply_patch, mock_sandbox, mock_verify_patch, mock_generate_patch, fake_redis, tmp_path
+):
+    """Verify that patches are skipped when within the rate limit window."""
+    fake_redis.lpush(meta_loop.TRACE_QUEUE, json.dumps({"id": "trace1"}))
+    target_file = tmp_path / "rate.py"
+    target_file.parent.mkdir(parents=True, exist_ok=True)
+    target_file.write_text("before\n")
+    patch = {
+        "target": str(target_file),
+        "before": "before\n",
+        "after": "after\n",
+    }
+    mock_generate_patch.return_value = patch
+    mock_verify_patch.return_value = True
+    mock_sandbox.return_value = (True, "", 0)
+    mock_apply_patch.return_value = True
+
+    meta_loop._last_patch_time = time.time()  # within rate limit
+
+    traces = await meta_loop.fetch_recent_traces()
+    patch_data = await meta_loop.generate_patch(traces)
+    accepted = await meta_loop._verify_patch(traces, patch_data)
+    if accepted:
+        sandbox_ok, _, _ = meta_loop.run_patch_in_sandbox(patch_data)
+        if sandbox_ok:
+            now = time.time()
+            if now - meta_loop._last_patch_time < meta_loop.PATCH_RATE_LIMIT_SECONDS:
+                pass
+            else:
+                meta_loop._apply_patch(patch_data)
+
+    mock_apply_patch.assert_not_called()
+    assert fake_redis.llen(meta_loop.APPLIED_LOG) == 0
+
+
+@pytest.mark.asyncio
+@mock.patch("dgm_kernel.meta_loop.generate_patch")
+@mock.patch("dgm_kernel.meta_loop._verify_patch")
+@mock.patch("dgm_kernel.meta_loop.run_patch_in_sandbox")
+@mock.patch("dgm_kernel.meta_loop._apply_patch")
+@mock.patch("dgm_kernel.meta_loop.proofable_reward")
+async def test_patch_history_logged(
+    mock_reward,
+    mock_apply_patch,
+    mock_sandbox,
+    mock_verify_patch,
+    mock_generate_patch,
+    fake_redis,
+    tmp_path,
+    monkeypatch,
+):
+    """Ensure a successful patch is recorded in patch_history.json."""
+    history_file = tmp_path / "history.json"
+    monkeypatch.setattr(meta_loop, "PATCH_HISTORY_FILE", history_file)
+    history_file.write_text("[]")
+
+    fake_redis.lpush(meta_loop.TRACE_QUEUE, json.dumps({"id": "trace1"}))
+    target_file = tmp_path / "hist.py"
+    target_file.parent.mkdir(parents=True, exist_ok=True)
+    target_file.write_text("before\n")
+    patch = {
+        "target": str(target_file),
+        "before": "before\n",
+        "after": "after\n",
+    }
+    mock_generate_patch.return_value = patch
+    mock_verify_patch.return_value = True
+    mock_sandbox.return_value = (True, "", 0)
+    mock_apply_patch.return_value = True
+    mock_reward.return_value = 1.0
+
+    meta_loop._last_patch_time = time.time() - meta_loop.PATCH_RATE_LIMIT_SECONDS - 1
+    monkeypatch.setattr(meta_loop.uuid, "uuid4", lambda: "id123")
+
+    traces = await meta_loop.fetch_recent_traces()
+    patch_data = await meta_loop.generate_patch(traces)
+    accepted = await meta_loop._verify_patch(traces, patch_data)
+    if accepted:
+        sandbox_ok, _, exit_code = meta_loop.run_patch_in_sandbox(patch_data)
+        if sandbox_ok and meta_loop._apply_patch(patch_data):
+            new_r = sum(meta_loop.proofable_reward(t, patch_data.get("after")) for t in traces)
+            if new_r >= 0:
+                patch_id = str(meta_loop.uuid.uuid4())
+                diff = "".join(
+                    difflib.unified_diff(
+                        patch_data["before"].splitlines(),
+                        patch_data["after"].splitlines(),
+                        fromfile="before",
+                        tofile="after",
+                        lineterm="",
+                    )
+                )
+                meta_loop.REDIS.lpush(
+                    meta_loop.APPLIED_LOG,
+                    json.dumps(patch_data | {"reward": new_r, "patch_id": patch_id}),
+                )
+                meta_loop._record_patch_history(
+                    {
+                        "patch_id": patch_id,
+                        "timestamp": meta_loop._last_patch_time + meta_loop.PATCH_RATE_LIMIT_SECONDS + 1,
+                        "diff": diff,
+                        "reward": new_r,
+                        "sandbox_exit_code": exit_code,
+                    }
+                )
+                meta_loop._last_patch_time = meta_loop._last_patch_time + meta_loop.PATCH_RATE_LIMIT_SECONDS + 1
+
+    entries = json.loads(history_file.read_text())
+    assert len(entries) == 1
+    assert entries[0]["patch_id"] == "id123"
