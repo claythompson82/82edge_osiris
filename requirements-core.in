@@ -1,0 +1,13 @@
+fastapi
+redis
+numpy
+torch
+transformers
+httpx
+python-dotenv
+sse-starlette
+uvicorn
+PyGithub
+lancedb
+pandas
+tenacity
