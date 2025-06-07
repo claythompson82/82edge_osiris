@@ -18,6 +18,7 @@ certifi==2025.4.26
     #   httpcore
     #   httpx
     #   requests
+    #   sentry-sdk
 cffi==1.17.1
     # via
     #   cryptography
@@ -117,6 +118,8 @@ requests==2.32.3
     #   transformers
 safetensors==0.5.3
     # via transformers
+sentry-sdk==2.29.1
+    # via -r /app/requirements-core.in
 six==1.17.0
     # via python-dateutil
 sniffio==1.3.1
@@ -155,6 +158,7 @@ urllib3==2.4.0
     # via
     #   pygithub
     #   requests
+    #   sentry-sdk
 uvicorn==0.34.3
     # via -r /app/requirements-core.in
 wrapt==1.17.2
