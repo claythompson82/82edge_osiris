@@ -11,7 +11,10 @@ from pathlib import Path
 # from redis import Redis # Original import
 from llm_sidecar.reward import proofable_reward
 from dgm_kernel.llm_client import draft_patch  # Added dgm_kernel.llm_client import
-from dgm_kernel.prover import prove_patch  # Added import
+from dgm_kernel.prover import (
+    prove_patch,
+    _get_pylint_score as _prover_pylint_score,
+)
 
 log = logging.getLogger(__name__)
 
@@ -90,6 +93,11 @@ async def generate_patch(
     return draft_patch(traces)
 
 
+def _get_pylint_score(patch_code: str) -> float:
+    """Proxy to prover._get_pylint_score for easier patching in tests."""
+    return _prover_pylint_score(patch_code)
+
+
 async def _verify_patch(traces: list[dict], patch: dict) -> tuple[bool, float]:
     """
     Verify the patch using the prover.
@@ -108,16 +116,19 @@ async def _verify_patch(traces: list[dict], patch: dict) -> tuple[bool, float]:
         log.error("_verify_patch called with patch containing no 'after' code.")
         return False, 0.0  # Cannot verify empty code, score 0
 
-    # Call the imported prove_patch function
-    verification_result = prove_patch(
-        id=patch_id, diff=patch_diff, patch_code=patch_code
-    )
+    if not traces:
+        return False, 0.0
 
-    accepted = verification_result.status == "APPROVED"
-    pylint_score = verification_result.score  # This is the Pylint score from the prover
+    pylint_score = _get_pylint_score(patch_code)
+
+    reward = sum(proofable_reward(t, patch_code) for t in traces)
+
+    accepted = reward >= 0 and pylint_score >= 7.0
 
     log.info(
-        f"Patch verification result: {'Accepted' if accepted else 'Rejected'}. Pylint Score: {pylint_score}"
+        "Patch verification result: %s. Pylint Score: %.2f",
+        "Accepted" if accepted else "Rejected",
+        pylint_score,
     )
 
     return accepted, pylint_score
