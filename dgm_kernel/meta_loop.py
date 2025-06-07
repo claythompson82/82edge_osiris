@@ -4,7 +4,14 @@ Darwin Gödel Machine – self-improvement meta-loop (async capable)
 """
 
 from __future__ import annotations
-import asyncio, importlib, logging, time, json, argparse  # Added json import, Added argparse
+import asyncio
+import importlib
+import logging
+import time
+import json
+import argparse
+import subprocess
+import tempfile
 import redis  # Changed from 'from redis import Redis'
 from pathlib import Path
 
@@ -99,40 +106,83 @@ def _get_pylint_score(patch_code: str) -> float:
     return _prover_pylint_score(patch_code)
 
 
-async def _verify_patch(traces: list[dict], patch: dict) -> tuple[bool, float]:
-    """
-    Verify the patch using the prover.
-    Returns (is_accepted, pylint_score).
-    """
-    # patch_id is not strictly necessary for verification itself by prove_patch,
-    # but good to have for context if prove_patch starts logging or using it.
-    # Using a default if not present in the patch dict.
-    patch_id = patch.get("id", "unknown_patch_id")
-    patch_diff = patch.get(
-        "diff", ""
-    )  # Diff might not always be present or used by prove_patch
-    patch_code = patch.get("after", "")
+async def _lint_with_ruff(code: str) -> bool:
+    """Run ruff on the provided code string and return True if it passes."""
+    tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False)
+    try:
+        tmp.write(code)
+        tmp.close()
+        proc = await asyncio.create_subprocess_exec(
+            "ruff",
+            "check",
+            tmp.name,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        await proc.communicate()
+        return proc.returncode == 0
+    except FileNotFoundError:
+        log.error("ruff command not found")
+        return False
+    finally:
+        Path(tmp.name).unlink(missing_ok=True)
 
+
+async def _run_unit_tests(target: str, code: str) -> bool:
+    """Temporarily apply the patch and run pytest to ensure tests pass."""
+    tgt = Path(target)
+    if not tgt.exists():
+        log.error("Target file %s does not exist", target)
+        return False
+    original = tgt.read_text()
+    tgt.write_text(code)
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "pytest",
+            "-q",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        await proc.communicate()
+        return proc.returncode == 0
+    except FileNotFoundError:
+        log.error("pytest command not found")
+        return False
+    finally:
+        tgt.write_text(original)
+
+
+async def _verify_patch(traces: list[dict], patch: dict) -> bool:
+    """Validate the patch for dangerous code, lint errors, and failing tests."""
+    patch_code = patch.get("after", "")
     if not patch_code:
         log.error("_verify_patch called with patch containing no 'after' code.")
-        return False, 0.0  # Cannot verify empty code, score 0
+        return False
 
-    if not traces:
-        return False, 0.0
+    dangerous_tokens = [
+        "os.system",
+        "eval(",
+        "exec(",
+        "subprocess.Popen",
+        "subprocess.call",
+    ]
+    for tok in dangerous_tokens:
+        if tok in patch_code:
+            log.warning("Patch contains disallowed pattern: %s", tok)
+            return False
 
-    pylint_score = _get_pylint_score(patch_code)
+    if not await _lint_with_ruff(patch_code):
+        return False
 
-    reward = sum(proofable_reward(t, patch_code) for t in traces)
+    target = patch.get("target")
+    if not target:
+        log.error("Patch missing target path")
+        return False
 
-    accepted = reward >= 0 and pylint_score >= 7.0
+    if not await _run_unit_tests(target, patch_code):
+        return False
 
-    log.info(
-        "Patch verification result: %s. Pylint Score: %.2f",
-        "Accepted" if accepted else "Rejected",
-        pylint_score,
-    )
-
-    return accepted, pylint_score
+    return True
 
 
 def _apply_patch(patch: dict) -> bool:
@@ -189,10 +239,10 @@ async def meta_loop():
             log.info("No patch generated, continuing.")
             continue
 
-        accepted, verification_score = await _verify_patch(traces, patch)
+        accepted = await _verify_patch(traces, patch)
         if not accepted:
             log.warning(
-                f"Patch for {patch.get('target')} was not approved by verifier (score: {verification_score}), skipping application."
+                f"Patch for {patch.get('target')} was not approved, skipping application."
             )
             # Optionally, add to a different Redis log for rejected patches
             # REDIS.lpush("dgm:rejected_patches", json.dumps(patch))
@@ -214,15 +264,11 @@ async def meta_loop():
             if new_r >= 0:  # simple non-regression gate for now
                 REDIS.lpush(
                     APPLIED_LOG,
-                    json.dumps(
-                        patch
-                        | {"reward": new_r, "verification_score": verification_score}
-                    ),
+                    json.dumps(patch | {"reward": new_r}),
                 )
                 log.info(
-                    "Patch applied ✔️  reward=%.4f, verification_score=%.2f",
+                    "Patch applied ✔️  reward=%.4f",
                     new_r,
-                    verification_score,
                 )
             else:
                 log.warning("Patch rolled back, reward=%.4f", new_r)
@@ -277,10 +323,10 @@ if __name__ == "__main__":
                 log.info("No patch generated, exiting.")
                 return
 
-            accepted, verification_score = await _verify_patch(traces, patch)
+            accepted = await _verify_patch(traces, patch)
             if not accepted:
                 log.warning(
-                    f"Patch for {patch.get('target')} was not approved (score: {verification_score}), exiting."
+                    f"Patch for {patch.get('target')} was not approved, exiting."
                 )
                 return
 
@@ -299,18 +345,11 @@ if __name__ == "__main__":
                 if new_r >= 0:
                     REDIS.lpush(
                         APPLIED_LOG,
-                        json.dumps(
-                            patch
-                            | {
-                                "reward": new_r,
-                                "verification_score": verification_score,
-                            }
-                        ),
+                        json.dumps(patch | {"reward": new_r}),
                     )
                     log.info(
-                        "Patch applied (once) ✔️  reward=%.4f, verification_score=%.2f",
+                        "Patch applied (once) ✔️  reward=%.4f",
                         new_r,
-                        verification_score,
                     )
                 else:
                     log.warning("Patch rolled back (once), reward=%.4f", new_r)
