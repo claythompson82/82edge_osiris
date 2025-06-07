@@ -540,3 +540,4 @@ wheel==0.45.1 \
 # satisfied by a package already installed. Consider using the --allow-unsafe flag.
 # pip
 # setuptools
+PyGithub

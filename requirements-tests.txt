@@ -6,3 +6,4 @@ requests>=2
 fakeredis>=2
 hypothesis>=6
 pytest-asyncio>=0.21
+PyGithub
