@@ -12,6 +12,7 @@ peft
 pyarrow
 pydantic
 pytest
+tsaug==0.2.1
 python-dotenv
 requests
 sentencepiece==0.1.99
