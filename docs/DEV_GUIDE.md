@@ -144,6 +144,18 @@ Market data CSVs live under `data/`. Use the simulator to feed this data into Re
 python -m sim.engine data/spy_1h.csv --redis_url redis://localhost:6379/0 --speed 10x
 ```
 Customize `--speed` and date range flags to test various scenarios.
+New options allow simulating trading frictions:
+
+```bash
+python -m sim.engine data/spy_1h.csv \
+  --redis_url redis://localhost:6379/0 \
+  --order_channel market.orders \
+  --commission_rate 0.001 \
+  --slippage_impact 0.1
+```
+
+The engine listens for JSON order messages on `--order_channel` and applies the
+configured commission and slippage models when updating the portfolio.
 
 ## GPU troubleshooting
 If the container fails due to VRAM limits, lower `MAX_TOKENS` in the `.env` or switch to CPU mode by setting `DEVICE=cpu`. The `vram_watchdog` service can automatically restart the sidecar when usage exceeds a threshold.
