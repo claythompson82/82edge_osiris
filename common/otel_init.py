@@ -4,7 +4,6 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 
-
 def init_otel(service_name: str = "osiris-dgm-kernel"):
     """Initializes OpenTelemetry tracing."""
     try:
