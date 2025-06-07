@@ -10,7 +10,6 @@ __pycache__
 .eggs
 .venv
 # Unused directories
-tests/
 docs/
 research/
 nightly_trainer/
