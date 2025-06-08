@@ -19,6 +19,7 @@ Open‑source trading stack with local LLM agents.
 git clone https://github.com/your/fork.git
 cd osiris
 cp .env.template .env
+docker build --secret id=hf_token_secret,src=/path/to/token.txt -t osiris .
 make rebuild
 ```
 

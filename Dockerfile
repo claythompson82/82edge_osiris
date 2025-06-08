@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.4
 # ---- Builder Stage ----
 FROM python:3.10-slim as builder
 WORKDIR /app
@@ -16,7 +17,9 @@ ENV VENV_DIR=/opt/venv
 RUN python3 -m venv ${VENV_DIR}
 ENV PATH="${VENV_DIR}/bin:$PATH"
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt --extra-index-url ${PYTORCH_INDEX_URL}
+RUN --mount=type=secret,id=hf_token_secret \
+    HF_TOKEN=$(cat /run/secrets/hf_token_secret) \
+    pip install --no-cache-dir -r requirements.txt --extra-index-url ${PYTORCH_INDEX_URL}
 
 # ---- Runtime Stage ----
 FROM python:3.10-slim as runtime
@@ -28,7 +31,7 @@ COPY ./src/ /app/src/
 
 # Set environment variables correctly
 ENV PATH="/opt/venv/bin:$PATH"
-ENV PYTHONPATH="/app/src"
+ENV PYTHONPATH=/app/src
 
 # Expose port if necessary (e.g., for the server)
 EXPOSE 8000

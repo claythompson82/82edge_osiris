@@ -161,7 +161,11 @@ configured commission and slippage models when updating the portfolio.
 If the container fails due to VRAM limits, lower `MAX_TOKENS` in the `.env` or switch to CPU mode by setting `DEVICE=cpu`. The `vram_watchdog` service can automatically restart the sidecar when usage exceeds a threshold.
 
 ## Build and deploy
-To rebuild containers use:
+To build the Docker image manually and supply a Hugging Face token use BuildKit secrets:
+```bash
+docker build --secret id=hf_token_secret,src=/path/to/token.txt -t osiris .
+```
+To rebuild all containers via Compose:
 ```bash
 make rebuild
 ```

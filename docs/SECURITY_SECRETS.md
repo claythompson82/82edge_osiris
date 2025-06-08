@@ -10,8 +10,9 @@ recommended improvements.
   included a real looking `POLYGON_API_KEY`.
 * CI/CD workflows reference GitHub secrets for publishing images and docs.
 * Docker and Kubernetes manifests rely on environment variables for injecting
-  credentials. Examples include the `HF_TOKEN` build argument in the Dockerfile
-  and placeholders in `docker/docker-compose.cloud.yaml`.
+  credentials. The `HF_TOKEN` is now provided at build time using a BuildKit
+  secret (`hf_token_secret`) instead of a build argument. Compose files still
+  contain placeholders in `docker/docker-compose.cloud.yaml`.
 
 ## Issues Identified
 
