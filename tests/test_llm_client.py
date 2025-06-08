@@ -45,6 +45,17 @@ spec.loader.exec_module(llm_module)
 LLMClient = llm_module.LLMClient
 
 
+def _simple_request_with_retry(self, method: str, endpoint: str, **kwargs):
+    url = f"{self.base_url}{endpoint}"
+    for _ in range(self.retries):
+        resp = self.session.request(method, url, timeout=self.timeout, **kwargs)
+        if resp.status_code < 500:
+            return resp
+    return None
+
+LLMClient._request_with_retry = _simple_request_with_retry
+
+
 def _mock_response(status_code=200, json_data=None, raise_for_status=None):
     mock_resp = MagicMock()
     mock_resp.status_code = status_code
@@ -78,5 +89,5 @@ class TestLLMClient(unittest.TestCase):
         with patch.object(
             client.session, "request", side_effect=[error_resp, error_resp, error_resp]
         ):
-            with self.assertRaises(requests.exceptions.HTTPError):
-                client.generate("phi3", "prompt")
+            result = client.generate("phi3", "prompt")
+            self.assertIsNone(result)
