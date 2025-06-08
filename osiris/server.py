@@ -398,13 +398,38 @@ async def health():
     hermes_ok = all(get_hermes_model_and_tokenizer())
     phi3_ok = all(get_phi3_model_and_tokenizer())
     status = "ok" if hermes_ok and phi3_ok else "error"
-    
-    return {
+
+    response_data = {
         "status": status,
         "hermes_loaded": hermes_ok,
         "phi3_loaded": phi3_ok,
         "phi3_adapter_date": loader.phi3_adapter_date,
     }
+
+    try:
+        table = db._tables.get("hermes_scores")
+        if table is not None:
+            twenty_four_hours_ago = (
+                datetime.datetime.now(datetime.timezone.utc)
+                - datetime.timedelta(hours=24)
+            ).isoformat()
+            rows = (
+                table.search()
+                .where(f"timestamp >= '{twenty_four_hours_ago}'")
+                .to_list()
+            )
+            scores = [row.get("score") for row in rows if "score" in row]
+            if scores:
+                response_data["mean_hermes_score_last_24h"] = sum(scores) / len(scores)
+            else:
+                response_data["mean_hermes_score_last_24h"] = None
+        else:
+            response_data["mean_hermes_score_last_24h"] = None
+    except Exception as e:  # pragma: no cover - best effort
+        logger.error(f"Error calculating mean Hermes score for health check: {e}")
+        response_data["mean_hermes_score_last_24h"] = None
+
+    return response_data
 
 if __name__ == "__main__":
     import uvicorn
