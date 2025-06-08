@@ -8,25 +8,26 @@ def test_driver_marketforge_task_set():
     """
     Tests that running driver.py with --task-set marketforge logs "trainer loop stub".
     """
-    # Attempt to locate driver.py by walking up the directory tree until the
-    # nightly_trainer directory is found. This is more robust than assuming a fixed depth.
-    search_start = Path(__file__).resolve()
-    driver_script_path = None
-    for parent in [search_start] + list(search_start.parents):
-        # Check for <root>/nightly_trainer/driver.py
-        candidate = parent / "nightly_trainer" / "driver.py"
-        if candidate.exists():
-            driver_script_path = candidate
-            break
-        # Also check for <root>/scripts/nightly_trainer/driver.py
-        alt_candidate = parent / "scripts" / "nightly_trainer" / "driver.py"
-        if alt_candidate.exists():
-            driver_script_path = alt_candidate
-            break
+    # Resolve the repository root based on this test file's location. ``tests``
+    # lives at the project root, so ``parents[1]`` should point to the root
+    # directory when the code is checked out.  This avoids walking the entire
+    # filesystem while still working when the tests are executed from an
+    # installed location.
+    repo_root = Path(__file__).resolve().parents[1]
+
+    # Prefer ``nightly_trainer/driver.py`` at the project root.  Fall back to a
+    # scripts directory if present.
+    candidate_paths = [
+        repo_root / "nightly_trainer" / "driver.py",
+        repo_root / "scripts" / "nightly_trainer" / "driver.py",
+    ]
+
+    driver_script_path = next((p for p in candidate_paths if p.exists()), None)
 
     # Ensure the script path was found
-    if not driver_script_path or not driver_script_path.exists():
-        raise FileNotFoundError(f"Could not find driver.py. Searched from {search_start}.")
+    if not driver_script_path:
+        searched = ", ".join(str(p) for p in candidate_paths)
+        raise FileNotFoundError(f"Could not find driver.py. Looked in: {searched}")
 
     try:
         # Run the script using the same Python interpreter that's running the tests
