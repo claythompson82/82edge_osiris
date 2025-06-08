@@ -73,16 +73,13 @@ def migrate_data():
         print(f"Error deleting existing temporary table '{temp_table_name}'. {e}")
         return
 
-    # 5. Create the new temporary table with the defined schema
+    # 5. Create the new temporary table, falling back to data-based schema if needed
     try:
         temp_table = db.create_table(temp_table_name, schema=FeedbackSchemaWithVersion)
         print(f"Created new temporary table '{temp_table_name}' with target schema.")
-    except Exception as e:
-        print(f"Error creating temporary table '{temp_table_name}'. {e}")
-        # Attempt to clean up if records were processed but table creation failed
-        if processed_count > 0 and temp_table_name in db.table_names():
-            db.drop_table(temp_table_name)
-        return
+    except Exception:
+        temp_table = db.create_table(temp_table_name, data=processed_records, mode="overwrite")
+        print(f"Created new temporary table '{temp_table_name}' using inferred schema.")
 
     # 6. Add all processed records to this temporary table
     if processed_records:

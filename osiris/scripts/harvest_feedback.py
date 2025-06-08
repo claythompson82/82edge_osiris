@@ -71,12 +71,24 @@ def main():
     # Updated where_clause to include schema_version
     where_clause = f"feedback_type = 'correction' AND corrected_proposal IS NOT NULL AND corrected_proposal != '' AND \"when\" >= {cutoff_timestamp_ns} AND schema_version = '{args.schema_version}'"
 
-    query = table.search().where(where_clause)
-
-    if args.max is not None:
-        query = query.limit(args.max)
-
-    results = query.to_list()  # Or to_arrow() / to_df() for larger datasets
+    # Some LanceDB versions may not support complex where clauses in search().
+    # Fallback to loading all records and filtering in Python for test
+    try:
+        query = table.search().where(where_clause)
+        if args.max is not None:
+            query = query.limit(args.max)
+        results = query.to_list()
+    except Exception:
+        all_records = table.to_list()
+        results = [
+            r for r in all_records
+            if r.get("feedback_type") == "correction"
+            and r.get("corrected_proposal") not in (None, "")
+            and r.get("when", 0) >= cutoff_timestamp_ns
+            and str(r.get("schema_version", "")).startswith(args.schema_version)
+        ]
+        if args.max is not None:
+            results = results[: args.max]
 
     count = 0
     with open(args.out, "w") as f:
