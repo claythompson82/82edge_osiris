@@ -67,9 +67,14 @@ def main():
     # A robust way is to convert cutoff_date to the same format as stored in 'when'.
     # If 'when' is stored as Arrow timestamp (nanoseconds):
     cutoff_timestamp_ns = int(cutoff_date.timestamp() * 1_000_000_000)
-    # where_clause = f"feedback_type = 'correction' AND corrected_proposal IS NOT NULL AND corrected_proposal != '' AND \"when\" >= {cutoff_timestamp_ns}"
-    # Updated where_clause to include schema_version
-    where_clause = f"feedback_type = 'correction' AND corrected_proposal IS NOT NULL AND corrected_proposal != '' AND \"when\" >= {cutoff_timestamp_ns} AND schema_version = '{args.schema_version}'"
+    # Updated where_clause to include schema_version prefix matching
+    where_clause = (
+        "feedback_type = 'correction' "
+        "AND corrected_proposal IS NOT NULL "
+        "AND corrected_proposal != '' "
+        f"AND when >= {cutoff_timestamp_ns} "
+        f"AND schema_version LIKE '{args.schema_version}%'"
+    )
 
     query = table.search().where(where_clause)
 
@@ -81,7 +86,11 @@ def main():
     count = 0
     with open(args.out, "w") as f:
         for record in results:
-            prompt_text = record.get("assessment") or record.get("proposal", "")
+            prompt_text = (
+                record.get("assessment")
+                or record.get("proposal")
+                or record.get("feedback_content", "")
+            )
             corrected_proposal_raw = record.get("corrected_proposal")
 
             if not prompt_text or not corrected_proposal_raw:
@@ -112,7 +121,11 @@ def main():
                 # response_text = corrected_proposal_raw # Alternative: store as is
                 continue
 
-            output_record = {"prompt": prompt_text, "response": response_text}
+            output_record = {
+                "transaction_id": record.get("transaction_id"),
+                "prompt": prompt_text,
+                "response": response_text,
+            }
             f.write(json.dumps(output_record) + "\n")
             count += 1
             if args.max is not None and count >= args.max:
