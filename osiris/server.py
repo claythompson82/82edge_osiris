@@ -361,7 +361,10 @@ async def propose_trade_adjustments(request: PromptRequest):
     }
 
     with open(PHI3_FEEDBACK_LOG_FILE, "a") as f:
-        json.dump(log_entry, f)
+        # ``json.dump`` may emit multiple ``write`` calls when used with
+        # ``mock_open`` in tests, so explicitly dump to a string first
+        # to ensure a single write containing valid JSON.
+        f.write(json.dumps(log_entry))
         f.write("\n")
 
     if getattr(event_bus, "pubsub", None):
