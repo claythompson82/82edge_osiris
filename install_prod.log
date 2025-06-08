@@ -1,0 +1,1043 @@
+Collecting accelerate==0.27.2 (from -r requirements.txt (line 7))
+  Downloading accelerate-0.27.2-py3-none-any.whl (279 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 280.0/280.0 kB 5.7 MB/s eta 0:00:00
+Collecting aiohappyeyeballs==2.6.1 (from -r requirements.txt (line 15))
+  Downloading aiohappyeyeballs-2.6.1-py3-none-any.whl (15 kB)
+Collecting aiohttp==3.12.9 (from -r requirements.txt (line 19))
+  Downloading aiohttp-3.12.9-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (1.7 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.7/1.7 MB 26.3 MB/s eta 0:00:00
+Collecting aiosignal==1.3.2 (from -r requirements.txt (line 109))
+  Downloading aiosignal-1.3.2-py2.py3-none-any.whl (7.6 kB)
+Collecting annotated-types==0.7.0 (from -r requirements.txt (line 113))
+  Downloading annotated_types-0.7.0-py3-none-any.whl (13 kB)
+Collecting anyio==4.9.0 (from -r requirements.txt (line 117))
+  Using cached anyio-4.9.0-py3-none-any.whl (100 kB)
+Collecting asgiref==3.8.1 (from -r requirements.txt (line 124))
+  Downloading asgiref-3.8.1-py3-none-any.whl (23 kB)
+Collecting astroid==2.15.8 (from -r requirements.txt (line 128))
+  Downloading astroid-2.15.8-py3-none-any.whl (278 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 278.3/278.3 kB 13.0 MB/s eta 0:00:00
+Collecting attrs==25.3.0 (from -r requirements.txt (line 132))
+  Downloading attrs-25.3.0-py3-none-any.whl (63 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 63.8/63.8 kB 8.8 MB/s eta 0:00:00
+Collecting auto-gptq==0.7.1 (from -r requirements.txt (line 139))
+  Downloading auto_gptq-0.7.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (23.5 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 23.5/23.5 MB 29.7 MB/s eta 0:00:00
+Collecting bitsandbytes==0.46.0 (from -r requirements.txt (line 150))
+  Downloading bitsandbytes-0.46.0-py3-none-manylinux_2_24_x86_64.whl (67.0 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 67.0/67.0 MB 14.7 MB/s eta 0:00:00
+Collecting certifi==2025.4.26 (from -r requirements.txt (line 155))
+  Using cached certifi-2025.4.26-py3-none-any.whl (159 kB)
+Collecting cffi==1.17.1 (from -r requirements.txt (line 163))
+  Downloading cffi-1.17.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (467 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 467.2/467.2 kB 61.5 MB/s eta 0:00:00
+Collecting charset-normalizer==3.4.2 (from -r requirements.txt (line 235))
+  Downloading charset_normalizer-3.4.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (147 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 147.3/147.3 kB 16.3 MB/s eta 0:00:00
+Collecting click==8.2.1 (from -r requirements.txt (line 329))
+  Using cached click-8.2.1-py3-none-any.whl (102 kB)
+Collecting cloudpickle==3.1.1 (from -r requirements.txt (line 333))
+  Downloading cloudpickle-3.1.1-py3-none-any.whl (20 kB)
+Collecting coloredlogs==15.0.1 (from -r requirements.txt (line 337))
+  Downloading coloredlogs-15.0.1-py2.py3-none-any.whl (46 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 46.0/46.0 kB 4.7 MB/s eta 0:00:00
+Collecting cryptography==45.0.3 (from -r requirements.txt (line 343))
+  Downloading cryptography-45.0.3-cp311-abi3-manylinux_2_34_x86_64.whl (4.5 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.5/4.5 MB 37.1 MB/s eta 0:00:00
+Collecting datasets==2.18.0 (from -r requirements.txt (line 382))
+  Downloading datasets-2.18.0-py3-none-any.whl (510 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 510.5/510.5 kB 26.5 MB/s eta 0:00:00
+Collecting deprecated==1.2.18 (from -r requirements.txt (line 389))
+  Downloading Deprecated-1.2.18-py2.py3-none-any.whl (10.0 kB)
+Collecting deprecation==2.1.0 (from -r requirements.txt (line 393))
+  Downloading deprecation-2.1.0-py2.py3-none-any.whl (11 kB)
+Collecting dill==0.3.8 (from -r requirements.txt (line 397))
+  Downloading dill-0.3.8-py3-none-any.whl (116 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 116.3/116.3 kB 5.5 MB/s eta 0:00:00
+Collecting diskcache==5.6.3 (from -r requirements.txt (line 404))
+  Downloading diskcache-5.6.3-py3-none-any.whl (45 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 45.5/45.5 kB 673.1 kB/s eta 0:00:00
+Collecting docstring-parser==0.16 (from -r requirements.txt (line 408))
+  Downloading docstring_parser-0.16-py3-none-any.whl (36 kB)
+Collecting fastapi==0.109.2 (from -r requirements.txt (line 412))
+  Downloading fastapi-0.109.2-py3-none-any.whl (92 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 92.1/92.1 kB 4.8 MB/s eta 0:00:00
+Collecting filelock==3.18.0 (from -r requirements.txt (line 416))
+  Using cached filelock-3.18.0-py3-none-any.whl (16 kB)
+Collecting flatbuffers==25.2.10 (from -r requirements.txt (line 425))
+  Downloading flatbuffers-25.2.10-py2.py3-none-any.whl (30 kB)
+Collecting frozenlist==1.6.2 (from -r requirements.txt (line 429))
+  Downloading frozenlist-1.6.2-cp311-cp311-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl (236 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 236.3/236.3 kB 5.2 MB/s eta 0:00:00
+Collecting fsspec==2024.2.0 (from fsspec[http]==2024.2.0->-r requirements.txt (line 537))
+  Downloading fsspec-2024.2.0-py3-none-any.whl (170 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 170.9/170.9 kB 6.0 MB/s eta 0:00:00
+Collecting gekko==1.3.0 (from -r requirements.txt (line 544))
+  Downloading gekko-1.3.0-py3-none-any.whl (13.2 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 13.2/13.2 MB 32.3 MB/s eta 0:00:00
+Collecting googleapis-common-protos==1.70.0 (from -r requirements.txt (line 548))
+  Downloading googleapis_common_protos-1.70.0-py3-none-any.whl (294 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 294.5/294.5 kB 14.6 MB/s eta 0:00:00
+Collecting grpcio==1.72.1 (from -r requirements.txt (line 554))
+  Downloading grpcio-1.72.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (5.9 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.9/5.9 MB 28.6 MB/s eta 0:00:00
+Collecting h11==0.16.0 (from -r requirements.txt (line 607))
+  Using cached h11-0.16.0-py3-none-any.whl (37 kB)
+Collecting httpcore==1.0.9 (from -r requirements.txt (line 613))
+  Using cached httpcore-1.0.9-py3-none-any.whl (78 kB)
+Collecting httptools==0.6.4 (from -r requirements.txt (line 617))
+  Downloading httptools-0.6.4-cp311-cp311-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl (459 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 459.8/459.8 kB 9.2 MB/s eta 0:00:00
+Collecting httpx==0.28.1 (from -r requirements.txt (line 662))
+  Using cached httpx-0.28.1-py3-none-any.whl (73 kB)
+Collecting huggingface-hub==0.20.3 (from -r requirements.txt (line 668))
+  Downloading huggingface_hub-0.20.3-py3-none-any.whl (330 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 330.1/330.1 kB 9.8 MB/s eta 0:00:00
+Collecting humanfriendly==10.0 (from -r requirements.txt (line 679))
+  Downloading humanfriendly-10.0-py2.py3-none-any.whl (86 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 86.8/86.8 kB 3.5 MB/s eta 0:00:00
+Collecting idna==3.10 (from -r requirements.txt (line 683))
+  Using cached idna-3.10-py3-none-any.whl (70 kB)
+Collecting importlib-metadata==8.7.0 (from -r requirements.txt (line 691))
+  Downloading importlib_metadata-8.7.0-py3-none-any.whl (27 kB)
+Collecting iniconfig==2.1.0 (from -r requirements.txt (line 695))
+  Using cached iniconfig-2.1.0-py3-none-any.whl (6.0 kB)
+Collecting interegular==0.3.3 (from -r requirements.txt (line 699))
+  Downloading interegular-0.3.3-py37-none-any.whl (23 kB)
+Collecting isort==5.13.2 (from -r requirements.txt (line 703))
+  Downloading isort-5.13.2-py3-none-any.whl (92 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 92.3/92.3 kB 16.8 MB/s eta 0:00:00
+Collecting jinja2==3.1.6 (from -r requirements.txt (line 707))
+  Downloading jinja2-3.1.6-py3-none-any.whl (134 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 134.9/134.9 kB 7.9 MB/s eta 0:00:00
+Collecting joblib==1.5.1 (from -r requirements.txt (line 713))
+  Downloading joblib-1.5.1-py3-none-any.whl (307 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 307.7/307.7 kB 30.9 MB/s eta 0:00:00
+Collecting jsonpatch==1.33 (from -r requirements.txt (line 717))
+  Downloading jsonpatch-1.33-py2.py3-none-any.whl (12 kB)
+Collecting jsonpointer==3.0.0 (from -r requirements.txt (line 721))
+  Downloading jsonpointer-3.0.0-py2.py3-none-any.whl (7.6 kB)
+Collecting jsonschema==4.24.0 (from -r requirements.txt (line 725))
+  Downloading jsonschema-4.24.0-py3-none-any.whl (88 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 88.7/88.7 kB 4.5 MB/s eta 0:00:00
+Collecting jsonschema-specifications==2025.4.1 (from -r requirements.txt (line 729))
+  Downloading jsonschema_specifications-2025.4.1-py3-none-any.whl (18 kB)
+Collecting lancedb==0.23.0 (from -r requirements.txt (line 733))
+  Downloading lancedb-0.23.0-cp39-abi3-manylinux_2_28_x86_64.whl (33.0 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 33.0/33.0 MB 25.3 MB/s eta 0:00:00
+Collecting langchain-core==0.3.64 (from -r requirements.txt (line 742))
+  Downloading langchain_core-0.3.64-py3-none-any.whl (438 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 438.1/438.1 kB 20.4 MB/s eta 0:00:00
+Collecting langgraph==0.4.8 (from -r requirements.txt (line 749))
+  Downloading langgraph-0.4.8-py3-none-any.whl (152 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 152.4/152.4 kB 6.1 MB/s eta 0:00:00
+Collecting langgraph-checkpoint==2.0.26 (from -r requirements.txt (line 753))
+  Downloading langgraph_checkpoint-2.0.26-py3-none-any.whl (44 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 44.2/44.2 kB 9.4 MB/s eta 0:00:00
+Collecting langgraph-prebuilt==0.2.2 (from -r requirements.txt (line 759))
+  Downloading langgraph_prebuilt-0.2.2-py3-none-any.whl (23 kB)
+Collecting langgraph-sdk==0.1.70 (from -r requirements.txt (line 763))
+  Downloading langgraph_sdk-0.1.70-py3-none-any.whl (49 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 50.0/50.0 kB 1.7 MB/s eta 0:00:00
+Collecting langsmith==0.3.45 (from -r requirements.txt (line 767))
+  Downloading langsmith-0.3.45-py3-none-any.whl (363 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 363.0/363.0 kB 40.8 MB/s eta 0:00:00
+Collecting lark==1.2.2 (from -r requirements.txt (line 771))
+  Downloading lark-1.2.2-py3-none-any.whl (111 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 111.0/111.0 kB 19.7 MB/s eta 0:00:00
+Collecting lazy-object-proxy==1.11.0 (from -r requirements.txt (line 775))
+  Downloading lazy_object_proxy-1.11.0-py3-none-any.whl (16 kB)
+Collecting llvmlite==0.44.0 (from -r requirements.txt (line 791))
+  Downloading llvmlite-0.44.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (42.4 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 42.4/42.4 MB 20.3 MB/s eta 0:00:00
+Collecting markdown-it-py==3.0.0 (from -r requirements.txt (line 814))
+  Downloading markdown_it_py-3.0.0-py3-none-any.whl (87 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 87.5/87.5 kB 12.6 MB/s eta 0:00:00
+Collecting markupsafe==3.0.2 (from -r requirements.txt (line 818))
+  Downloading MarkupSafe-3.0.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (23 kB)
+Collecting mccabe==0.7.0 (from -r requirements.txt (line 881))
+  Downloading mccabe-0.7.0-py2.py3-none-any.whl (7.3 kB)
+Collecting mdurl==0.1.2 (from -r requirements.txt (line 885))
+  Downloading mdurl-0.1.2-py3-none-any.whl (10.0 kB)
+Collecting mpmath==1.3.0 (from -r requirements.txt (line 889))
+  Downloading mpmath-1.3.0-py3-none-any.whl (536 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 536.2/536.2 kB 26.1 MB/s eta 0:00:00
+Collecting multidict==6.4.4 (from -r requirements.txt (line 893))
+  Downloading multidict-6.4.4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (223 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 223.7/223.7 kB 31.6 MB/s eta 0:00:00
+Collecting multiprocess==0.70.16 (from -r requirements.txt (line 1001))
+  Downloading multiprocess-0.70.16-py311-none-any.whl (143 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 143.5/143.5 kB 7.6 MB/s eta 0:00:00
+Collecting nest-asyncio==1.6.0 (from -r requirements.txt (line 1015))
+  Downloading nest_asyncio-1.6.0-py3-none-any.whl (5.2 kB)
+Collecting networkx==3.5 (from -r requirements.txt (line 1019))
+  Downloading networkx-3.5-py3-none-any.whl (2.0 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.0/2.0 MB 40.6 MB/s eta 0:00:00
+Collecting numba==0.61.2 (from -r requirements.txt (line 1023))
+  Downloading numba-0.61.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (3.8 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.8/3.8 MB 44.1 MB/s eta 0:00:00
+Collecting numpy==2.2.6 (from -r requirements.txt (line 1046))
+  Downloading numpy-2.2.6-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (16.8 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16.8/16.8 MB 33.3 MB/s eta 0:00:00
+Collecting nvidia-cublas-cu12==12.1.3.1 (from -r requirements.txt (line 1120))
+  Downloading nvidia_cublas_cu12-12.1.3.1-py3-none-manylinux1_x86_64.whl (410.6 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 410.6/410.6 MB 1.1 MB/s eta 0:00:00
+Collecting nvidia-cuda-cupti-cu12==12.1.105 (from -r requirements.txt (line 1127))
+  Downloading nvidia_cuda_cupti_cu12-12.1.105-py3-none-manylinux1_x86_64.whl (14.1 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 14.1/14.1 MB 24.7 MB/s eta 0:00:00
+Collecting nvidia-cuda-nvrtc-cu12==12.1.105 (from -r requirements.txt (line 1131))
+  Downloading nvidia_cuda_nvrtc_cu12-12.1.105-py3-none-manylinux1_x86_64.whl (23.7 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 23.7/23.7 MB 29.1 MB/s eta 0:00:00
+Collecting nvidia-cuda-runtime-cu12==12.1.105 (from -r requirements.txt (line 1135))
+  Downloading nvidia_cuda_runtime_cu12-12.1.105-py3-none-manylinux1_x86_64.whl (823 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 823.6/823.6 kB 19.1 MB/s eta 0:00:00
+Collecting nvidia-cudnn-cu12==8.9.2.26 (from -r requirements.txt (line 1139))
+  Downloading nvidia_cudnn_cu12-8.9.2.26-py3-none-manylinux1_x86_64.whl (731.7 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 731.7/731.7 MB 1.5 MB/s eta 0:00:00
+Collecting nvidia-cufft-cu12==11.0.2.54 (from -r requirements.txt (line 1142))
+  Downloading nvidia_cufft_cu12-11.0.2.54-py3-none-manylinux1_x86_64.whl (121.6 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 121.6/121.6 MB 18.5 MB/s eta 0:00:00
+Collecting nvidia-curand-cu12==10.3.2.106 (from -r requirements.txt (line 1146))
+  Downloading nvidia_curand_cu12-10.3.2.106-py3-none-manylinux1_x86_64.whl (56.5 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 56.5/56.5 MB 17.6 MB/s eta 0:00:00
+Collecting nvidia-cusolver-cu12==11.4.5.107 (from -r requirements.txt (line 1150))
+  Downloading nvidia_cusolver_cu12-11.4.5.107-py3-none-manylinux1_x86_64.whl (124.2 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 124.2/124.2 MB 9.2 MB/s eta 0:00:00
+Collecting nvidia-cusparse-cu12==12.1.0.106 (from -r requirements.txt (line 1154))
+  Downloading nvidia_cusparse_cu12-12.1.0.106-py3-none-manylinux1_x86_64.whl (196.0 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 196.0/196.0 MB 5.4 MB/s eta 0:00:00
+Collecting nvidia-nccl-cu12==2.19.3 (from -r requirements.txt (line 1160))
+  Downloading nvidia_nccl_cu12-2.19.3-py3-none-manylinux1_x86_64.whl (166.0 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 166.0/166.0 MB 8.3 MB/s eta 0:00:00
+Collecting nvidia-nvjitlink-cu12==12.9.86 (from -r requirements.txt (line 1163))
+  Downloading nvidia_nvjitlink_cu12-12.9.86-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl (39.7 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 39.7/39.7 MB 16.4 MB/s eta 0:00:00
+Collecting nvidia-nvtx-cu12==12.1.105 (from -r requirements.txt (line 1170))
+  Downloading nvidia_nvtx_cu12-12.1.105-py3-none-manylinux1_x86_64.whl (99 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 99.1/99.1 kB 19.0 MB/s eta 0:00:00
+Collecting onnxruntime==1.22.0 (from -r requirements.txt (line 1174))
+  Downloading onnxruntime-1.22.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (16.4 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16.4/16.4 MB 25.4 MB/s eta 0:00:00
+Collecting opentelemetry-api==1.34.0 (from -r requirements.txt (line 1194))
+  Downloading opentelemetry_api-1.34.0-py3-none-any.whl (65 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 65.8/65.8 kB 13.0 MB/s eta 0:00:00
+Collecting opentelemetry-exporter-otlp==1.34.0 (from -r requirements.txt (line 1207))
+  Downloading opentelemetry_exporter_otlp-1.34.0-py3-none-any.whl (7.0 kB)
+Collecting opentelemetry-exporter-otlp-proto-common==1.34.0 (from -r requirements.txt (line 1211))
+  Downloading opentelemetry_exporter_otlp_proto_common-1.34.0-py3-none-any.whl (18 kB)
+Collecting opentelemetry-exporter-otlp-proto-grpc==1.34.0 (from -r requirements.txt (line 1217))
+  Downloading opentelemetry_exporter_otlp_proto_grpc-1.34.0-py3-none-any.whl (18 kB)
+Collecting opentelemetry-exporter-otlp-proto-http==1.34.0 (from -r requirements.txt (line 1221))
+  Downloading opentelemetry_exporter_otlp_proto_http-1.34.0-py3-none-any.whl (17 kB)
+Collecting opentelemetry-instrumentation==0.55b0 (from -r requirements.txt (line 1227))
+  Downloading opentelemetry_instrumentation-0.55b0-py3-none-any.whl (31 kB)
+Collecting opentelemetry-instrumentation-asgi==0.55b0 (from -r requirements.txt (line 1234))
+  Downloading opentelemetry_instrumentation_asgi-0.55b0-py3-none-any.whl (16 kB)
+Collecting opentelemetry-instrumentation-fastapi==0.55b0 (from -r requirements.txt (line 1238))
+  Downloading opentelemetry_instrumentation_fastapi-0.55b0-py3-none-any.whl (12 kB)
+Collecting opentelemetry-instrumentation-logging==0.55b0 (from -r requirements.txt (line 1242))
+  Downloading opentelemetry_instrumentation_logging-0.55b0-py3-none-any.whl (12 kB)
+Collecting opentelemetry-proto==1.34.0 (from -r requirements.txt (line 1246))
+  Downloading opentelemetry_proto-1.34.0-py3-none-any.whl (55 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 55.7/55.7 kB 7.1 MB/s eta 0:00:00
+Collecting opentelemetry-sdk==1.34.0 (from -r requirements.txt (line 1253))
+  Downloading opentelemetry_sdk-1.34.0-py3-none-any.whl (118 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 118.4/118.4 kB 18.9 MB/s eta 0:00:00
+Collecting opentelemetry-semantic-conventions==0.55b0 (from -r requirements.txt (line 1260))
+  Downloading opentelemetry_semantic_conventions-0.55b0-py3-none-any.whl (196 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 196.2/196.2 kB 26.4 MB/s eta 0:00:00
+Collecting opentelemetry-util-http==0.55b0 (from -r requirements.txt (line 1268))
+  Downloading opentelemetry_util_http-0.55b0-py3-none-any.whl (7.3 kB)
+Collecting optimum==1.19.0 (from -r requirements.txt (line 1274))
+  Downloading optimum-1.19.0-py3-none-any.whl (417 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 417.7/417.7 kB 36.2 MB/s eta 0:00:00
+Collecting orjson==3.10.18 (from -r requirements.txt (line 1278))
+  Downloading orjson-3.10.18-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (132 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 132.8/132.8 kB 6.8 MB/s eta 0:00:00
+Collecting ormsgpack==1.10.0 (from -r requirements.txt (line 1354))
+  Downloading ormsgpack-1.10.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (216 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 216.5/216.5 kB 11.6 MB/s eta 0:00:00
+Collecting outlines==0.0.36 (from -r requirements.txt (line 1397))
+  Downloading outlines-0.0.36-py3-none-any.whl (79 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 79.7/79.7 kB 11.9 MB/s eta 0:00:00
+Collecting overrides==7.7.0 (from -r requirements.txt (line 1401))
+  Downloading overrides-7.7.0-py3-none-any.whl (17 kB)
+Collecting packaging==24.2 (from -r requirements.txt (line 1405))
+  Downloading packaging-24.2-py3-none-any.whl (65 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 65.5/65.5 kB 2.9 MB/s eta 0:00:00
+Collecting pandas==2.3.0 (from -r requirements.txt (line 1422))
+  Downloading pandas-2.3.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (12.4 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 12.4/12.4 MB 27.2 MB/s eta 0:00:00
+Collecting peft==0.13.2 (from -r requirements.txt (line 1466))
+  Downloading peft-0.13.2-py3-none-any.whl (320 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 320.7/320.7 kB 10.7 MB/s eta 0:00:00
+Collecting platformdirs==4.3.8 (from -r requirements.txt (line 1472))
+  Using cached platformdirs-4.3.8-py3-none-any.whl (18 kB)
+Collecting pluggy==1.6.0 (from -r requirements.txt (line 1476))
+  Using cached pluggy-1.6.0-py3-none-any.whl (20 kB)
+Collecting prometheus-client==0.22.1 (from -r requirements.txt (line 1480))
+  Downloading prometheus_client-0.22.1-py3-none-any.whl (58 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 58.7/58.7 kB 9.8 MB/s eta 0:00:00
+Collecting prometheus-fastapi-instrumentator==7.1.0 (from -r requirements.txt (line 1484))
+  Downloading prometheus_fastapi_instrumentator-7.1.0-py3-none-any.whl (19 kB)
+Collecting propcache==0.3.1 (from -r requirements.txt (line 1488))
+  Downloading propcache-0.3.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (232 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 232.5/232.5 kB 32.7 MB/s eta 0:00:00
+Collecting protobuf==5.29.5 (from -r requirements.txt (line 1590))
+  Downloading protobuf-5.29.5-cp38-abi3-manylinux2014_x86_64.whl (319 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 319.9/319.9 kB 18.6 MB/s eta 0:00:00
+Collecting psutil==7.0.0 (from -r requirements.txt (line 1607))
+  Downloading psutil-7.0.0-cp36-abi3-manylinux_2_12_x86_64.manylinux2010_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl (277 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 278.0/278.0 kB 16.0 MB/s eta 0:00:00
+Collecting pyarrow==20.0.0 (from -r requirements.txt (line 1621))
+  Downloading pyarrow-20.0.0-cp311-cp311-manylinux_2_28_x86_64.whl (42.3 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 42.3/42.3 MB 15.9 MB/s eta 0:00:00
+Collecting pyarrow-hotfix==0.7 (from -r requirements.txt (line 1681))
+  Downloading pyarrow_hotfix-0.7-py3-none-any.whl (7.9 kB)
+Collecting pycparser==2.22 (from -r requirements.txt (line 1685))
+  Using cached pycparser-2.22-py3-none-any.whl (117 kB)
+Collecting pydantic==2.11.5 (from -r requirements.txt (line 1689))
+  Downloading pydantic-2.11.5-py3-none-any.whl (444 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 444.2/444.2 kB 13.5 MB/s eta 0:00:00
+Collecting pydantic-core==2.33.2 (from -r requirements.txt (line 1700))
+  Downloading pydantic_core-2.33.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.0 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.0/2.0 MB 25.7 MB/s eta 0:00:00
+Collecting pygithub==2.6.1 (from -r requirements.txt (line 1801))
+  Downloading PyGithub-2.6.1-py3-none-any.whl (410 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 410.5/410.5 kB 18.3 MB/s eta 0:00:00
+Collecting pygments==2.19.1 (from -r requirements.txt (line 1805))
+  Downloading pygments-2.19.1-py3-none-any.whl (1.2 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.2/1.2 MB 32.6 MB/s eta 0:00:00
+Collecting pyinstrument==5.0.2 (from -r requirements.txt (line 1811))
+  Downloading pyinstrument-5.0.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_28_x86_64.whl (144 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 144.1/144.1 kB 4.1 MB/s eta 0:00:00
+Collecting pyjwt==2.10.1 (from pyjwt[crypto]==2.10.1->-r requirements.txt (line 1886))
+  Downloading PyJWT-2.10.1-py3-none-any.whl (22 kB)
+Collecting pylint==2.17.7 (from -r requirements.txt (line 1890))
+  Downloading pylint-2.17.7-py3-none-any.whl (537 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 537.2/537.2 kB 14.1 MB/s eta 0:00:00
+Collecting pynacl==1.5.0 (from -r requirements.txt (line 1894))
+  Downloading PyNaCl-1.5.0-cp36-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_24_x86_64.whl (856 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 856.7/856.7 kB 23.1 MB/s eta 0:00:00
+Collecting pytest==8.4.0 (from -r requirements.txt (line 1906))
+  Downloading pytest-8.4.0-py3-none-any.whl (363 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 363.8/363.8 kB 11.0 MB/s eta 0:00:00
+Collecting python-dateutil==2.9.0.post0 (from -r requirements.txt (line 1910))
+  Downloading python_dateutil-2.9.0.post0-py2.py3-none-any.whl (229 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 229.9/229.9 kB 9.7 MB/s eta 0:00:00
+Collecting python-dotenv==1.1.0 (from -r requirements.txt (line 1914))
+  Downloading python_dotenv-1.1.0-py3-none-any.whl (20 kB)
+Collecting pytz==2025.2 (from -r requirements.txt (line 1920))
+  Downloading pytz-2025.2-py2.py3-none-any.whl (509 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 509.2/509.2 kB 44.1 MB/s eta 0:00:00
+Collecting pyyaml==6.0.2 (from -r requirements.txt (line 1924))
+  Downloading PyYAML-6.0.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (762 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 763.0/763.0 kB 34.0 MB/s eta 0:00:00
+Collecting referencing==0.36.2 (from -r requirements.txt (line 1986))
+  Downloading referencing-0.36.2-py3-none-any.whl (26 kB)
+Collecting regex==2024.11.6 (from -r requirements.txt (line 1993))
+  Downloading regex-2024.11.6-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (792 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 792.7/792.7 kB 55.2 MB/s eta 0:00:00
+Collecting requests==2.32.3 (from -r requirements.txt (line 2089))
+  Using cached requests-2.32.3-py3-none-any.whl (64 kB)
+Collecting requests-toolbelt==1.0.0 (from -r requirements.txt (line 2102))
+  Using cached requests_toolbelt-1.0.0-py2.py3-none-any.whl (54 kB)
+Collecting rich==14.0.0 (from -r requirements.txt (line 2106))
+  Downloading rich-14.0.0-py3-none-any.whl (243 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 243.2/243.2 kB 11.4 MB/s eta 0:00:00
+Collecting rouge==1.0.1 (from -r requirements.txt (line 2110))
+  Downloading rouge-1.0.1-py3-none-any.whl (13 kB)
+Collecting rpds-py==0.25.1 (from -r requirements.txt (line 2114))
+  Downloading rpds_py-0.25.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (386 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 387.0/387.0 kB 10.4 MB/s eta 0:00:00
+Collecting safetensors==0.5.3 (from -r requirements.txt (line 2235))
+  Downloading safetensors-0.5.3-cp38-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (471 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 471.6/471.6 kB 10.7 MB/s eta 0:00:00
+Collecting scipy==1.15.3 (from -r requirements.txt (line 2256))
+  Downloading scipy-1.15.3-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (37.7 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 37.7/37.7 MB 18.3 MB/s eta 0:00:00
+Collecting sentencepiece==0.1.99 (from -r requirements.txt (line 2306))
+  Downloading sentencepiece-0.1.99-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (1.3 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.3/1.3 MB 39.6 MB/s eta 0:00:00
+Collecting sentry-sdk==2.29.1 (from -r requirements.txt (line 2356))
+  Downloading sentry_sdk-2.29.1-py2.py3-none-any.whl (341 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 341.6/341.6 kB 15.5 MB/s eta 0:00:00
+Collecting shtab==1.7.2 (from -r requirements.txt (line 2360))
+  Downloading shtab-1.7.2-py3-none-any.whl (14 kB)
+Collecting six==1.17.0 (from -r requirements.txt (line 2364))
+  Using cached six-1.17.0-py2.py3-none-any.whl (11 kB)
+Collecting sniffio==1.3.1 (from -r requirements.txt (line 2370))
+  Using cached sniffio-1.3.1-py3-none-any.whl (10 kB)
+Collecting soundfile==0.13.1 (from -r requirements.txt (line 2374))
+  Downloading soundfile-0.13.1-py2.py3-none-manylinux_2_28_x86_64.whl (1.3 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.3/1.3 MB 29.6 MB/s eta 0:00:00
+Collecting starlette==0.36.3 (from -r requirements.txt (line 2384))
+  Downloading starlette-0.36.3-py3-none-any.whl (71 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 71.5/71.5 kB 14.3 MB/s eta 0:00:00
+Collecting sympy==1.14.0 (from -r requirements.txt (line 2390))
+  Downloading sympy-1.14.0-py3-none-any.whl (6.3 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.3/6.3 MB 31.8 MB/s eta 0:00:00
+Collecting tenacity==9.1.2 (from -r requirements.txt (line 2397))
+  Downloading tenacity-9.1.2-py3-none-any.whl (28 kB)
+Collecting tokenizers==0.15.2 (from -r requirements.txt (line 2401))
+  Downloading tokenizers-0.15.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (3.6 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.6/3.6 MB 30.4 MB/s eta 0:00:00
+Collecting tomlkit==0.13.3 (from -r requirements.txt (line 2513))
+  Downloading tomlkit-0.13.3-py3-none-any.whl (38 kB)
+Collecting torch==2.2.2 (from -r requirements.txt (line 2517))
+  Downloading torch-2.2.2-cp311-cp311-manylinux1_x86_64.whl (755.6 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 755.6/755.6 MB 1.0 MB/s eta 0:00:00
+Collecting tqdm==4.67.1 (from -r requirements.txt (line 2552))
+  Downloading tqdm-4.67.1-py3-none-any.whl (78 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 78.5/78.5 kB 1.6 MB/s eta 0:00:00
+Collecting transformers==4.38.2 (from transformers[sentencepiece]==4.38.2->-r requirements.txt (line 2562))
+  Downloading transformers-4.38.2-py3-none-any.whl (8.5 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 8.5/8.5 MB 36.1 MB/s eta 0:00:00
+Collecting triton==2.2.0 (from -r requirements.txt (line 2572))
+  Downloading triton-2.2.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (167.9 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 167.9/167.9 MB 10.5 MB/s eta 0:00:00
+Collecting trl==0.10.1 (from -r requirements.txt (line 2580))
+  Downloading trl-0.10.1-py3-none-any.whl (280 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 280.1/280.1 kB 11.3 MB/s eta 0:00:00
+Collecting tsaug==0.2.1 (from -r requirements.txt (line 2584))
+  Downloading tsaug-0.2.1-py3-none-any.whl (32 kB)
+Collecting typeguard==4.4.3 (from -r requirements.txt (line 2588))
+  Downloading typeguard-4.4.3-py3-none-any.whl (34 kB)
+Collecting typing-extensions==4.14.0 (from -r requirements.txt (line 2592))
+  Downloading typing_extensions-4.14.0-py3-none-any.whl (43 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 43.8/43.8 kB 2.0 MB/s eta 0:00:00
+Collecting typing-inspection==0.4.1 (from -r requirements.txt (line 2613))
+  Downloading typing_inspection-0.4.1-py3-none-any.whl (14 kB)
+Collecting tyro==0.9.24 (from -r requirements.txt (line 2617))
+  Downloading tyro-0.9.24-py3-none-any.whl (128 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 128.3/128.3 kB 24.2 MB/s eta 0:00:00
+Collecting tzdata==2025.2 (from -r requirements.txt (line 2621))
+  Downloading tzdata-2025.2-py2.py3-none-any.whl (347 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 347.8/347.8 kB 14.4 MB/s eta 0:00:00
+Collecting urllib3==2.4.0 (from -r requirements.txt (line 2625))
+  Using cached urllib3-2.4.0-py3-none-any.whl (128 kB)
+Collecting uvicorn==0.27.1 (from uvicorn[standard]==0.27.1->-r requirements.txt (line 2632))
+  Downloading uvicorn-0.27.1-py3-none-any.whl (60 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 60.8/60.8 kB 2.3 MB/s eta 0:00:00
+Collecting uvloop==0.21.0 (from -r requirements.txt (line 2636))
+  Downloading uvloop-0.21.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (4.0 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.0/4.0 MB 32.4 MB/s eta 0:00:00
+Collecting watchfiles==1.0.5 (from -r requirements.txt (line 2675))
+  Downloading watchfiles-1.0.5-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (454 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 454.8/454.8 kB 30.1 MB/s eta 0:00:00
+Collecting websockets==15.0.1 (from -r requirements.txt (line 2748))
+  Downloading websockets-15.0.1-cp311-cp311-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl (182 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 182.3/182.3 kB 8.9 MB/s eta 0:00:00
+Collecting wrapt==1.17.2 (from -r requirements.txt (line 2819))
+  Downloading wrapt-1.17.2-cp311-cp311-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl (83 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 83.2/83.2 kB 9.9 MB/s eta 0:00:00
+Collecting xxhash==3.5.0 (from -r requirements.txt (line 2903))
+  Downloading xxhash-3.5.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (194 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 194.8/194.8 kB 7.2 MB/s eta 0:00:00
+Collecting yarl==1.20.0 (from -r requirements.txt (line 3030))
+  Downloading yarl-1.20.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (358 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 358.1/358.1 kB 15.1 MB/s eta 0:00:00
+Collecting zipp==3.22.0 (from -r requirements.txt (line 3136))
+  Downloading zipp-3.22.0-py3-none-any.whl (9.8 kB)
+Collecting zstandard==0.23.0 (from -r requirements.txt (line 3140))
+  Downloading zstandard-0.23.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (5.4 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.4/5.4 MB 34.1 MB/s eta 0:00:00
+Installing collected packages: sentencepiece, pytz, mpmath, flatbuffers, zstandard, zipp, xxhash, wrapt, websockets, uvloop, urllib3, tzdata, typing-extensions, tqdm, tomlkit, tenacity, sympy, sniffio, six, shtab, safetensors, rpds-py, regex, pyyaml, python-dotenv, pyjwt, pyinstrument, pygments, pycparser, pyarrow-hotfix, pyarrow, psutil, protobuf, propcache, prometheus-client, pluggy, platformdirs, packaging, overrides, ormsgpack, orjson, opentelemetry-util-http, nvidia-nvtx-cu12, nvidia-nvjitlink-cu12, nvidia-nccl-cu12, nvidia-curand-cu12, nvidia-cufft-cu12, nvidia-cuda-runtime-cu12, nvidia-cuda-nvrtc-cu12, nvidia-cuda-cupti-cu12, nvidia-cublas-cu12, numpy, networkx, nest-asyncio, multidict, mdurl, mccabe, markupsafe, llvmlite, lazy-object-proxy, lark, jsonpointer, joblib, isort, interegular, iniconfig, idna, humanfriendly, httptools, h11, grpcio, fsspec, frozenlist, filelock, docstring-parser, diskcache, dill, cloudpickle, click, charset-normalizer, certifi, attrs, asgiref, annotated-types, aiohappyeyeballs, yarl, uvicorn, typing-inspection, typeguard, triton, sentry-sdk, scipy, rouge, requests, referencing, python-dateutil, pytest, pydantic-core, opentelemetry-proto, nvidia-cusparse-cu12, nvidia-cudnn-cu12, numba, multiprocess, markdown-it-py, jsonpatch, jinja2, importlib-metadata, httpcore, googleapis-common-protos, gekko, deprecation, deprecated, coloredlogs, cffi, astroid, anyio, aiosignal, watchfiles, tsaug, starlette, soundfile, rich, requests-toolbelt, pynacl, pylint, pydantic, pandas, opentelemetry-exporter-otlp-proto-common, opentelemetry-api, onnxruntime, nvidia-cusolver-cu12, jsonschema-specifications, huggingface-hub, httpx, cryptography, aiohttp, tyro, torch, tokenizers, prometheus-fastapi-instrumentator, opentelemetry-semantic-conventions, langsmith, langgraph-sdk, lancedb, jsonschema, fastapi, transformers, pygithub, opentelemetry-sdk, opentelemetry-instrumentation, langchain-core, datasets, bitsandbytes, accelerate, trl, peft, outlines, opentelemetry-instrumentation-logging, opentelemetry-instrumentation-asgi, opentelemetry-exporter-otlp-proto-http, opentelemetry-exporter-otlp-proto-grpc, langgraph-checkpoint, optimum, opentelemetry-instrumentation-fastapi, opentelemetry-exporter-otlp, langgraph-prebuilt, auto-gptq, langgraph
+ERROR: Operation cancelled by user
+Traceback (most recent call last):
+  File "/workspace/82edge_osiris/venv/bin/pip", line 8, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/cli/main.py", line 79, in main
+    return command.main(cmd_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/cli/base_command.py", line 101, in main
+    return self._main(args)
+           ^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/cli/base_command.py", line 236, in _main
+    self.handle_pip_version_check(options)
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/cli/req_command.py", line 188, in handle_pip_version_check
+    pip_self_version_check(session, options)
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/self_outdated_check.py", line 236, in pip_self_version_check
+    upgrade_prompt = _self_version_check_logic(
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/self_outdated_check.py", line 199, in _self_version_check_logic
+    remote_version_str = get_remote_version()
+                         ^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/self_outdated_check.py", line 183, in _get_current_remote_pip_version
+    best_candidate = finder.find_best_candidate("pip").best_candidate
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/index/package_finder.py", line 890, in find_best_candidate
+    candidates = self.find_all_candidates(project_name)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/index/package_finder.py", line 831, in find_all_candidates
+    page_candidates = list(page_candidates_it)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/index/sources.py", line 194, in page_candidates
+    yield from self._candidates_from_page(self._link)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/index/package_finder.py", line 791, in process_project_url
+    index_response = self._link_collector.fetch_response(project_url)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/index/collector.py", line 461, in fetch_response
+    return _get_index_content(location, session=self.session)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/index/collector.py", line 364, in _get_index_content
+    resp = _get_simple_response(url, session=session)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/index/collector.py", line 135, in _get_simple_response
+    resp = session.get(
+           ^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_vendor/requests/sessions.py", line 602, in get
+    return self.request("GET", url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/network/session.py", line 520, in request
+    return super().request(method, url, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_vendor/requests/sessions.py", line 589, in request
+    resp = self.send(prep, **send_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_vendor/requests/sessions.py", line 703, in send
+    r = adapter.send(request, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_vendor/cachecontrol/adapter.py", line 76, in send
+    resp = super().send(request, stream, timeout, verify, cert, proxies)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_vendor/requests/adapters.py", line 538, in send
+    return self.build_response(request, resp)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_vendor/cachecontrol/adapter.py", line 106, in build_response
+    cached_response = self.controller.update_cached_response(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_vendor/cachecontrol/controller.py", line 492, in update_cached_response
+    self._cache_set(cache_url, request, cached_response)
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_vendor/cachecontrol/controller.py", line 301, in _cache_set
+    self.cache.set(
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/network/cache.py", line 86, in set
+    self._write(path, value)
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/network/cache.py", line 77, in _write
+    with adjacent_tmp_file(path) as f:
+  File "/root/.pyenv/versions/3.11.12/lib/python3.11/contextlib.py", line 144, in __exit__
+    next(self.gen)
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/utils/filesystem.py", line 65, in adjacent_tmp_file
+    os.fsync(result.fileno())
+KeyboardInterrupt
+Collecting accelerate==0.27.2 (from -r requirements.txt (line 7))
+  Using cached accelerate-0.27.2-py3-none-any.whl (279 kB)
+Requirement already satisfied: aiohappyeyeballs==2.6.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 15)) (2.6.1)
+Collecting aiohttp==3.12.9 (from -r requirements.txt (line 19))
+  Using cached aiohttp-3.12.9-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (1.7 MB)
+Collecting aiosignal==1.3.2 (from -r requirements.txt (line 109))
+  Using cached aiosignal-1.3.2-py2.py3-none-any.whl (7.6 kB)
+Requirement already satisfied: annotated-types==0.7.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 113)) (0.7.0)
+Collecting anyio==4.9.0 (from -r requirements.txt (line 117))
+  Using cached anyio-4.9.0-py3-none-any.whl (100 kB)
+Requirement already satisfied: asgiref==3.8.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 124)) (3.8.1)
+Collecting astroid==2.15.8 (from -r requirements.txt (line 128))
+  Using cached astroid-2.15.8-py3-none-any.whl (278 kB)
+Requirement already satisfied: attrs==25.3.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 132)) (25.3.0)
+Collecting auto-gptq==0.7.1 (from -r requirements.txt (line 139))
+  Using cached auto_gptq-0.7.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (23.5 MB)
+Collecting bitsandbytes==0.46.0 (from -r requirements.txt (line 150))
+  Using cached bitsandbytes-0.46.0-py3-none-manylinux_2_24_x86_64.whl (67.0 MB)
+Requirement already satisfied: certifi==2025.4.26 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 155)) (2025.4.26)
+Collecting cffi==1.17.1 (from -r requirements.txt (line 163))
+  Using cached cffi-1.17.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (467 kB)
+Requirement already satisfied: charset-normalizer==3.4.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 235)) (3.4.2)
+Requirement already satisfied: click==8.2.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 329)) (8.2.1)
+Requirement already satisfied: cloudpickle==3.1.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 333)) (3.1.1)
+Collecting coloredlogs==15.0.1 (from -r requirements.txt (line 337))
+  Using cached coloredlogs-15.0.1-py2.py3-none-any.whl (46 kB)
+Collecting cryptography==45.0.3 (from -r requirements.txt (line 343))
+  Using cached cryptography-45.0.3-cp311-abi3-manylinux_2_34_x86_64.whl (4.5 MB)
+Collecting datasets==2.18.0 (from -r requirements.txt (line 382))
+  Using cached datasets-2.18.0-py3-none-any.whl (510 kB)
+Collecting deprecated==1.2.18 (from -r requirements.txt (line 389))
+  Using cached Deprecated-1.2.18-py2.py3-none-any.whl (10.0 kB)
+Collecting deprecation==2.1.0 (from -r requirements.txt (line 393))
+  Using cached deprecation-2.1.0-py2.py3-none-any.whl (11 kB)
+Requirement already satisfied: dill==0.3.8 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 397)) (0.3.8)
+Requirement already satisfied: diskcache==5.6.3 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 404)) (5.6.3)
+Requirement already satisfied: docstring-parser==0.16 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 408)) (0.16)
+Collecting fastapi==0.109.2 (from -r requirements.txt (line 412))
+  Using cached fastapi-0.109.2-py3-none-any.whl (92 kB)
+Requirement already satisfied: filelock==3.18.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 416)) (3.18.0)
+Requirement already satisfied: flatbuffers==25.2.10 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 425)) (25.2.10)
+Requirement already satisfied: frozenlist==1.6.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 429)) (1.6.2)
+Requirement already satisfied: fsspec==2024.2.0 in ./venv/lib/python3.11/site-packages (from fsspec[http]==2024.2.0->-r requirements.txt (line 537)) (2024.2.0)
+Collecting gekko==1.3.0 (from -r requirements.txt (line 544))
+  Using cached gekko-1.3.0-py3-none-any.whl (13.2 MB)
+Collecting googleapis-common-protos==1.70.0 (from -r requirements.txt (line 548))
+  Using cached googleapis_common_protos-1.70.0-py3-none-any.whl (294 kB)
+Requirement already satisfied: grpcio==1.72.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 554)) (1.72.1)
+Requirement already satisfied: h11==0.16.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 607)) (0.16.0)
+Collecting httpcore==1.0.9 (from -r requirements.txt (line 613))
+  Using cached httpcore-1.0.9-py3-none-any.whl (78 kB)
+Requirement already satisfied: httptools==0.6.4 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 617)) (0.6.4)
+Collecting httpx==0.28.1 (from -r requirements.txt (line 662))
+  Using cached httpx-0.28.1-py3-none-any.whl (73 kB)
+Collecting huggingface-hub==0.20.3 (from -r requirements.txt (line 668))
+  Using cached huggingface_hub-0.20.3-py3-none-any.whl (330 kB)
+Requirement already satisfied: humanfriendly==10.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 679)) (10.0)
+Requirement already satisfied: idna==3.10 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 683)) (3.10)
+Collecting importlib-metadata==8.7.0 (from -r requirements.txt (line 691))
+  Using cached importlib_metadata-8.7.0-py3-none-any.whl (27 kB)
+Requirement already satisfied: iniconfig==2.1.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 695)) (2.1.0)
+Requirement already satisfied: interegular==0.3.3 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 699)) (0.3.3)
+Requirement already satisfied: isort==5.13.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 703)) (5.13.2)
+Collecting jinja2==3.1.6 (from -r requirements.txt (line 707))
+  Using cached jinja2-3.1.6-py3-none-any.whl (134 kB)
+Requirement already satisfied: joblib==1.5.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 713)) (1.5.1)
+Collecting jsonpatch==1.33 (from -r requirements.txt (line 717))
+  Using cached jsonpatch-1.33-py2.py3-none-any.whl (12 kB)
+Requirement already satisfied: jsonpointer==3.0.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 721)) (3.0.0)
+Collecting jsonschema==4.24.0 (from -r requirements.txt (line 725))
+  Using cached jsonschema-4.24.0-py3-none-any.whl (88 kB)
+Collecting jsonschema-specifications==2025.4.1 (from -r requirements.txt (line 729))
+  Using cached jsonschema_specifications-2025.4.1-py3-none-any.whl (18 kB)
+Collecting lancedb==0.23.0 (from -r requirements.txt (line 733))
+  Using cached lancedb-0.23.0-cp39-abi3-manylinux_2_28_x86_64.whl (33.0 MB)
+Collecting langchain-core==0.3.64 (from -r requirements.txt (line 742))
+  Using cached langchain_core-0.3.64-py3-none-any.whl (438 kB)
+Collecting langgraph==0.4.8 (from -r requirements.txt (line 749))
+  Using cached langgraph-0.4.8-py3-none-any.whl (152 kB)
+Collecting langgraph-checkpoint==2.0.26 (from -r requirements.txt (line 753))
+  Using cached langgraph_checkpoint-2.0.26-py3-none-any.whl (44 kB)
+Collecting langgraph-prebuilt==0.2.2 (from -r requirements.txt (line 759))
+  Using cached langgraph_prebuilt-0.2.2-py3-none-any.whl (23 kB)
+Collecting langgraph-sdk==0.1.70 (from -r requirements.txt (line 763))
+  Using cached langgraph_sdk-0.1.70-py3-none-any.whl (49 kB)
+Collecting langsmith==0.3.45 (from -r requirements.txt (line 767))
+  Using cached langsmith-0.3.45-py3-none-any.whl (363 kB)
+Requirement already satisfied: lark==1.2.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 771)) (1.2.2)
+Requirement already satisfied: lazy-object-proxy==1.11.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 775)) (1.11.0)
+Requirement already satisfied: llvmlite==0.44.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 791)) (0.44.0)
+Collecting markdown-it-py==3.0.0 (from -r requirements.txt (line 814))
+  Using cached markdown_it_py-3.0.0-py3-none-any.whl (87 kB)
+Requirement already satisfied: markupsafe==3.0.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 818)) (3.0.2)
+Requirement already satisfied: mccabe==0.7.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 881)) (0.7.0)
+Requirement already satisfied: mdurl==0.1.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 885)) (0.1.2)
+Requirement already satisfied: mpmath==1.3.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 889)) (1.3.0)
+Requirement already satisfied: multidict==6.4.4 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 893)) (6.4.4)
+Collecting multiprocess==0.70.16 (from -r requirements.txt (line 1001))
+  Using cached multiprocess-0.70.16-py311-none-any.whl (143 kB)
+Requirement already satisfied: nest-asyncio==1.6.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1015)) (1.6.0)
+Requirement already satisfied: networkx==3.5 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1019)) (3.5)
+Collecting numba==0.61.2 (from -r requirements.txt (line 1023))
+  Using cached numba-0.61.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (3.8 MB)
+Requirement already satisfied: numpy==2.2.6 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1046)) (2.2.6)
+Requirement already satisfied: nvidia-cublas-cu12==12.1.3.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1120)) (12.1.3.1)
+Requirement already satisfied: nvidia-cuda-cupti-cu12==12.1.105 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1127)) (12.1.105)
+Requirement already satisfied: nvidia-cuda-nvrtc-cu12==12.1.105 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1131)) (12.1.105)
+Requirement already satisfied: nvidia-cuda-runtime-cu12==12.1.105 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1135)) (12.1.105)
+Collecting nvidia-cudnn-cu12==8.9.2.26 (from -r requirements.txt (line 1139))
+  Using cached nvidia_cudnn_cu12-8.9.2.26-py3-none-manylinux1_x86_64.whl (731.7 MB)
+Requirement already satisfied: nvidia-cufft-cu12==11.0.2.54 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1142)) (11.0.2.54)
+Requirement already satisfied: nvidia-curand-cu12==10.3.2.106 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1146)) (10.3.2.106)
+Collecting nvidia-cusolver-cu12==11.4.5.107 (from -r requirements.txt (line 1150))
+  Using cached nvidia_cusolver_cu12-11.4.5.107-py3-none-manylinux1_x86_64.whl (124.2 MB)
+Requirement already satisfied: nvidia-cusparse-cu12==12.1.0.106 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1154)) (12.1.0.106)
+Requirement already satisfied: nvidia-nccl-cu12==2.19.3 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1160)) (2.19.3)
+Requirement already satisfied: nvidia-nvjitlink-cu12==12.9.86 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1163)) (12.9.86)
+Requirement already satisfied: nvidia-nvtx-cu12==12.1.105 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1170)) (12.1.105)
+Collecting onnxruntime==1.22.0 (from -r requirements.txt (line 1174))
+  Using cached onnxruntime-1.22.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (16.4 MB)
+Collecting opentelemetry-api==1.34.0 (from -r requirements.txt (line 1194))
+  Using cached opentelemetry_api-1.34.0-py3-none-any.whl (65 kB)
+Collecting opentelemetry-exporter-otlp==1.34.0 (from -r requirements.txt (line 1207))
+  Using cached opentelemetry_exporter_otlp-1.34.0-py3-none-any.whl (7.0 kB)
+Collecting opentelemetry-exporter-otlp-proto-common==1.34.0 (from -r requirements.txt (line 1211))
+  Using cached opentelemetry_exporter_otlp_proto_common-1.34.0-py3-none-any.whl (18 kB)
+Collecting opentelemetry-exporter-otlp-proto-grpc==1.34.0 (from -r requirements.txt (line 1217))
+  Using cached opentelemetry_exporter_otlp_proto_grpc-1.34.0-py3-none-any.whl (18 kB)
+Collecting opentelemetry-exporter-otlp-proto-http==1.34.0 (from -r requirements.txt (line 1221))
+  Using cached opentelemetry_exporter_otlp_proto_http-1.34.0-py3-none-any.whl (17 kB)
+Collecting opentelemetry-instrumentation==0.55b0 (from -r requirements.txt (line 1227))
+  Using cached opentelemetry_instrumentation-0.55b0-py3-none-any.whl (31 kB)
+Collecting opentelemetry-instrumentation-asgi==0.55b0 (from -r requirements.txt (line 1234))
+  Using cached opentelemetry_instrumentation_asgi-0.55b0-py3-none-any.whl (16 kB)
+Collecting opentelemetry-instrumentation-fastapi==0.55b0 (from -r requirements.txt (line 1238))
+  Using cached opentelemetry_instrumentation_fastapi-0.55b0-py3-none-any.whl (12 kB)
+Collecting opentelemetry-instrumentation-logging==0.55b0 (from -r requirements.txt (line 1242))
+  Using cached opentelemetry_instrumentation_logging-0.55b0-py3-none-any.whl (12 kB)
+Requirement already satisfied: opentelemetry-proto==1.34.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1246)) (1.34.0)
+Collecting opentelemetry-sdk==1.34.0 (from -r requirements.txt (line 1253))
+  Using cached opentelemetry_sdk-1.34.0-py3-none-any.whl (118 kB)
+Collecting opentelemetry-semantic-conventions==0.55b0 (from -r requirements.txt (line 1260))
+  Using cached opentelemetry_semantic_conventions-0.55b0-py3-none-any.whl (196 kB)
+Requirement already satisfied: opentelemetry-util-http==0.55b0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1268)) (0.55b0)
+Collecting optimum==1.19.0 (from -r requirements.txt (line 1274))
+  Using cached optimum-1.19.0-py3-none-any.whl (417 kB)
+Requirement already satisfied: orjson==3.10.18 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1278)) (3.10.18)
+Requirement already satisfied: ormsgpack==1.10.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1354)) (1.10.0)
+Collecting outlines==0.0.36 (from -r requirements.txt (line 1397))
+  Using cached outlines-0.0.36-py3-none-any.whl (79 kB)
+Requirement already satisfied: overrides==7.7.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1401)) (7.7.0)
+Requirement already satisfied: packaging==24.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1405)) (24.2)
+Collecting pandas==2.3.0 (from -r requirements.txt (line 1422))
+  Using cached pandas-2.3.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (12.4 MB)
+Collecting peft==0.13.2 (from -r requirements.txt (line 1466))
+  Using cached peft-0.13.2-py3-none-any.whl (320 kB)
+Requirement already satisfied: platformdirs==4.3.8 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1472)) (4.3.8)
+Requirement already satisfied: pluggy==1.6.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1476)) (1.6.0)
+Requirement already satisfied: prometheus-client==0.22.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1480)) (0.22.1)
+Collecting prometheus-fastapi-instrumentator==7.1.0 (from -r requirements.txt (line 1484))
+  Using cached prometheus_fastapi_instrumentator-7.1.0-py3-none-any.whl (19 kB)
+Requirement already satisfied: propcache==0.3.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1488)) (0.3.1)
+Requirement already satisfied: protobuf==5.29.5 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1590)) (5.29.5)
+Requirement already satisfied: psutil==7.0.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1607)) (7.0.0)
+Requirement already satisfied: pyarrow==20.0.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1621)) (20.0.0)
+Requirement already satisfied: pyarrow-hotfix==0.7 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1681)) (0.7)
+Requirement already satisfied: pycparser==2.22 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1685)) (2.22)
+Collecting pydantic==2.11.5 (from -r requirements.txt (line 1689))
+  Using cached pydantic-2.11.5-py3-none-any.whl (444 kB)
+Requirement already satisfied: pydantic-core==2.33.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1700)) (2.33.2)
+Collecting pygithub==2.6.1 (from -r requirements.txt (line 1801))
+  Using cached PyGithub-2.6.1-py3-none-any.whl (410 kB)
+Requirement already satisfied: pygments==2.19.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1805)) (2.19.1)
+Requirement already satisfied: pyinstrument==5.0.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1811)) (5.0.2)
+Requirement already satisfied: pyjwt==2.10.1 in ./venv/lib/python3.11/site-packages (from pyjwt[crypto]==2.10.1->-r requirements.txt (line 1886)) (2.10.1)
+Collecting pylint==2.17.7 (from -r requirements.txt (line 1890))
+  Using cached pylint-2.17.7-py3-none-any.whl (537 kB)
+Collecting pynacl==1.5.0 (from -r requirements.txt (line 1894))
+  Using cached PyNaCl-1.5.0-cp36-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_24_x86_64.whl (856 kB)
+Requirement already satisfied: pytest==8.4.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1906)) (8.4.0)
+Requirement already satisfied: python-dateutil==2.9.0.post0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1910)) (2.9.0.post0)
+Requirement already satisfied: python-dotenv==1.1.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1914)) (1.1.0)
+Requirement already satisfied: pytz==2025.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1920)) (2025.2)
+Requirement already satisfied: pyyaml==6.0.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1924)) (6.0.2)
+Requirement already satisfied: referencing==0.36.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1986)) (0.36.2)
+Requirement already satisfied: regex==2024.11.6 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1993)) (2024.11.6)
+Requirement already satisfied: requests==2.32.3 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2089)) (2.32.3)
+Collecting requests-toolbelt==1.0.0 (from -r requirements.txt (line 2102))
+  Using cached requests_toolbelt-1.0.0-py2.py3-none-any.whl (54 kB)
+Collecting rich==14.0.0 (from -r requirements.txt (line 2106))
+  Using cached rich-14.0.0-py3-none-any.whl (243 kB)
+Requirement already satisfied: rouge==1.0.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2110)) (1.0.1)
+Requirement already satisfied: rpds-py==0.25.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2114)) (0.25.1)
+Requirement already satisfied: safetensors==0.5.3 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2235)) (0.5.3)
+Requirement already satisfied: scipy==1.15.3 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2256)) (1.15.3)
+Requirement already satisfied: sentencepiece==0.1.99 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2306)) (0.1.99)
+Requirement already satisfied: sentry-sdk==2.29.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2356)) (2.29.1)
+Requirement already satisfied: shtab==1.7.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2360)) (1.7.2)
+Requirement already satisfied: six==1.17.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2364)) (1.17.0)
+Requirement already satisfied: sniffio==1.3.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2370)) (1.3.1)
+Collecting soundfile==0.13.1 (from -r requirements.txt (line 2374))
+  Using cached soundfile-0.13.1-py2.py3-none-manylinux_2_28_x86_64.whl (1.3 MB)
+Collecting starlette==0.36.3 (from -r requirements.txt (line 2384))
+  Using cached starlette-0.36.3-py3-none-any.whl (71 kB)
+Requirement already satisfied: sympy==1.14.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2390)) (1.14.0)
+Requirement already satisfied: tenacity==9.1.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2397)) (9.1.2)
+Collecting tokenizers==0.15.2 (from -r requirements.txt (line 2401))
+  Using cached tokenizers-0.15.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (3.6 MB)
+Requirement already satisfied: tomlkit==0.13.3 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2513)) (0.13.3)
+Collecting torch==2.2.2 (from -r requirements.txt (line 2517))
+  Using cached torch-2.2.2-cp311-cp311-manylinux1_x86_64.whl (755.6 MB)
+Requirement already satisfied: tqdm==4.67.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2552)) (4.67.1)
+Collecting transformers==4.38.2 (from transformers[sentencepiece]==4.38.2->-r requirements.txt (line 2562))
+  Using cached transformers-4.38.2-py3-none-any.whl (8.5 MB)
+Requirement already satisfied: triton==2.2.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2572)) (2.2.0)
+Collecting trl==0.10.1 (from -r requirements.txt (line 2580))
+  Using cached trl-0.10.1-py3-none-any.whl (280 kB)
+Collecting tsaug==0.2.1 (from -r requirements.txt (line 2584))
+  Using cached tsaug-0.2.1-py3-none-any.whl (32 kB)
+Requirement already satisfied: typeguard==4.4.3 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2588)) (4.4.3)
+Requirement already satisfied: typing-extensions==4.14.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2592)) (4.14.0)
+Requirement already satisfied: typing-inspection==0.4.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2613)) (0.4.1)
+Collecting tyro==0.9.24 (from -r requirements.txt (line 2617))
+  Using cached tyro-0.9.24-py3-none-any.whl (128 kB)
+Requirement already satisfied: tzdata==2025.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2621)) (2025.2)
+Requirement already satisfied: urllib3==2.4.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2625)) (2.4.0)
+Requirement already satisfied: uvicorn==0.27.1 in ./venv/lib/python3.11/site-packages (from uvicorn[standard]==0.27.1->-r requirements.txt (line 2632)) (0.27.1)
+Requirement already satisfied: uvloop==0.21.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2636)) (0.21.0)
+Collecting watchfiles==1.0.5 (from -r requirements.txt (line 2675))
+  Using cached watchfiles-1.0.5-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (454 kB)
+Requirement already satisfied: websockets==15.0.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2748)) (15.0.1)
+Requirement already satisfied: wrapt==1.17.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2819)) (1.17.2)
+Requirement already satisfied: xxhash==3.5.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2903)) (3.5.0)
+Requirement already satisfied: yarl==1.20.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 3030)) (1.20.0)
+Requirement already satisfied: zipp==3.22.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 3136)) (3.22.0)
+Requirement already satisfied: zstandard==0.23.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 3140)) (0.23.0)
+Installing collected packages: nvidia-cudnn-cu12, numba, multiprocess, markdown-it-py, jsonpatch, jinja2, importlib-metadata, httpcore, googleapis-common-protos, gekko, deprecation, deprecated, coloredlogs, cffi, astroid, anyio, aiosignal, watchfiles, tsaug, starlette, soundfile, rich, requests-toolbelt, pynacl, pylint, pydantic, pandas, opentelemetry-exporter-otlp-proto-common, opentelemetry-api, onnxruntime, nvidia-cusolver-cu12, jsonschema-specifications, huggingface-hub, httpx, cryptography, aiohttp, tyro, torch, tokenizers, prometheus-fastapi-instrumentator, opentelemetry-semantic-conventions, langsmith, langgraph-sdk, lancedb, jsonschema, fastapi, transformers, pygithub, opentelemetry-sdk, opentelemetry-instrumentation, langchain-core, datasets, bitsandbytes, accelerate, trl, peft, outlines, opentelemetry-instrumentation-logging, opentelemetry-instrumentation-asgi, opentelemetry-exporter-otlp-proto-http, opentelemetry-exporter-otlp-proto-grpc, langgraph-checkpoint, optimum, opentelemetry-instrumentation-fastapi, opentelemetry-exporter-otlp, langgraph-prebuilt, auto-gptq, langgraph
+ERROR: Operation cancelled by user
+Traceback (most recent call last):
+  File "/workspace/82edge_osiris/venv/bin/pip", line 8, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/cli/main.py", line 79, in main
+    return command.main(cmd_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/cli/base_command.py", line 101, in main
+    return self._main(args)
+           ^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/cli/base_command.py", line 236, in _main
+    self.handle_pip_version_check(options)
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/cli/req_command.py", line 188, in handle_pip_version_check
+    pip_self_version_check(session, options)
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/self_outdated_check.py", line 236, in pip_self_version_check
+    upgrade_prompt = _self_version_check_logic(
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/self_outdated_check.py", line 199, in _self_version_check_logic
+    remote_version_str = get_remote_version()
+                         ^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/self_outdated_check.py", line 183, in _get_current_remote_pip_version
+    best_candidate = finder.find_best_candidate("pip").best_candidate
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/index/package_finder.py", line 890, in find_best_candidate
+    candidates = self.find_all_candidates(project_name)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/index/package_finder.py", line 831, in find_all_candidates
+    page_candidates = list(page_candidates_it)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/index/sources.py", line 194, in page_candidates
+    yield from self._candidates_from_page(self._link)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/index/package_finder.py", line 791, in process_project_url
+    index_response = self._link_collector.fetch_response(project_url)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/index/collector.py", line 461, in fetch_response
+    return _get_index_content(location, session=self.session)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/index/collector.py", line 364, in _get_index_content
+    resp = _get_simple_response(url, session=session)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/index/collector.py", line 135, in _get_simple_response
+    resp = session.get(
+           ^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_vendor/requests/sessions.py", line 602, in get
+    return self.request("GET", url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/network/session.py", line 520, in request
+    return super().request(method, url, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_vendor/requests/sessions.py", line 589, in request
+    resp = self.send(prep, **send_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_vendor/requests/sessions.py", line 703, in send
+    r = adapter.send(request, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_vendor/cachecontrol/adapter.py", line 76, in send
+    resp = super().send(request, stream, timeout, verify, cert, proxies)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_vendor/requests/adapters.py", line 538, in send
+    return self.build_response(request, resp)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_vendor/cachecontrol/adapter.py", line 106, in build_response
+    cached_response = self.controller.update_cached_response(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_vendor/cachecontrol/controller.py", line 492, in update_cached_response
+    self._cache_set(cache_url, request, cached_response)
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_vendor/cachecontrol/controller.py", line 301, in _cache_set
+    self.cache.set(
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/network/cache.py", line 86, in set
+    self._write(path, value)
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/network/cache.py", line 77, in _write
+    with adjacent_tmp_file(path) as f:
+  File "/root/.pyenv/versions/3.11.12/lib/python3.11/contextlib.py", line 144, in __exit__
+    next(self.gen)
+  File "/workspace/82edge_osiris/venv/lib/python3.11/site-packages/pip/_internal/utils/filesystem.py", line 65, in adjacent_tmp_file
+    os.fsync(result.fileno())
+KeyboardInterrupt
+Collecting accelerate==0.27.2 (from -r requirements.txt (line 7))
+  Using cached accelerate-0.27.2-py3-none-any.whl (279 kB)
+Requirement already satisfied: aiohappyeyeballs==2.6.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 15)) (2.6.1)
+Requirement already satisfied: aiohttp==3.12.9 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 19)) (3.12.9)
+Requirement already satisfied: aiosignal==1.3.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 109)) (1.3.2)
+Requirement already satisfied: annotated-types==0.7.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 113)) (0.7.0)
+Requirement already satisfied: anyio==4.9.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 117)) (4.9.0)
+Requirement already satisfied: asgiref==3.8.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 124)) (3.8.1)
+Requirement already satisfied: astroid==2.15.8 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 128)) (2.15.8)
+Requirement already satisfied: attrs==25.3.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 132)) (25.3.0)
+Collecting auto-gptq==0.7.1 (from -r requirements.txt (line 139))
+  Using cached auto_gptq-0.7.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (23.5 MB)
+Collecting bitsandbytes==0.46.0 (from -r requirements.txt (line 150))
+  Using cached bitsandbytes-0.46.0-py3-none-manylinux_2_24_x86_64.whl (67.0 MB)
+Requirement already satisfied: certifi==2025.4.26 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 155)) (2025.4.26)
+Requirement already satisfied: cffi==1.17.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 163)) (1.17.1)
+Requirement already satisfied: charset-normalizer==3.4.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 235)) (3.4.2)
+Requirement already satisfied: click==8.2.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 329)) (8.2.1)
+Requirement already satisfied: cloudpickle==3.1.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 333)) (3.1.1)
+Requirement already satisfied: coloredlogs==15.0.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 337)) (15.0.1)
+Requirement already satisfied: cryptography==45.0.3 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 343)) (45.0.3)
+Collecting datasets==2.18.0 (from -r requirements.txt (line 382))
+  Using cached datasets-2.18.0-py3-none-any.whl (510 kB)
+Requirement already satisfied: deprecated==1.2.18 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 389)) (1.2.18)
+Requirement already satisfied: deprecation==2.1.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 393)) (2.1.0)
+Requirement already satisfied: dill==0.3.8 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 397)) (0.3.8)
+Requirement already satisfied: diskcache==5.6.3 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 404)) (5.6.3)
+Requirement already satisfied: docstring-parser==0.16 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 408)) (0.16)
+Collecting fastapi==0.109.2 (from -r requirements.txt (line 412))
+  Using cached fastapi-0.109.2-py3-none-any.whl (92 kB)
+Requirement already satisfied: filelock==3.18.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 416)) (3.18.0)
+Requirement already satisfied: flatbuffers==25.2.10 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 425)) (25.2.10)
+Requirement already satisfied: frozenlist==1.6.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 429)) (1.6.2)
+Requirement already satisfied: fsspec==2024.2.0 in ./venv/lib/python3.11/site-packages (from fsspec[http]==2024.2.0->-r requirements.txt (line 537)) (2024.2.0)
+Requirement already satisfied: gekko==1.3.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 544)) (1.3.0)
+Requirement already satisfied: googleapis-common-protos==1.70.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 548)) (1.70.0)
+Requirement already satisfied: grpcio==1.72.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 554)) (1.72.1)
+Requirement already satisfied: h11==0.16.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 607)) (0.16.0)
+Requirement already satisfied: httpcore==1.0.9 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 613)) (1.0.9)
+Requirement already satisfied: httptools==0.6.4 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 617)) (0.6.4)
+Requirement already satisfied: httpx==0.28.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 662)) (0.28.1)
+Requirement already satisfied: huggingface-hub==0.20.3 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 668)) (0.20.3)
+Requirement already satisfied: humanfriendly==10.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 679)) (10.0)
+Requirement already satisfied: idna==3.10 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 683)) (3.10)
+Requirement already satisfied: importlib-metadata==8.7.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 691)) (8.7.0)
+Requirement already satisfied: iniconfig==2.1.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 695)) (2.1.0)
+Requirement already satisfied: interegular==0.3.3 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 699)) (0.3.3)
+Requirement already satisfied: isort==5.13.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 703)) (5.13.2)
+Requirement already satisfied: jinja2==3.1.6 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 707)) (3.1.6)
+Requirement already satisfied: joblib==1.5.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 713)) (1.5.1)
+Requirement already satisfied: jsonpatch==1.33 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 717)) (1.33)
+Requirement already satisfied: jsonpointer==3.0.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 721)) (3.0.0)
+Collecting jsonschema==4.24.0 (from -r requirements.txt (line 725))
+  Using cached jsonschema-4.24.0-py3-none-any.whl (88 kB)
+Requirement already satisfied: jsonschema-specifications==2025.4.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 729)) (2025.4.1)
+Collecting lancedb==0.23.0 (from -r requirements.txt (line 733))
+  Using cached lancedb-0.23.0-cp39-abi3-manylinux_2_28_x86_64.whl (33.0 MB)
+Collecting langchain-core==0.3.64 (from -r requirements.txt (line 742))
+  Using cached langchain_core-0.3.64-py3-none-any.whl (438 kB)
+Collecting langgraph==0.4.8 (from -r requirements.txt (line 749))
+  Using cached langgraph-0.4.8-py3-none-any.whl (152 kB)
+Collecting langgraph-checkpoint==2.0.26 (from -r requirements.txt (line 753))
+  Using cached langgraph_checkpoint-2.0.26-py3-none-any.whl (44 kB)
+Collecting langgraph-prebuilt==0.2.2 (from -r requirements.txt (line 759))
+  Using cached langgraph_prebuilt-0.2.2-py3-none-any.whl (23 kB)
+Collecting langgraph-sdk==0.1.70 (from -r requirements.txt (line 763))
+  Using cached langgraph_sdk-0.1.70-py3-none-any.whl (49 kB)
+Collecting langsmith==0.3.45 (from -r requirements.txt (line 767))
+  Using cached langsmith-0.3.45-py3-none-any.whl (363 kB)
+Requirement already satisfied: lark==1.2.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 771)) (1.2.2)
+Requirement already satisfied: lazy-object-proxy==1.11.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 775)) (1.11.0)
+Requirement already satisfied: llvmlite==0.44.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 791)) (0.44.0)
+Requirement already satisfied: markdown-it-py==3.0.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 814)) (3.0.0)
+Requirement already satisfied: markupsafe==3.0.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 818)) (3.0.2)
+Requirement already satisfied: mccabe==0.7.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 881)) (0.7.0)
+Requirement already satisfied: mdurl==0.1.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 885)) (0.1.2)
+Requirement already satisfied: mpmath==1.3.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 889)) (1.3.0)
+Requirement already satisfied: multidict==6.4.4 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 893)) (6.4.4)
+Requirement already satisfied: multiprocess==0.70.16 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1001)) (0.70.16)
+Requirement already satisfied: nest-asyncio==1.6.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1015)) (1.6.0)
+Requirement already satisfied: networkx==3.5 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1019)) (3.5)
+Requirement already satisfied: numba==0.61.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1023)) (0.61.2)
+Requirement already satisfied: numpy==2.2.6 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1046)) (2.2.6)
+Requirement already satisfied: nvidia-cublas-cu12==12.1.3.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1120)) (12.1.3.1)
+Requirement already satisfied: nvidia-cuda-cupti-cu12==12.1.105 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1127)) (12.1.105)
+Requirement already satisfied: nvidia-cuda-nvrtc-cu12==12.1.105 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1131)) (12.1.105)
+Requirement already satisfied: nvidia-cuda-runtime-cu12==12.1.105 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1135)) (12.1.105)
+Requirement already satisfied: nvidia-cudnn-cu12==8.9.2.26 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1139)) (8.9.2.26)
+Requirement already satisfied: nvidia-cufft-cu12==11.0.2.54 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1142)) (11.0.2.54)
+Requirement already satisfied: nvidia-curand-cu12==10.3.2.106 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1146)) (10.3.2.106)
+Requirement already satisfied: nvidia-cusolver-cu12==11.4.5.107 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1150)) (11.4.5.107)
+Requirement already satisfied: nvidia-cusparse-cu12==12.1.0.106 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1154)) (12.1.0.106)
+Requirement already satisfied: nvidia-nccl-cu12==2.19.3 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1160)) (2.19.3)
+Requirement already satisfied: nvidia-nvjitlink-cu12==12.9.86 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1163)) (12.9.86)
+Requirement already satisfied: nvidia-nvtx-cu12==12.1.105 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1170)) (12.1.105)
+Requirement already satisfied: onnxruntime==1.22.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1174)) (1.22.0)
+Requirement already satisfied: opentelemetry-api==1.34.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1194)) (1.34.0)
+Collecting opentelemetry-exporter-otlp==1.34.0 (from -r requirements.txt (line 1207))
+  Using cached opentelemetry_exporter_otlp-1.34.0-py3-none-any.whl (7.0 kB)
+Requirement already satisfied: opentelemetry-exporter-otlp-proto-common==1.34.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1211)) (1.34.0)
+Collecting opentelemetry-exporter-otlp-proto-grpc==1.34.0 (from -r requirements.txt (line 1217))
+  Using cached opentelemetry_exporter_otlp_proto_grpc-1.34.0-py3-none-any.whl (18 kB)
+Collecting opentelemetry-exporter-otlp-proto-http==1.34.0 (from -r requirements.txt (line 1221))
+  Using cached opentelemetry_exporter_otlp_proto_http-1.34.0-py3-none-any.whl (17 kB)
+Collecting opentelemetry-instrumentation==0.55b0 (from -r requirements.txt (line 1227))
+  Using cached opentelemetry_instrumentation-0.55b0-py3-none-any.whl (31 kB)
+Collecting opentelemetry-instrumentation-asgi==0.55b0 (from -r requirements.txt (line 1234))
+  Using cached opentelemetry_instrumentation_asgi-0.55b0-py3-none-any.whl (16 kB)
+Collecting opentelemetry-instrumentation-fastapi==0.55b0 (from -r requirements.txt (line 1238))
+  Using cached opentelemetry_instrumentation_fastapi-0.55b0-py3-none-any.whl (12 kB)
+Collecting opentelemetry-instrumentation-logging==0.55b0 (from -r requirements.txt (line 1242))
+  Using cached opentelemetry_instrumentation_logging-0.55b0-py3-none-any.whl (12 kB)
+Requirement already satisfied: opentelemetry-proto==1.34.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1246)) (1.34.0)
+Collecting opentelemetry-sdk==1.34.0 (from -r requirements.txt (line 1253))
+  Using cached opentelemetry_sdk-1.34.0-py3-none-any.whl (118 kB)
+Collecting opentelemetry-semantic-conventions==0.55b0 (from -r requirements.txt (line 1260))
+  Using cached opentelemetry_semantic_conventions-0.55b0-py3-none-any.whl (196 kB)
+Requirement already satisfied: opentelemetry-util-http==0.55b0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1268)) (0.55b0)
+Collecting optimum==1.19.0 (from -r requirements.txt (line 1274))
+  Using cached optimum-1.19.0-py3-none-any.whl (417 kB)
+Requirement already satisfied: orjson==3.10.18 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1278)) (3.10.18)
+Requirement already satisfied: ormsgpack==1.10.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1354)) (1.10.0)
+Collecting outlines==0.0.36 (from -r requirements.txt (line 1397))
+  Using cached outlines-0.0.36-py3-none-any.whl (79 kB)
+Requirement already satisfied: overrides==7.7.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1401)) (7.7.0)
+Requirement already satisfied: packaging==24.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1405)) (24.2)
+Requirement already satisfied: pandas==2.3.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1422)) (2.3.0)
+Collecting peft==0.13.2 (from -r requirements.txt (line 1466))
+  Using cached peft-0.13.2-py3-none-any.whl (320 kB)
+Requirement already satisfied: platformdirs==4.3.8 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1472)) (4.3.8)
+Requirement already satisfied: pluggy==1.6.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1476)) (1.6.0)
+Requirement already satisfied: prometheus-client==0.22.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1480)) (0.22.1)
+Collecting prometheus-fastapi-instrumentator==7.1.0 (from -r requirements.txt (line 1484))
+  Using cached prometheus_fastapi_instrumentator-7.1.0-py3-none-any.whl (19 kB)
+Requirement already satisfied: propcache==0.3.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1488)) (0.3.1)
+Requirement already satisfied: protobuf==5.29.5 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1590)) (5.29.5)
+Requirement already satisfied: psutil==7.0.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1607)) (7.0.0)
+Requirement already satisfied: pyarrow==20.0.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1621)) (20.0.0)
+Requirement already satisfied: pyarrow-hotfix==0.7 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1681)) (0.7)
+Requirement already satisfied: pycparser==2.22 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1685)) (2.22)
+Requirement already satisfied: pydantic==2.11.5 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1689)) (2.11.5)
+Requirement already satisfied: pydantic-core==2.33.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1700)) (2.33.2)
+Collecting pygithub==2.6.1 (from -r requirements.txt (line 1801))
+  Using cached PyGithub-2.6.1-py3-none-any.whl (410 kB)
+Requirement already satisfied: pygments==2.19.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1805)) (2.19.1)
+Requirement already satisfied: pyinstrument==5.0.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1811)) (5.0.2)
+Requirement already satisfied: pyjwt==2.10.1 in ./venv/lib/python3.11/site-packages (from pyjwt[crypto]==2.10.1->-r requirements.txt (line 1886)) (2.10.1)
+Requirement already satisfied: pylint==2.17.7 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1890)) (2.17.7)
+Requirement already satisfied: pynacl==1.5.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1894)) (1.5.0)
+Requirement already satisfied: pytest==8.4.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1906)) (8.4.0)
+Requirement already satisfied: python-dateutil==2.9.0.post0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1910)) (2.9.0.post0)
+Requirement already satisfied: python-dotenv==1.1.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1914)) (1.1.0)
+Requirement already satisfied: pytz==2025.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1920)) (2025.2)
+Requirement already satisfied: pyyaml==6.0.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1924)) (6.0.2)
+Requirement already satisfied: referencing==0.36.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1986)) (0.36.2)
+Requirement already satisfied: regex==2024.11.6 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 1993)) (2024.11.6)
+Requirement already satisfied: requests==2.32.3 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2089)) (2.32.3)
+Requirement already satisfied: requests-toolbelt==1.0.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2102)) (1.0.0)
+Requirement already satisfied: rich==14.0.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2106)) (14.0.0)
+Requirement already satisfied: rouge==1.0.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2110)) (1.0.1)
+Requirement already satisfied: rpds-py==0.25.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2114)) (0.25.1)
+Requirement already satisfied: safetensors==0.5.3 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2235)) (0.5.3)
+Requirement already satisfied: scipy==1.15.3 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2256)) (1.15.3)
+Requirement already satisfied: sentencepiece==0.1.99 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2306)) (0.1.99)
+Requirement already satisfied: sentry-sdk==2.29.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2356)) (2.29.1)
+Requirement already satisfied: shtab==1.7.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2360)) (1.7.2)
+Requirement already satisfied: six==1.17.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2364)) (1.17.0)
+Requirement already satisfied: sniffio==1.3.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2370)) (1.3.1)
+Requirement already satisfied: soundfile==0.13.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2374)) (0.13.1)
+Requirement already satisfied: starlette==0.36.3 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2384)) (0.36.3)
+Requirement already satisfied: sympy==1.14.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2390)) (1.14.0)
+Requirement already satisfied: tenacity==9.1.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2397)) (9.1.2)
+Collecting tokenizers==0.15.2 (from -r requirements.txt (line 2401))
+  Using cached tokenizers-0.15.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (3.6 MB)
+Requirement already satisfied: tomlkit==0.13.3 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2513)) (0.13.3)
+Requirement already satisfied: torch==2.2.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2517)) (2.2.2)
+Requirement already satisfied: tqdm==4.67.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2552)) (4.67.1)
+Collecting transformers==4.38.2 (from transformers[sentencepiece]==4.38.2->-r requirements.txt (line 2562))
+  Using cached transformers-4.38.2-py3-none-any.whl (8.5 MB)
+Requirement already satisfied: triton==2.2.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2572)) (2.2.0)
+Collecting trl==0.10.1 (from -r requirements.txt (line 2580))
+  Using cached trl-0.10.1-py3-none-any.whl (280 kB)
+Requirement already satisfied: tsaug==0.2.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2584)) (0.2.1)
+Requirement already satisfied: typeguard==4.4.3 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2588)) (4.4.3)
+Requirement already satisfied: typing-extensions==4.14.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2592)) (4.14.0)
+Requirement already satisfied: typing-inspection==0.4.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2613)) (0.4.1)
+Requirement already satisfied: tyro==0.9.24 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2617)) (0.9.24)
+Requirement already satisfied: tzdata==2025.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2621)) (2025.2)
+Requirement already satisfied: urllib3==2.4.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2625)) (2.4.0)
+Requirement already satisfied: uvicorn==0.27.1 in ./venv/lib/python3.11/site-packages (from uvicorn[standard]==0.27.1->-r requirements.txt (line 2632)) (0.27.1)
+Requirement already satisfied: uvloop==0.21.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2636)) (0.21.0)
+Requirement already satisfied: watchfiles==1.0.5 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2675)) (1.0.5)
+Requirement already satisfied: websockets==15.0.1 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2748)) (15.0.1)
+Requirement already satisfied: wrapt==1.17.2 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2819)) (1.17.2)
+Requirement already satisfied: xxhash==3.5.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 2903)) (3.5.0)
+Requirement already satisfied: yarl==1.20.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 3030)) (1.20.0)
+Requirement already satisfied: zipp==3.22.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 3136)) (3.22.0)
+Requirement already satisfied: zstandard==0.23.0 in ./venv/lib/python3.11/site-packages (from -r requirements.txt (line 3140)) (0.23.0)
+Installing collected packages: tokenizers, prometheus-fastapi-instrumentator, opentelemetry-semantic-conventions, langsmith, langgraph-sdk, lancedb, jsonschema, fastapi, transformers, pygithub, opentelemetry-sdk, opentelemetry-instrumentation, langchain-core, datasets, bitsandbytes, accelerate, trl, peft, outlines, opentelemetry-instrumentation-logging, opentelemetry-instrumentation-asgi, opentelemetry-exporter-otlp-proto-http, opentelemetry-exporter-otlp-proto-grpc, langgraph-checkpoint, optimum, opentelemetry-instrumentation-fastapi, opentelemetry-exporter-otlp, langgraph-prebuilt, auto-gptq, langgraph
+Successfully installed accelerate-0.27.2 auto-gptq-0.7.1 bitsandbytes-0.46.0 datasets-2.18.0 fastapi-0.109.2 jsonschema-4.24.0 lancedb-0.23.0 langchain-core-0.3.64 langgraph-0.4.8 langgraph-checkpoint-2.0.26 langgraph-prebuilt-0.2.2 langgraph-sdk-0.1.70 langsmith-0.3.45 opentelemetry-exporter-otlp-1.34.0 opentelemetry-exporter-otlp-proto-grpc-1.34.0 opentelemetry-exporter-otlp-proto-http-1.34.0 opentelemetry-instrumentation-0.55b0 opentelemetry-instrumentation-asgi-0.55b0 opentelemetry-instrumentation-fastapi-0.55b0 opentelemetry-instrumentation-logging-0.55b0 opentelemetry-sdk-1.34.0 opentelemetry-semantic-conventions-0.55b0 optimum-1.19.0 outlines-0.0.36 peft-0.13.2 prometheus-fastapi-instrumentator-7.1.0 pygithub-2.6.1 tokenizers-0.15.2 transformers-4.38.2 trl-0.10.1
+
+[notice] A new release of pip is available: 24.0 -> 25.1.1
+[notice] To update, run: pip install --upgrade pip
