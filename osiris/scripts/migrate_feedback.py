@@ -2,6 +2,7 @@ import json
 import lancedb
 import os
 import pyarrow as pa
+from packaging import version
 from typing import Any, Dict, List
 
 # Define the target pyarrow schema for the migrated table.
@@ -63,8 +64,9 @@ def migrate_data():
     for record in records:
         record_dict = dict(record)
 
-        # Ensure schema_version is present and set to "1.0".
-        if record_dict.get("schema_version") is None or record_dict.get("schema_version") != "1.0":
+        # Ensure schema_version is present and at least 1.0.
+        rec_ver = record_dict.get("schema_version")
+        if rec_ver is None or version.parse(str(rec_ver)) < version.parse("1.0"):
             record_dict["schema_version"] = "1.0"
 
         # Ensure 'corrected_proposal' is a JSON string.
@@ -92,13 +94,19 @@ def migrate_data():
         print(f"FATAL: Error deleting original table '{original_table_name}'. Error: {e}")
         return
 
-    # Step 5: Re-create the table with the same name, now using the processed data
-    # and enforcing the final, strict schema.
+    # Step 5: Re-create the table with the same name using a schema derived from the original
     try:
+        try:
+            arrow_schema = original_table.schema.to_arrow_schema()
+            if "schema_version" not in arrow_schema.names:
+                arrow_schema = arrow_schema.append(pa.field("schema_version", pa.string()))
+        except Exception:
+            arrow_schema = final_schema
+
         db.create_table(
             original_table_name,
             data=processed_records,
-            schema=final_schema,
+            schema=arrow_schema,
             mode="overwrite",
         )
         print(
