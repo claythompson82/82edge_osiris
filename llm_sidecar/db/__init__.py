@@ -116,8 +116,10 @@ def add_to_table(
         row = data
     elif hasattr(data, "model_dump"):
         row = data.model_dump(by_alias=True)
-    else:
+    elif hasattr(data, "dict"):
         row = data.dict(by_alias=True)
+    else:
+        row = data
     # Convert UUIDs to strings for storage compatibility
     for key, value in row.items():
         if isinstance(value, uuid.UUID):
@@ -131,8 +133,19 @@ def add_to_table(
 
 
 # --- Specific Data Logging Functions ---
-def append_feedback(feedback_data: Phi3FeedbackSchema) -> None:
-    """Log feedback data."""
+def append_feedback(feedback_data: Phi3FeedbackSchema | Dict[str, Any]) -> None:
+    """Log feedback data.
+
+    Ensure ``feedback_data`` is a :class:`Phi3FeedbackSchema` instance before
+    passing it to :func:`add_to_table`.  This guards against callers providing
+    a plain ``dict`` (as done by the legacy ``submit_phi3_feedback`` helper),
+    which would otherwise cause ``add_to_table`` to access ``dict`` methods on
+    the raw dictionary and fail.
+    """
+
+    if isinstance(feedback_data, dict):
+        feedback_data = Phi3FeedbackSchema(**feedback_data)
+
     add_to_table("phi3_feedback", feedback_data)
 
 
