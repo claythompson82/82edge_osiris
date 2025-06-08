@@ -116,8 +116,10 @@ def add_to_table(
         row = data
     elif hasattr(data, "model_dump"):
         row = data.model_dump(by_alias=True)
-    else:
+    elif hasattr(data, "dict"):
         row = data.dict(by_alias=True)
+    else:
+        row = data
     # Convert UUIDs to strings for storage compatibility
     for key, value in row.items():
         if isinstance(value, uuid.UUID):
