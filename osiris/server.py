@@ -223,6 +223,57 @@ def _load_recent_feedback(max_examples: int = 3) -> List[Dict[str, Any]]:
 load_recent_feedback = _load_recent_feedback
 
 # ---------------------------------------------------------------------
+# Generation helpers
+# ---------------------------------------------------------------------
+
+async def _generate_phi3_json(
+    prompt: str,
+    max_length: int,
+    model=None,
+    tokenizer=None,
+) -> Dict[str, Any]:
+    """Generate a JSON proposal with Phi-3, optionally augmenting the prompt."""
+    if model is None or tokenizer is None:
+        model, tokenizer = get_phi3_model_and_tokenizer()
+
+    schema = json.loads(JSON_SCHEMA_STR)
+    if outlines_generate is None:
+        raise RuntimeError("outlines library not available")
+
+    generator = outlines_generate.json(model, schema, tokenizer=tokenizer)
+
+    feedback_items = load_recent_feedback(max_examples=3)
+    if feedback_items:
+        examples = "\n".join(
+            json.dumps(item["corrected_proposal"], indent=2)
+            for item in feedback_items
+            if isinstance(item.get("corrected_proposal"), dict)
+        )
+        prompt = (
+            "Based on past feedback, here are examples of desired JSON outputs:\n"
+            f"{examples}\n\nNow, considering the above, please process the following request:\n{prompt}"
+        )
+
+    return await generator(prompt, max_tokens=max_length)
+
+
+async def _generate_hermes_text(
+    prompt: str,
+    max_length: int,
+    model=None,
+    tokenizer=None,
+) -> str:
+    """Generate text with Hermes. Real logic is stubbed for tests."""
+    if model is None or tokenizer is None:
+        model, tokenizer = get_hermes_model_and_tokenizer()
+
+    if outlines_generate is None:
+        raise RuntimeError("outlines library not available")
+
+    generator = outlines_generate.text(model, tokenizer=tokenizer)
+    return await generator(prompt, max_tokens=max_length)
+
+# ---------------------------------------------------------------------
 # End-points
 # ---------------------------------------------------------------------
 async def audio_byte_stream_generator(request: Request):
@@ -262,12 +313,76 @@ async def submit_phi3_feedback(feedback: FeedbackItem):
             "transaction_id": feedback.transaction_id,
         }
     except Exception as e:
-        logger.error(f"Error submitting feedback or publishing event for {feedback.transaction_id}: {e}")
+        logger.error(
+            f"Error submitting feedback or publishing event for {feedback.transaction_id}: {e}"
+        )
         raise HTTPException(status_code=500, detail=f"Failed to process feedback: {e}")
 
-# ... (omitting other endpoints for brevity, assuming they are correct) ...
-# You would paste the full content of your other endpoints like /generate/, /score/hermes/, etc. here.
-# For now, I'll add back the health endpoint as it's small.
+
+@app.post("/generate/", tags=["strategy"])
+async def generate(request: UnifiedPromptRequest):
+    """Unified text/JSON generation endpoint."""
+    if request.model_id == "hermes":
+        model, tokenizer = get_hermes_model_and_tokenizer()
+        text = await _generate_hermes_text(request.prompt, request.max_length, model, tokenizer)
+        return {"generated_text": text}
+    elif request.model_id == "phi3":
+        model, tokenizer = get_phi3_model_and_tokenizer()
+        return await _generate_phi3_json(request.prompt, request.max_length, model, tokenizer)
+    else:
+        raise HTTPException(status_code=422, detail="Invalid model_id")
+
+
+@app.post("/propose_trade_adjustments/", tags=["strategy"])
+async def propose_trade_adjustments(request: PromptRequest):
+    """Generate a Phi-3 proposal and Hermes assessment, logging both."""
+    phi3_model, phi3_tokenizer = get_phi3_model_and_tokenizer()
+    hermes_model, hermes_tokenizer = get_hermes_model_and_tokenizer()
+
+    phi3_proposal = await _generate_phi3_json(request.prompt, request.max_length, phi3_model, phi3_tokenizer)
+
+    hermes_prompt = json.dumps(phi3_proposal, indent=2)
+    hermes_assessment = await _generate_hermes_text(hermes_prompt, request.max_length, hermes_model, hermes_tokenizer)
+
+    log_entry = {
+        "transaction_id": str(uuid.uuid4()),
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "phi3_proposal": phi3_proposal,
+        "hermes_assessment": hermes_assessment,
+    }
+
+    with open(PHI3_FEEDBACK_LOG_FILE, "a") as f:
+        json.dump(log_entry, f)
+        f.write("\n")
+
+    if getattr(event_bus, "pubsub", None):
+        await event_bus.publish("phi3.proposal.created", json.dumps(phi3_proposal))
+        await event_bus.publish(
+            "phi3.proposal.assessed",
+            json.dumps({"proposal": phi3_proposal, "assessment": hermes_assessment}),
+        )
+
+    return {"phi3_proposal": phi3_proposal, "hermes_assessment": hermes_assessment}
+
+
+@app.post("/score/hermes/", tags=["strategy"])
+async def score_proposal_with_hermes(request: ScoreRequest):
+    try:
+        score = score_with_hermes(request.proposal, request.context)
+        db.log_hermes_score({"proposal": request.proposal, "score": score})
+        return {"proposal_id": request.proposal.get("id", str(uuid.uuid4())), "score": score}
+    except Exception as e:
+        logger.error(f"Error scoring proposal with Hermes: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to score proposal: {e}")
+
+
+@app.post("/speak", tags=["tts"])
+async def speak(request: SpeakRequest):
+    audio_bytes = tts_model.synth(request.text, exaggeration=request.exaggeration, ref_wav_b64=request.ref_wav_b64)
+    return Response(content=audio_bytes, media_type="audio/wav")
+
+
+# For now, keep the health endpoint as it's small.
 
 @app.get("/health", tags=["meta"])
 async def health():
