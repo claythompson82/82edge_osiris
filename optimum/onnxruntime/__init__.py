@@ -1,2 +1,4 @@
 class ORTModelForCausalLM:
-    pass
+    @classmethod
+    def from_pretrained(cls, *args, **kwargs):
+        pass
