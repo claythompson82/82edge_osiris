@@ -6,6 +6,7 @@ import asyncio
 from unittest.mock import patch, mock_open, MagicMock, call, ANY
 import pytest
 import sys
+import pytest
 
 sys.modules.setdefault("sentry_sdk", MagicMock())
 
