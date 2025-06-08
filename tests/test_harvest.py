@@ -3,10 +3,9 @@ import sys
 import json
 import unittest
 from pathlib import Path
-from unittest.mock import patch, mock_open
-import pyarrow as pa
+from unittest.mock import patch
 import lancedb
-from lancedb.pydantic import LanceModel, Vector
+from lancedb.pydantic import LanceModel
 
 # Ensure the project root is on the path so test modules can import project code
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
