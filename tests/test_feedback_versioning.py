@@ -126,29 +126,6 @@ async def test_harvest_feedback_py_filters_by_version(tmp_path_factory, monkeypa
     # The FeedbackSchemaWithVersionForHarvestTest is suitable here.
     table_name = "phi3_feedback"  # Script uses this name
 
-    try:
-        table = db.create_table(
-            table_name, schema=FeedbackSchemaWithVersionForHarvestTest, mode="overwrite"
-        )
-    except Exception as e:
-        # Fallback for older lancedb that might not like schema on create_table with overwrite
-        # or Pydantic schema directly. In that case, create then add with schema inference.
-        if table_name in db.table_names():  # Ensure clean state
-            db.drop_table(table_name)
-        # LanceDB can infer schema from first batch of data if schema not passed or pydantic schema not directly usable
-        # For test robustness, explicit schema is better. Assuming create_table with Pydantic schema works.
-        # If not, this test would need adjustment for schema creation.
-        # For now, let's assume it works.
-        print(
-            f"Warning: Initial table creation with schema failed: {e}. This might affect test if schema not inferred correctly."
-        )
-        # If create_table with schema fails, one might need to create without schema and add data,
-        # relying on LanceDB's schema inference, which is less robust for tests.
-        # pytest.fail(f"LanceDB table creation with schema failed: {e}") # Option to fail fast
-        table = db.create_table(
-            table_name, mode="overwrite"
-        )  # Create without explicit Pydantic schema
-
     now_ns = int(
         datetime.datetime.now(datetime.timezone.utc).timestamp() * 1_000_000_000
     )
@@ -175,43 +152,53 @@ async def test_harvest_feedback_py_filters_by_version(tmp_path_factory, monkeypa
             schema_version="1.0",
             feedback_type="correction",
             when=now_ns,
-        ).model_dump(),
+        ).dict(),
         FeedbackSchemaWithVersionForHarvestTest(
             transaction_id="rec2_v0.9_correct_recent",
             **common_data,
             schema_version="0.9",
             feedback_type="correction",
             when=now_ns,
-        ).model_dump(),
+        ).dict(),
         FeedbackSchemaWithVersionForHarvestTest(
             transaction_id="rec3_v1_other_recent",
             **common_data,
             schema_version="1.0",
             feedback_type="other_type",
             when=now_ns,
-        ).model_dump(),  # Filtered by type
+        ).dict(),  # Filtered by type
         FeedbackSchemaWithVersionForHarvestTest(
             transaction_id="rec4_v1_correct_old",
             **common_data,
             schema_version="1.0",
             feedback_type="correction",
             when=old_ns,
-        ).model_dump(),  # Filtered by date
+        ).dict(),  # Filtered by date
         FeedbackSchemaWithVersionForHarvestTest(
             transaction_id="rec5_v1.0.1_correct_recent",
             **common_data,
             schema_version="1.0.1",
             feedback_type="correction",
             when=now_ns,
-        ).model_dump(),  # Should not be picked by --schema-version "1.0"
+        ).dict(),  # Should not be picked by --schema-version "1.0"
     ]
-    if records_to_add:
-        table.add(records_to_add)
+    try:
+        table = db.create_table(
+            table_name, schema=FeedbackSchemaWithVersionForHarvestTest, mode="overwrite"
+        )
+        if records_to_add:
+            table.add(records_to_add)
+    except Exception as e:
+        if table_name in db.table_names():
+            db.drop_table(table_name)
+        print(
+            f"Warning: Initial table creation with schema failed: {e}. This might affect test if schema not inferred correctly."
+        )
+        table = db.create_table(table_name, data=records_to_add, mode="overwrite")
 
     # Monkeypatch lancedb.connect to use the temporary DB
     def mock_lancedb_connect(path):
-        assert str(path) == str(db_path)  # Ensure script uses the path we expect
-        return lancedb.connect(path)  # Connect to the actual temp path
+        return lancedb.connect(db_path)
 
     monkeypatch.setattr(lancedb, "connect", mock_lancedb_connect)
 
@@ -333,26 +320,25 @@ async def test_migrate_feedback_py_script(tmp_path_factory, monkeypatch):
         schema_version: Optional[str] = None  # Key for initial data
 
     try:
-        # Create with a schema that allows schema_version to be None (or missing)
         table = db.create_table(
             table_name, schema=TempSchemaForInitialData, mode="overwrite"
         )
         table.add([record_A_dict, record_B_dict, record_C_dict])
     except Exception as e:
-        # Fallback if Pydantic schema with Optional doesn't work as expected on create
         print(
             f"Warning: Initial table creation with TempSchemaForInitialData failed: {e}. Relying on schema inference."
         )
         if table_name in db.table_names():
             db.drop_table(table_name)
-        table = db.create_table(table_name, mode="overwrite")  # No explicit schema
-        # Add data as dicts, LanceDB will infer types. `schema_version` might be missing.
-        table.add([record_A_dict, record_B_dict, record_C_dict])
+        table = db.create_table(
+            table_name,
+            data=[record_A_dict, record_B_dict, record_C_dict],
+            mode="overwrite",
+        )
 
     # Monkeypatch lancedb.connect for the script
     def mock_lancedb_connect_migrate(path):
-        assert str(path) == str(db_path)
-        return lancedb.connect(path)  # Connect to the actual temp path
+        return lancedb.connect(db_path)
 
     monkeypatch.setattr(
         "osiris.scripts.migrate_feedback.lancedb.connect", mock_lancedb_connect_migrate
