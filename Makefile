@@ -15,7 +15,7 @@ dev-shell:
 	dotenv -f .env -- poetry shell
 
 openapi:
-	PYTHONPATH=. python scripts/generate_openapi.py
+        PYTHONPATH=src python scripts/generate_openapi.py
 
 # Example usage:
 # make rebuild
@@ -42,7 +42,7 @@ clean:
 
 # Start the LLM sidecar with hot reloading
 run-dev-sidecar:
-	OSIRIS_SIDECAR_URL=http://localhost:8000 uvicorn llm_sidecar.server:app --reload
+        PYTHONPATH=src OSIRIS_SIDECAR_URL=http://localhost:8000 uvicorn llm_sidecar.server:app --reload
 
 # Serve documentation locally
 docs-serve:

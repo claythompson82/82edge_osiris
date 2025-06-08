@@ -8,7 +8,7 @@ The diagram below (`arch_v2.drawio.svg`) visualises these relationships.
 
 ## Core Components:
 
-1.  **LLM Sidecar ([server.py](../llm_sidecar/server.py)) Container:**
+1.  **LLM Sidecar ([server.py](../src/llm_sidecar/server.py)) Container:**
     *   Hosts multiple Large Language Models.
     *   Exposes HTTP RESTful API endpoints for synchronous interactions.
     *   Interacts with the Redis Bus for asynchronous event handling (subscribing to specific events).

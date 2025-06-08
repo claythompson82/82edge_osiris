@@ -7,6 +7,7 @@ name = "osiris"
 version = "0.0.0"
 
 [tool.setuptools.packages.find]
+where = ["src"]
 include = ["osiris*", "llm_sidecar*", "osiris_policy*"]
 
 [tool.black]
@@ -31,7 +32,7 @@ tag_format = "v{version}"
 # Specifies that pytest should look for modules starting in the root directory.
 # This is critical for resolving ModuleNotFoundError issues during test collection.
 pythonpath = [
-  "."
+  "src"
 ]
 # Configures the default scope for asyncio test fixtures.
 asyncio_default_fixture_loop_scope = "function"

@@ -126,7 +126,7 @@ The `.env.template` file documents all configurable variables. Copy it to `.env`
 ## Hot reload
 For rapid iteration, run the sidecar directly with uvicorn:
 ```bash
-OSIRIS_SIDECAR_URL=http://localhost:8000 uvicorn llm_sidecar.server:app --reload
+PYTHONPATH=src OSIRIS_SIDECAR_URL=http://localhost:8000 uvicorn llm_sidecar.server:app --reload
 ```
 Code changes are reloaded automatically so you can test API tweaks without rebuilding Docker images.
 
