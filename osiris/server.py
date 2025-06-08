@@ -407,7 +407,7 @@ async def health():
         "status": status,
         "hermes_loaded": hermes_ok,
         "phi3_loaded": phi3_ok,
-        "phi3_adapter_date": loader.phi3_adapter_date,
+        "phi3_adapter_date": phi3_adapter_date,
     }
 
     try:
