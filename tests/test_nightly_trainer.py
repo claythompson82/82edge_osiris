@@ -20,6 +20,7 @@ def test_driver_marketforge_task_set():
     candidate_paths = [
         repo_root / "nightly_trainer" / "driver.py",
         repo_root / "scripts" / "nightly_trainer" / "driver.py",
+        repo_root.parent / "nightly_trainer" / "driver.py",
     ]
 
     driver_script_path = next((p for p in candidate_paths if p.exists()), None)
