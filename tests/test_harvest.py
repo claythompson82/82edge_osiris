@@ -25,7 +25,7 @@ class TestHarvestFeedback(unittest.TestCase):
             assessment: str
             proposal: str
             corrected_proposal: str
-            when: str
+            when: int
             user_id: str
             schema_version: str
 
@@ -44,7 +44,7 @@ class TestHarvestFeedback(unittest.TestCase):
                 "assessment": "good",
                 "proposal": "p1",
                 "corrected_proposal": "",
-                "when": "2025-06-07T12:00:00Z",
+                "when": 1749297600000000000,
                 "user_id": "user1",
                 "schema_version": "1.0",
             },
@@ -54,7 +54,7 @@ class TestHarvestFeedback(unittest.TestCase):
                 "assessment": "",
                 "proposal": "p2",
                 "corrected_proposal": '{"action": "BUY"}',
-                "when": "2025-06-07T13:00:00Z",
+                "when": 1749301200000000000,
                 "user_id": "user1",
                 "schema_version": "1.0",
             },
