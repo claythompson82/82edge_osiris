@@ -23,6 +23,7 @@ import asyncio  # Added for event handlers, though not strictly necessary if not
 import logging  # Added for consistency
 import base64
 import sentry_sdk
+import anyio._backends._asyncio  # Preload for tests
 
 try:
     from sentry_sdk.integrations.logging import LoggingIntegration
@@ -742,21 +743,19 @@ async def speak(req: SpeakRequest):
 async def submit_phi3_feedback(
     feedback: FeedbackItem,
 ):  # Renamed from submit_feedback to submit_phi3_feedback as per issue
-    feedback.timestamp = datetime.datetime.utcnow().isoformat()
+    feedback.timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
     if hasattr(feedback, "model_dump"):
         feedback_dict = feedback.model_dump()
     else:
         feedback_dict = feedback.dict()
 
     try:
-        # Original append_feedback call
-        legacy_db.append_feedback(feedback_dict)  # Using legacy namespace for tests
-
-        # Publish event after successful storage
-        await event_bus.publish("phi3.feedback.submitted", json.dumps(feedback_dict))
+        with open(PHI3_FEEDBACK_DATA_FILE, "a") as f:
+            f.write(json.dumps(feedback_dict))
+            f.write("\n")
 
         return {
-            "message": "Feedback stored in LanceDB and event published",
+            "message": "Feedback received successfully",
             "transaction_id": feedback.transaction_id,
         }
     except Exception as e:
