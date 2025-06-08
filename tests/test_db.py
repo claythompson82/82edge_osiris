@@ -126,7 +126,9 @@ class TestDbCLI(unittest.TestCase):
 
             output_stdout = captured_output_stdout.getvalue()
             # Pytest changes the program name in the usage string
-            self.assertIn("usage: pytest [-h]", output_stdout)
+            self.assertTrue(
+                output_stdout.startswith("usage: pytest [-h]")
+            )
             self.assertEqual(cm.exception.code, 0)
 
 
@@ -140,7 +142,9 @@ class TestDbCLI(unittest.TestCase):
                 lls_db.cli_main(["invalid-command"])
 
             output_stderr = captured_output_stderr.getvalue()
-            self.assertIn("usage: pytest [-h]", output_stderr)
+            self.assertTrue(
+                output_stderr.startswith("usage: pytest [-h]")
+            )
             self.assertIn("invalid choice: 'invalid-command'", output_stderr)
             self.assertEqual(cm.exception.code, 2)
 
