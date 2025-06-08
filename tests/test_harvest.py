@@ -13,11 +13,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-# Now that the path is set, we can import the script
-# Import the harvest_feedback module directly from the scripts directory
-scripts_dir = os.path.join(PROJECT_ROOT, "osiris", "scripts")
-if scripts_dir not in sys.path:
-    sys.path.insert(0, scripts_dir)
+# Now that the path is set, ensure the scripts directory is also available
+scripts_dir = PROJECT_ROOT / "osiris" / "scripts"
+if str(scripts_dir) not in sys.path:
+    sys.path.insert(0, str(scripts_dir))
 
 import harvest_feedback
 
