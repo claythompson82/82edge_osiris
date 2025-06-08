@@ -17,7 +17,6 @@ class FeedbackSchemaWithVersion(BaseModel):
 def migrate_data():
     db_path = "/app/lancedb_data"
     original_table_name = "phi3_feedback"
-    temp_table_name = "phi3_feedback_migrated"
 
     processed_count = 0
 
@@ -64,40 +63,7 @@ def migrate_data():
     processed_count = len(processed_records)
     print(f"Processed {processed_count} records. Added 'schema_version' where missing.")
 
-    # 4. If the temporary table already exists, delete it.
-    try:
-        if temp_table_name in db.table_names():
-            db.drop_table(temp_table_name)
-            print(f"Deleted existing temporary table '{temp_table_name}'.")
-    except Exception as e:
-        print(f"Error deleting existing temporary table '{temp_table_name}'. {e}")
-        return
-
-    # 5. Create the new temporary table with the defined schema
-    try:
-        temp_table = db.create_table(temp_table_name, schema=FeedbackSchemaWithVersion)
-        print(f"Created new temporary table '{temp_table_name}' with target schema.")
-    except Exception as e:
-        print(f"Error creating temporary table '{temp_table_name}'. {e}")
-        # Attempt to clean up if records were processed but table creation failed
-        if processed_count > 0 and temp_table_name in db.table_names():
-            db.drop_table(temp_table_name)
-        return
-
-    # 6. Add all processed records to this temporary table
-    if processed_records:
-        try:
-            temp_table.add(processed_records)
-            print(f"Added {len(processed_records)} records to '{temp_table_name}'.")
-        except Exception as e:
-            print(f"Error adding records to temporary table '{temp_table_name}'. {e}")
-            # Clean up by dropping the temp table if add fails
-            db.drop_table(temp_table_name)
-            return
-    else:
-        print("No records to add to the temporary table.")
-
-    # 7. Delete the original table
+    # 4. Replace the original table with the processed records
     try:
         if original_table_name in db.table_names():
             db.drop_table(original_table_name)
@@ -108,26 +74,15 @@ def migrate_data():
             )
     except Exception as e:
         print(f"Error deleting original table '{original_table_name}'. {e}")
-        # At this point, we have data in temp_table. Critical decision here.
-        # For safety, maybe we should not proceed with rename if old table deletion fails.
-        # However, if the old table was already gone, that's okay.
-        # The check `original_table_name in db.table_names()` handles the "already gone" case.
-        # If it exists and deletion fails, that's a more serious issue.
         return
 
-    # 8. Rename the temporary table to the original table name
     try:
-        db.rename_table(temp_table_name, original_table_name)
+        db.create_table(original_table_name, data=processed_records, mode="overwrite")
         print(
-            f"Renamed temporary table '{temp_table_name}' to '{original_table_name}'."
+            f"Created new table '{original_table_name}' with migrated records."
         )
     except Exception as e:
-        print(
-            f"Error renaming temporary table '{temp_table_name}' to '{original_table_name}'. {e}"
-        )
-        print(
-            f"CRITICAL: Data is now in '{temp_table_name}'. Manual intervention may be required."
-        )
+        print(f"Error creating migrated table '{original_table_name}'. {e}")
         return
 
     print(
