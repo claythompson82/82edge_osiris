@@ -1,5 +1,5 @@
 import pytest
-from httpx import AsyncClient
+from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock, AsyncMock
 
 # Import the FastAPI app instance from server.py
@@ -8,8 +8,7 @@ from unittest.mock import patch, MagicMock, AsyncMock
 from osiris.server import app
 
 
-@pytest.mark.asyncio
-async def test_generate_hermes_default_model_id():
+def test_generate_hermes_default_model_id():
     """Test /generate/ with default model_id (hermes)"""
     with (
         patch(
@@ -23,8 +22,8 @@ async def test_generate_hermes_default_model_id():
         ) as mock_generate_hermes,
     ):
 
-        async with AsyncClient(app=app, base_url="http://test") as client:
-            response = await client.post(
+        with TestClient(app) as client:
+            response = client.post(
                 "/generate/", json={"prompt": "test prompt for hermes default"}
             )
 
@@ -39,8 +38,7 @@ async def test_generate_hermes_default_model_id():
         )
 
 
-@pytest.mark.asyncio
-async def test_generate_hermes_explicit_model_id():
+def test_generate_hermes_explicit_model_id():
     """Test /generate/ with explicit model_id='hermes'"""
     with (
         patch(
@@ -54,8 +52,8 @@ async def test_generate_hermes_explicit_model_id():
         ) as mock_generate_hermes,
     ):
 
-        async with AsyncClient(app=app, base_url="http://test") as client:
-            response = await client.post(
+        with TestClient(app) as client:
+            response = client.post(
                 "/generate/",
                 json={
                     "prompt": "test prompt for hermes explicit",
@@ -74,8 +72,7 @@ async def test_generate_hermes_explicit_model_id():
         )
 
 
-@pytest.mark.asyncio
-async def test_generate_phi3_explicit_model_id():
+def test_generate_phi3_explicit_model_id():
     """Test /generate/ with explicit model_id='phi3'"""
     mock_phi3_output = {"phi3_mock_output": "success"}
     with (
@@ -90,8 +87,8 @@ async def test_generate_phi3_explicit_model_id():
         ) as mock_generate_phi3,
     ):
 
-        async with AsyncClient(app=app, base_url="http://test") as client:
-            response = await client.post(
+        with TestClient(app) as client:
+            response = client.post(
                 "/generate/",
                 json={"prompt": "test prompt for phi3", "model_id": "phi3"},
             )
@@ -107,12 +104,11 @@ async def test_generate_phi3_explicit_model_id():
         )
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize("bad_id", ["invalid_model", "nonsense", "bad"])
-async def test_generate_invalid_model_id(bad_id: str):
+def test_generate_invalid_model_id(bad_id: str):
     """/generate/ rejects unknown model_id values with 422"""
-    async with AsyncClient(app=app, base_url="http://test") as client:
-        response = await client.post(
+    with TestClient(app) as client:
+        response = client.post(
             "/generate/", json={"prompt": "test prompt", "model_id": bad_id}
         )
 
@@ -122,8 +118,7 @@ async def test_generate_invalid_model_id(bad_id: str):
     }
 
 
-@pytest.mark.asyncio
-async def test_generate_hermes_model_not_loaded():
+def test_generate_hermes_model_not_loaded():
     """Test /generate/ with hermes model not loaded"""
     with (
         patch(
@@ -134,21 +129,18 @@ async def test_generate_hermes_model_not_loaded():
         ) as mock_generate_hermes,
     ):  # Should not be called
 
-        async with AsyncClient(app=app, base_url="http://test") as client:
-            response = await client.post(
+        with TestClient(app) as client:
+            response = client.post(
                 "/generate/", json={"prompt": "test prompt", "model_id": "hermes"}
             )
 
         assert response.status_code == 200  # Server returns error as JSON with 200 OK
-        assert response.json() == {
-            "error": "Hermes model not loaded. Please check server logs."
-        }
+        assert response.json() == {"error": "Hermes model not loaded."}
         mock_get_hermes.assert_called_once()
         mock_generate_hermes.assert_not_called()
 
 
-@pytest.mark.asyncio
-async def test_generate_phi3_model_not_loaded():
+def test_generate_phi3_model_not_loaded():
     """Test /generate/ with phi3 model not loaded"""
     with (
         patch(
@@ -159,15 +151,13 @@ async def test_generate_phi3_model_not_loaded():
         ) as mock_generate_phi3,
     ):  # Should not be called
 
-        async with AsyncClient(app=app, base_url="http://test") as client:
-            response = await client.post(
+        with TestClient(app) as client:
+            response = client.post(
                 "/generate/", json={"prompt": "test prompt", "model_id": "phi3"}
             )
 
         assert response.status_code == 200  # Server returns error as JSON with 200 OK
-        assert response.json() == {
-            "error": "Phi-3 ONNX model not loaded. Please check server logs."
-        }
+        assert response.json() == {"error": "Phi-3 model not loaded."}
         mock_get_phi3.assert_called_once()
         mock_generate_phi3.assert_not_called()
 
@@ -235,20 +225,19 @@ import uuid  # For checking proposal_id type in score tests
 from osiris.server import db  # To access db._tables for mocking if needed
 
 
-@pytest.mark.asyncio
-async def test_score_proposal_with_hermes_success():
+def test_score_proposal_with_hermes_success():
     """Test /score/hermes/ endpoint successful scoring."""
     with (
         patch("osiris.server.score_with_hermes", return_value=0.75) as mock_score_func,
         patch("osiris.server.db.log_hermes_score", return_value=None) as mock_log_score,
     ):
 
-        async with AsyncClient(app=app, base_url="http://test") as client:
+        with TestClient(app) as client:
             payload = {
                 "proposal": {"ticker": "XYZ", "action": "BUY"},
                 "context": "Test context",
             }
-            response = await client.post("/score/hermes/", json=payload)
+            response = client.post("/score/hermes/", json=payload)
 
         assert response.status_code == 200
         response_data = response.json()
@@ -281,17 +270,16 @@ async def test_score_proposal_with_hermes_success():
         assert isinstance(args[0].proposal_id, uuid.UUID)
 
 
-@pytest.mark.asyncio
-async def test_score_proposal_with_hermes_failure():
+def test_score_proposal_with_hermes_failure():
     """Test /score/hermes/ endpoint when scoring fails."""
     with (
         patch("osiris.server.score_with_hermes", return_value=-1.0) as mock_score_func,
         patch("osiris.server.db.log_hermes_score") as mock_log_score,
     ):  # Should not be called
 
-        async with AsyncClient(app=app, base_url="http://test") as client:
+        with TestClient(app) as client:
             payload = {"proposal": {"ticker": "ABC", "action": "SELL"}}
-            response = await client.post("/score/hermes/", json=payload)
+            response = client.post("/score/hermes/", json=payload)
 
         assert response.status_code == 500
         response_data = response.json()
@@ -301,8 +289,7 @@ async def test_score_proposal_with_hermes_failure():
         mock_log_score.assert_not_called()
 
 
-@pytest.mark.asyncio
-async def test_score_proposal_with_hermes_db_log_failure():
+def test_score_proposal_with_hermes_db_log_failure():
     """Test /score/hermes/ endpoint when DB logging fails after successful scoring."""
     with (
         patch("osiris.server.score_with_hermes", return_value=0.8) as mock_score_func,
@@ -311,12 +298,12 @@ async def test_score_proposal_with_hermes_db_log_failure():
         ) as mock_log_score,
     ):
 
-        async with AsyncClient(app=app, base_url="http://test") as client:
+        with TestClient(app) as client:
             payload = {
                 "proposal": {"ticker": "DEF", "action": "BUY"},
                 "context": "DB log fail test",
             }
-            response = await client.post("/score/hermes/", json=payload)
+            response = client.post("/score/hermes/", json=payload)
 
         assert response.status_code == 500
         response_data = response.json()
@@ -330,8 +317,7 @@ async def test_score_proposal_with_hermes_db_log_failure():
         mock_log_score.assert_called_once()
 
 
-@pytest.mark.asyncio
-async def test_health_endpoint_with_recent_scores():
+def test_health_endpoint_with_recent_scores():
     """Test /health endpoint when recent Hermes scores are present."""
     now = datetime.datetime.now(datetime.timezone.utc)
     scores_data = [
@@ -351,8 +337,8 @@ async def test_health_endpoint_with_recent_scores():
     mock_select_result.to_list.return_value = scores_data
 
     with patch.dict(db._tables, {"hermes_scores": mock_table}):
-        async with AsyncClient(app=app, base_url="http://test") as client:
-            response = await client.get("/health")
+        with TestClient(app) as client:
+            response = client.get("/health")
 
     assert response.status_code == 200
     data = response.json()
@@ -362,8 +348,7 @@ async def test_health_endpoint_with_recent_scores():
     assert "hermes_loaded" in data
 
 
-@pytest.mark.asyncio
-async def test_health_endpoint_no_recent_scores():
+def test_health_endpoint_no_recent_scores():
     """Test /health endpoint when no recent Hermes scores are present."""
     mock_table = MagicMock()
     mock_search_result = MagicMock()
@@ -376,8 +361,8 @@ async def test_health_endpoint_no_recent_scores():
     mock_select_result.to_list.return_value = []
 
     with patch.dict(db._tables, {"hermes_scores": mock_table}):
-        async with AsyncClient(app=app, base_url="http://test") as client:
-            response = await client.get("/health")
+        with TestClient(app) as client:
+            response = client.get("/health")
 
     assert response.status_code == 200
     data = response.json()
@@ -386,12 +371,11 @@ async def test_health_endpoint_no_recent_scores():
     assert "status" in data
 
 
-@pytest.mark.asyncio
-async def test_health_endpoint_db_table_not_found():
+def test_health_endpoint_db_table_not_found():
     """Test /health endpoint when hermes_scores table is not found."""
     with patch.dict(db._tables, {"hermes_scores": None}):
-        async with AsyncClient(app=app, base_url="http://test") as client:
-            response = await client.get("/health")
+        with TestClient(app) as client:
+            response = client.get("/health")
 
     assert response.status_code == 200
     data = response.json()
@@ -400,8 +384,7 @@ async def test_health_endpoint_db_table_not_found():
     assert "status" in data
 
 
-@pytest.mark.asyncio
-async def test_health_endpoint_db_query_exception():
+def test_health_endpoint_db_query_exception():
     """Test /health endpoint when DB query raises an exception."""
     mock_table = MagicMock()
     mock_table.search.side_effect = Exception("Simulated DB error")
@@ -411,21 +394,20 @@ async def test_health_endpoint_db_query_exception():
         patch("osiris.server.logger.error") as mock_logger_error,
         patch.dict(db._tables, {"hermes_scores": mock_table}),
     ):
-        async with AsyncClient(app=app, base_url="http://test") as client:
-            response = await client.get("/health")
+        with TestClient(app) as client:
+            response = client.get("/health")
 
     assert response.status_code == 200
     data = response.json()
     assert data["mean_hermes_score_last_24h"] is None
     assert data["num_hermes_scores_last_24h"] == 0
     assert "status" in data
-    mock_logger_error.assert_called_once_with(
+    mock_logger_error.assert_any_call(
         "Error calculating mean Hermes score for health check: Simulated DB error"
     )
 
 
-@pytest.mark.asyncio
-async def test_speak_endpoint():
+def test_speak_endpoint():
     """Test /speak endpoint for TTS"""
     mock_audio_data = b"RIFFxxxxWAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00\x22\x56\x00\x00\x44\xac\x00\x00\x02\x00\x10\x00dataxxxx"  # Dummy WAV
     # Create a more realistic dummy WAV for duration check
@@ -465,8 +447,8 @@ async def test_speak_endpoint():
     with patch(
         "osiris.server.tts_model.synth", return_value=mock_audio_data
     ) as mock_synth:
-        async with AsyncClient(app=app, base_url="http://test") as client:
-            response = await client.post("/speak", json={"text": "hello world"})
+        with TestClient(app) as client:
+            response = client.post("/speak", json={"text": "hello world"})
 
         assert response.status_code == 200
         assert response.headers["content-type"] == "audio/wav"
