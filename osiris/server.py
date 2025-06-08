@@ -175,7 +175,7 @@ logger = logging.getLogger(__name__)
 print("[Side-car] loading models …")
 load_hermes_model()
 load_phi3_model()
-phi3_adapter_date = loader.phi3_adapter_date
+phi3_adapter_date: Optional[str] = None
 tts_model = ChatterboxTTS(model_dir=CHATTERBOX_MODEL_DIR, device=DEVICE, event_bus=event_bus)
 print("[Side-car] models ready.")
 
@@ -407,7 +407,7 @@ async def health():
         "status": status,
         "hermes_loaded": hermes_ok,
         "phi3_loaded": phi3_ok,
-        "phi3_adapter_date": loader.phi3_adapter_date,
+        "phi3_adapter_date": phi3_adapter_date,
     }
 
     try:
