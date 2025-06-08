@@ -160,8 +160,9 @@ class TestFeedbackMechanism(unittest.TestCase):
         )
 
     # Test Case 3: load_recent_feedback Function (Direct Test)
+    @patch("osiris.server.open", new_callable=mock_open)  # Mock the open used in server
     @patch("builtins.print")  # Mock print to check error logs
-    def test_load_recent_feedback_logic(self, mock_print):
+    def test_load_recent_feedback_logic(self, mock_print, mock_file_open):
         # Scenario A: Valid Feedback (3 relevant items, ask for 2)
         mock_data_valid = [
             {
