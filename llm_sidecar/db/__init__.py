@@ -5,6 +5,7 @@ import datetime
 import uuid
 from typing import Optional, Dict, Any, List
 from pydantic import Field  # BaseModel is replaced by LanceModel
+import pyarrow as pa
 
 # --- Configuration ---
 DB_ROOT = pathlib.Path("/app/lancedb_data")
@@ -40,10 +41,25 @@ OrchestratorRunLog = OrchestratorRunSchema
 
 
 class HermesScoreSchema(LanceModel):
-    proposal_id: uuid.UUID
+    proposal_id: uuid.UUID = Field(..., alias="run_id")
     timestamp: str = Field(default_factory=get_current_utc_iso)
     score: float
-    reasoning: Optional[str] = None
+    rationale: Optional[str] = None
+
+    class Config:
+        allow_population_by_field_name = True
+
+    @classmethod
+    def to_arrow_schema(cls):
+        """Return an Arrow schema compatible with LanceDB."""
+        return pa.schema(
+            [
+                pa.field("run_id", pa.utf8(), nullable=False),
+                pa.field("timestamp", pa.utf8(), nullable=False),
+                pa.field("score", pa.float64(), nullable=False),
+                pa.field("rationale", pa.utf8(), nullable=True),
+            ]
+        )
 
 
 # --- Database Connection and Table Initialization ---
@@ -93,9 +109,16 @@ def add_to_table(
 
     table = _tables[table_name]
     # Validate data with the schema (Pydantic does this on instantiation)
-    # Convert Pydantic model to dict for LanceDB
+    if hasattr(data, "model_dump"):
+        row = data.model_dump(by_alias=True)
+    else:
+        row = data.dict(by_alias=True)
+    # Convert UUIDs to strings for storage compatibility
+    for key, value in row.items():
+        if isinstance(value, uuid.UUID):
+            row[key] = str(value)
     try:
-        table.add([data.model_dump()])
+        table.add([row])
     except Exception as e:
         # Handle potential LanceDB errors (e.g., schema mismatch if validation is bypassed)
         print(f"Error adding data to table '{table_name}': {e}")
