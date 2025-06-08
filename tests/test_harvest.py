@@ -2,19 +2,20 @@ import os
 import sys
 import json
 import unittest
+from pathlib import Path
 from unittest.mock import patch, mock_open
 import pyarrow as pa
 import lancedb
 from lancedb.pydantic import LanceModel, Vector
 
-# Add project root to sys.path to allow for correct module imports
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
+# Ensure the project root is on the path so test modules can import project code
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 # Now that the path is set, we can import the script
 # Import the harvest_feedback module directly from the scripts directory
-scripts_dir = os.path.join(project_root, "osiris", "scripts")
+scripts_dir = os.path.join(PROJECT_ROOT, "osiris", "scripts")
 if scripts_dir not in sys.path:
     sys.path.insert(0, scripts_dir)
 
