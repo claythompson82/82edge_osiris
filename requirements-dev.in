@@ -7,3 +7,4 @@ fakeredis
 requests
 hypothesis
 pytest-mock
+httpx
