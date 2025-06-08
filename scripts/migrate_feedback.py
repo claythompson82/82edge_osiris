@@ -2,6 +2,7 @@ import lancedb
 import os
 import json
 import pyarrow as pa
+from packaging import version
 from typing import Any, Dict, List
 
 
@@ -62,8 +63,9 @@ def migrate_data():
     for record in records:
         record_dict = dict(record)
 
-        # Ensure the schema_version field exists and is set to "1.0"
-        if record_dict.get("schema_version") is None or record_dict.get("schema_version") != "1.0":
+        # Ensure the schema_version field exists and is at least 1.0
+        rec_ver = record_dict.get("schema_version")
+        if rec_ver is None or version.parse(str(rec_ver)) < version.parse("1.0"):
             record_dict["schema_version"] = "1.0"
 
         # Convert complex fields to JSON strings so they conform to the
@@ -92,9 +94,16 @@ def migrate_data():
         print(f"Error deleting existing temporary table '{temp_table_name}'. {e}")
         return
 
-    # 5. Create the new temporary table with the defined pyarrow schema
+    # 5. Create the new temporary table with a pyarrow schema derived from the original
     try:
-        temp_table = db.create_table(temp_table_name, schema=feedback_schema)
+        try:
+            arrow_schema = original_table.schema.to_arrow_schema()
+            if "schema_version" not in arrow_schema.names:
+                arrow_schema = arrow_schema.append(pa.field("schema_version", pa.string()))
+        except Exception:
+            arrow_schema = feedback_schema
+
+        temp_table = db.create_table(temp_table_name, schema=arrow_schema)
         print(f"Created new temporary table '{temp_table_name}' with target schema.")
     except Exception as e:
         print(f"Error creating temporary table '{temp_table_name}'. {e}")
