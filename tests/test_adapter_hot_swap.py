@@ -185,14 +185,14 @@ class TestHealthEndpoint(unittest.TestCase):
         # if tests in other classes might modify it.
         # However, for this class, we mock it directly in tests.
 
-    @mock.patch("osiris.server.phi3_adapter_date", "2023-10-25")
+    @mock.patch("osiris.llm_sidecar.loader.phi3_adapter_date", "2023-10-25")
     # Mock the model/tokenizer loading status as well for a consistent health check
     @mock.patch(
-        "osiris.server.get_phi3_model_and_tokenizer",
+        "osiris.llm_sidecar.loader.get_phi3_model_and_tokenizer",
         return_value=(True, True),
     )
     @mock.patch(
-        "osiris.server.get_hermes_model_and_tokenizer",
+        "osiris.llm_sidecar.loader.get_hermes_model_and_tokenizer",
         return_value=(True, True),
     )
     @mock.patch("osiris.llm_sidecar.loader.os.path.exists")  # For MICRO_LLM_MODEL_PATH
@@ -208,13 +208,13 @@ class TestHealthEndpoint(unittest.TestCase):
         self.assertEqual(json_response.get("phi3_adapter_date"), "2023-10-25")
         self.assertEqual(json_response.get("status"), "ok")
 
-    @mock.patch("osiris.server.phi3_adapter_date", None)
+    @mock.patch("osiris.llm_sidecar.loader.phi3_adapter_date", None)
     @mock.patch(
-        "osiris.server.get_phi3_model_and_tokenizer",
+        "osiris.llm_sidecar.loader.get_phi3_model_and_tokenizer",
         return_value=(True, True),
     )
     @mock.patch(
-        "osiris.server.get_hermes_model_and_tokenizer",
+        "osiris.llm_sidecar.loader.get_hermes_model_and_tokenizer",
         return_value=(True, True),
     )
     @mock.patch("osiris.llm_sidecar.loader.os.path.exists")  # For MICRO_LLM_MODEL_PATH
