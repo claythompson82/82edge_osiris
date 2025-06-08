@@ -9,7 +9,7 @@ import json
 import uuid
 import datetime
 import traceback
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 import asyncio
 import logging
 import base64
@@ -21,6 +21,9 @@ try:
 except Exception:
     LoggingIntegration = None
 import io
+
+# Alias built-in ``open`` so tests can patch ``osiris.server.open``
+open = io.open
 
 import torch
 from fastapi import FastAPI, HTTPException, Response, Request
@@ -113,9 +116,9 @@ class SpeakRequest(BaseModel):
 class FeedbackItem(BaseModel):
     transaction_id: str
     feedback_type: str
-    feedback_content: Any
+    feedback_content: Union[str, Dict[str, Any]]
     timestamp: str
-    corrected_proposal: Optional[Dict[str, Any]] = None
+    corrected_proposal: Optional[Union[str, Dict[str, Any]]] = None
     schema_version: str = "1.0"
 
 class ScoreRequest(BaseModel):
@@ -195,11 +198,18 @@ def _load_recent_feedback(max_examples: int = 3) -> List[Dict[str, Any]]:
     """Load recent correction feedback examples from disk."""
     global _feedback_cache, _feedback_mtime
     if not os.path.exists(PHI3_FEEDBACK_DATA_FILE):
+        print(
+            f"Feedback file {PHI3_FEEDBACK_DATA_FILE} not found. No feedback to load."
+        )
         return []
 
     try:
-        mtime = os.path.getmtime(PHI3_FEEDBACK_DATA_FILE)
-        if _feedback_mtime is not None and mtime == _feedback_mtime:
+        try:
+            mtime = os.path.getmtime(PHI3_FEEDBACK_DATA_FILE)
+        except OSError:
+            mtime = None
+
+        if _feedback_mtime is not None and mtime is not None and mtime == _feedback_mtime:
             return _feedback_cache[-max_examples:]
 
         items: List[Dict[str, Any]] = []
@@ -211,13 +221,19 @@ def _load_recent_feedback(max_examples: int = 3) -> List[Dict[str, Any]]:
                         if obj.get("feedback_type") == "correction" and isinstance(obj.get("corrected_proposal"), dict):
                             items.append(obj)
                     except json.JSONDecodeError:
+                        print(
+                            f"Error decoding JSON from {PHI3_FEEDBACK_DATA_FILE}"
+                        )
                         continue
         
         _feedback_cache = items
         _feedback_mtime = mtime
         return items[-max_examples:]
     except Exception as e:
-        logger.error(f"Error reading feedback file {PHI3_FEEDBACK_DATA_FILE}: {e}")
+        logger.error(
+            f"Error reading feedback file {PHI3_FEEDBACK_DATA_FILE}: {e}"
+        )
+        print(f"Error reading feedback file {PHI3_FEEDBACK_DATA_FILE}: {e}")
         return []
 
 load_recent_feedback = _load_recent_feedback
