@@ -16,7 +16,6 @@ from osiris.server import (
     PHI3_FEEDBACK_LOG_FILE,
     PHI3_FEEDBACK_DATA_FILE,
     load_recent_feedback,
-    _generate_phi3_json,
 )
 
 
