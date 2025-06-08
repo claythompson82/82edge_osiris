@@ -69,7 +69,12 @@ def main():
     cutoff_timestamp_ns = int(cutoff_date.timestamp() * 1_000_000_000)
     # where_clause = f"feedback_type = 'correction' AND corrected_proposal IS NOT NULL AND corrected_proposal != '' AND \"when\" >= {cutoff_timestamp_ns}"
     # Updated where_clause to include schema_version
-    where_clause = f"feedback_type = 'correction' AND corrected_proposal IS NOT NULL AND corrected_proposal != '' AND \"when\" >= {cutoff_timestamp_ns} AND schema_version = '{args.schema_version}'"
+    where_clause = (
+        "feedback_type = 'correction' "
+        "AND corrected_proposal IS NOT NULL AND corrected_proposal != '' "
+        f"AND \"when\" >= {cutoff_timestamp_ns} "
+        f"AND schema_version LIKE '{args.schema_version}%'"
+    )
 
     query = table.search().where(where_clause)
 
