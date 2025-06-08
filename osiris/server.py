@@ -166,11 +166,23 @@ logger = logging.getLogger(__name__)  # For event handler logging
 print("[Side-car] loading models …")
 load_hermes_model()
 load_phi3_model()
+# Mirror loader.phi3_adapter_date for easier patching in tests
+phi3_adapter_date = loader.phi3_adapter_date
 # Initialize ChatterboxTTS with the event_bus instance
 tts_model = ChatterboxTTS(
     model_dir=CHATTERBOX_MODEL_DIR, device=DEVICE, event_bus=event_bus
 )
 print("[Side-car] models ready.")
+
+
+def get_phi3_model_and_tokenizer():
+    """Wrapper for loader.get_phi3_model_and_tokenizer for easier patching."""
+    return loader.get_phi3_model_and_tokenizer()
+
+
+def get_hermes_model_and_tokenizer():
+    """Wrapper for loader.get_hermes_model_and_tokenizer for easier patching."""
+    return loader.get_hermes_model_and_tokenizer()
 
 
 # ---------------------------------------------------------------------
@@ -737,7 +749,9 @@ async def swap_phi3_adapter():
     """Reload the Phi-3 model and adapter from disk."""
     try:
         load_phi3_model()
-        return {"status": "ok", "phi3_adapter_date": loader.phi3_adapter_date}
+        global phi3_adapter_date
+        phi3_adapter_date = loader.phi3_adapter_date
+        return {"status": "ok", "phi3_adapter_date": phi3_adapter_date}
     except Exception as e:
         logger.error(f"Error swapping Phi-3 adapter: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to swap adapter: {e}")
@@ -745,8 +759,8 @@ async def swap_phi3_adapter():
 
 @app.get("/health", tags=["meta"])
 async def health():
-    hermes_ok = all(loader.get_hermes_model_and_tokenizer())
-    phi3_ok = all(loader.get_phi3_model_and_tokenizer())
+    hermes_ok = all(get_hermes_model_and_tokenizer())
+    phi3_ok = all(get_phi3_model_and_tokenizer())
     phi3_file = loader.os.path.exists(MICRO_LLM_MODEL_PATH)
 
     status = "ok"
@@ -802,7 +816,7 @@ async def health():
         "phi3_loaded": phi3_ok,
         "phi3_model_file_exists": phi3_file,
         "device": DEVICE,
-        "phi3_adapter_date": loader.phi3_adapter_date,
+        "phi3_adapter_date": phi3_adapter_date,
         "mean_hermes_score_last_24h": mean_hermes_score_last_24h,
         "num_hermes_scores_last_24h": num_hermes_scores_last_24h,
     }
