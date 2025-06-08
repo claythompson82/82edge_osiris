@@ -87,7 +87,11 @@ def test_health_endpoint_db_query_exception():
 def test_speak_endpoint():
     """Test /speak endpoint for TTS"""
     mock_audio_data = b"RIFFxxxxWAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00\x22\x56\x00\x00\x44\xac\x00\x00\x02\x00\x10\x00dataxxxx"
-    with patch("osiris.server.tts_model.synth", return_value=mock_audio_data) as mock_synth:
+    with patch(
+        "osiris.server.tts_model.synth",
+        new_callable=AsyncMock,
+        return_value=mock_audio_data,
+    ) as mock_synth:
         client = TestClient(app)
         response = client.post("/speak", json={"text": "hello world"})
         assert response.status_code == 200
