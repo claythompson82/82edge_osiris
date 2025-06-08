@@ -1,5 +1,10 @@
 class PeftModel:
     @classmethod
-    def from_pretrained(cls, base_model, adapter_path):
-        """Dummy method used for tests."""
-        return cls()
+    def from_pretrained(cls, *args, **kwargs):
+        pass
+
+
+class AutoPeftModel:
+    @classmethod
+    def from_pretrained(cls, *args, **kwargs):
+        pass
