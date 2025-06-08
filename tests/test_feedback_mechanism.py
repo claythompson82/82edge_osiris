@@ -1,10 +1,9 @@
-import unittest
 import json
 import datetime
 import uuid
 import os
 import asyncio
-from unittest.mock import patch, mock_open, MagicMock, call
+from unittest.mock import patch, mock_open, MagicMock, call, ANY
 import sys
 
 sys.modules.setdefault("sentry_sdk", MagicMock())
@@ -27,9 +26,9 @@ async def mock_async_return_value(value):
     return value
 
 
-class TestFeedbackMechanism(unittest.TestCase):
+class TestFeedbackMechanism:
 
-    def setUp(self):
+    def setup_method(self):
         self.client = TestClient(app)
         # To ensure a clean state for PHI3_FEEDBACK_DATA_FILE if it's created by tests
         if os.path.exists(PHI3_FEEDBACK_DATA_FILE):
@@ -68,34 +67,31 @@ class TestFeedbackMechanism(unittest.TestCase):
             json={"prompt": "Test prompt", "max_length": 50},
         )
 
-        self.assertEqual(response.status_code, 200)
+        assert response.status_code == 200
         data = response.json()
-        self.assertEqual(data["phi3_proposal"], mock_phi3_output)
-        self.assertEqual(data["hermes_assessment"], mock_hermes_output)
+        assert data["phi3_proposal"] == mock_phi3_output
+        assert data["hermes_assessment"] == mock_hermes_output
 
         mock_file_open.assert_called_once_with(PHI3_FEEDBACK_LOG_FILE, "a")
 
         # json.dump(obj, fp) calls fp.write(json.dumps(obj))
         # The first argument to the first call to write should be the JSON string.
         write_calls = mock_file_open.return_value.write.call_args_list
-        self.assertTrue(
-            len(write_calls) >= 2,
-            "Expected at least two write calls (json.dump + newline)",
-        )
+        assert len(write_calls) >= 2, "Expected at least two write calls (json.dump + newline)"
 
         # The first call to write() is by json.dump()
         logged_json_str = write_calls[0].args[0]
         logged_json = json.loads(logged_json_str)
 
-        self.assertIn("transaction_id", logged_json)
-        self.assertTrue(uuid.UUID(logged_json["transaction_id"]))  # Check valid UUID
-        self.assertIn("timestamp", logged_json)
-        self.assertTrue(datetime.datetime.fromisoformat(logged_json["timestamp"]))
-        self.assertEqual(logged_json["phi3_proposal"], mock_phi3_output)
-        self.assertEqual(logged_json["hermes_assessment"], mock_hermes_output)
+        assert "transaction_id" in logged_json
+        assert uuid.UUID(logged_json["transaction_id"])  # Check valid UUID
+        assert "timestamp" in logged_json
+        assert datetime.datetime.fromisoformat(logged_json["timestamp"])
+        assert logged_json["phi3_proposal"] == mock_phi3_output
+        assert logged_json["hermes_assessment"] == mock_hermes_output
 
         # The second call should be for the newline
-        self.assertEqual(write_calls[1].args[0], "\n")
+        assert write_calls[1].args[0] == "\n"
 
     # Test Case 2: Feedback Submission Endpoint (`/feedback/phi3/`)
     @patch("osiris.server.open", new_callable=mock_open)  # Mock the open used in server
@@ -117,41 +113,30 @@ class TestFeedbackMechanism(unittest.TestCase):
 
         response = self.client.post("/feedback/phi3/", json=sample_feedback_payload)
 
-        self.assertEqual(response.status_code, 200)
+        assert response.status_code == 200
         resp_json = response.json()
-        self.assertEqual(
-            resp_json["transaction_id"], sample_feedback_payload["transaction_id"]
-        )
-        self.assertEqual(resp_json["message"], "Feedback received successfully")
+        assert resp_json["transaction_id"] == sample_feedback_payload["transaction_id"]
+        assert resp_json["message"] == "Feedback received successfully"
 
         mock_file_open.assert_called_once_with(PHI3_FEEDBACK_DATA_FILE, "a")
 
         write_calls = mock_file_open.return_value.write.call_args_list
-        self.assertTrue(len(write_calls) >= 2)
+        assert len(write_calls) >= 2
 
         logged_json_str = write_calls[0].args[0]
         logged_json = json.loads(logged_json_str)
 
-        self.assertEqual(
-            logged_json["transaction_id"], sample_feedback_payload["transaction_id"]
-        )
-        self.assertEqual(
-            logged_json["feedback_type"], sample_feedback_payload["feedback_type"]
-        )
-        self.assertEqual(
-            logged_json["feedback_content"], sample_feedback_payload["feedback_content"]
-        )
-        self.assertEqual(
-            logged_json["corrected_proposal"],
-            sample_feedback_payload["corrected_proposal"],
-        )
+        assert logged_json["transaction_id"] == sample_feedback_payload["transaction_id"]
+        assert logged_json["feedback_type"] == sample_feedback_payload["feedback_type"]
+        assert logged_json["feedback_content"] == sample_feedback_payload["feedback_content"]
+        assert logged_json["corrected_proposal"] == sample_feedback_payload["corrected_proposal"]
 
         # Server sets its own timestamp
-        self.assertTrue(datetime.datetime.fromisoformat(logged_json["timestamp"]))
+        assert datetime.datetime.fromisoformat(logged_json["timestamp"])
         # Ensure server timestamp is recent (e.g. within last few seconds of original client one for sanity)
         # This can be flaky, so a simple format check is often enough.
         # self.assertNotEqual(logged_json["timestamp"], sample_feedback_payload["timestamp"]) # This might be true if clocks are very synced
-        self.assertTrue(
+        assert (
             abs(
                 datetime.datetime.fromisoformat(logged_json["timestamp"])
                 - datetime.datetime.fromisoformat(sample_feedback_payload["timestamp"])
@@ -215,16 +200,16 @@ class TestFeedbackMechanism(unittest.TestCase):
         with patch("os.path.exists", return_value=True):
             with patch("osiris.server.open", mock_open(read_data=mock_jsonl_string_valid)):
                 result = load_recent_feedback(max_examples=2)
-                self.assertEqual(len(result), 2)
+                assert len(result) == 2
                 # Should be the last two valid ones: item 3 and item 6
-                self.assertEqual(result[0]["corrected_proposal"]["key"], "val3")
-                self.assertEqual(result[1]["corrected_proposal"]["key"], "val6")
+                assert result[0]["corrected_proposal"]["key"] == "val3"
+                assert result[1]["corrected_proposal"]["key"] == "val6"
 
         # Scenario B: Empty File or No "correction" Feedback
         with patch("os.path.exists", return_value=True):
             with patch("osiris.server.open", mock_open(read_data="")):  # Empty file
                 result = load_recent_feedback()
-                self.assertEqual(len(result), 0)
+                assert len(result) == 0
 
         mock_jsonl_string_no_correction = json.dumps(
             {
@@ -239,12 +224,12 @@ class TestFeedbackMechanism(unittest.TestCase):
                 "osiris.server.open", mock_open(read_data=mock_jsonl_string_no_correction)
             ):
                 result = load_recent_feedback()
-                self.assertEqual(len(result), 0)
+                assert len(result) == 0
 
         # Scenario C: File Not Found
         with patch("os.path.exists", return_value=False):
             result = load_recent_feedback()
-            self.assertEqual(len(result), 0)
+            assert len(result) == 0
             mock_print.assert_any_call(
                 f"Feedback file {PHI3_FEEDBACK_DATA_FILE} not found. No feedback to load."
             )
@@ -257,16 +242,12 @@ class TestFeedbackMechanism(unittest.TestCase):
         with patch("os.path.exists", return_value=True):
             with patch("osiris.server.open", mock_open(read_data=mock_jsonl_corrupted)):
                 result = load_recent_feedback(max_examples=1)
-                self.assertEqual(len(result), 1)  # Should load the valid line
-                self.assertEqual(result[0]["corrected_proposal"]["key"], "val2")
-                mock_print.assert_any_call(
-                    unittest.mock.ANY
-                )  # Check if print was called for the error
-                self.assertTrue(
-                    any(
-                        "Error decoding JSON" in call_args[0][0]
-                        for call_args in mock_print.call_args_list
-                    )
+                assert len(result) == 1  # Should load the valid line
+                assert result[0]["corrected_proposal"]["key"] == "val2"
+                mock_print.assert_any_call(ANY)  # Check if print was called for the error
+                assert any(
+                    "Error decoding JSON" in call_args[0][0]
+                    for call_args in mock_print.call_args_list
                 )
         mock_print.reset_mock()
 
@@ -275,7 +256,7 @@ class TestFeedbackMechanism(unittest.TestCase):
             with patch("osiris.server.open", mock_open()) as m_open:
                 m_open.side_effect = IOError("Disk full")
                 result = load_recent_feedback()
-                self.assertEqual(len(result), 0)
+                assert len(result) == 0
                 mock_print.assert_any_call(
                     f"Error reading feedback file {PHI3_FEEDBACK_DATA_FILE}: Disk full"
                 )
@@ -349,7 +330,7 @@ class TestFeedbackMechanism(unittest.TestCase):
 
         # Check that outlines.generate.json factory was called (with model, schema, tokenizer)
         mock_outlines_gen_json_factory.assert_called_once_with(
-            mock_phi3_model, unittest.mock.ANY, tokenizer=mock_phi3_tokenizer
+            mock_phi3_model, ANY, tokenizer=mock_phi3_tokenizer
         )
 
         # Check that the generator instance was called with the augmented prompt
@@ -366,18 +347,10 @@ class TestFeedbackMechanism(unittest.TestCase):
             "\n\nNow, considering the above, please process the following request:\n"
         )
 
-        self.assertTrue(effective_prompt.startswith(expected_augmentation_intro))
-        self.assertIn(
-            json.dumps(mock_feedback_items[0]["corrected_proposal"], indent=2),
-            effective_prompt,
-        )
-        self.assertIn(
-            json.dumps(mock_feedback_items[1]["corrected_proposal"], indent=2),
-            effective_prompt,
-        )
-        self.assertTrue(
-            effective_prompt.endswith(f"{expected_augmentation_outro}{original_prompt}")
-        )
+        assert effective_prompt.startswith(expected_augmentation_intro)
+        assert json.dumps(mock_feedback_items[0]["corrected_proposal"], indent=2) in effective_prompt
+        assert json.dumps(mock_feedback_items[1]["corrected_proposal"], indent=2) in effective_prompt
+        assert effective_prompt.endswith(f"{expected_augmentation_outro}{original_prompt}")
 
         # --- Scenario B: No feedback ---
         mock_load_feedback.return_value = []  # No feedback this time
@@ -396,11 +369,9 @@ class TestFeedbackMechanism(unittest.TestCase):
         call_args_to_generator_no_fb = mock_generator_instance.call_args[0]
         effective_prompt_no_fb = call_args_to_generator_no_fb[0]
 
-        self.assertEqual(
-            effective_prompt_no_fb, original_prompt
-        )  # Should be original prompt only
+        assert effective_prompt_no_fb == original_prompt  # Should be original prompt only
 
-    def tearDown(self):
+    def teardown_method(self):
         # Clean up any files created during tests, if any persist beyond mocks
         if os.path.exists(PHI3_FEEDBACK_DATA_FILE):
             os.remove(PHI3_FEEDBACK_DATA_FILE)
@@ -408,43 +379,3 @@ class TestFeedbackMechanism(unittest.TestCase):
             os.remove(PHI3_FEEDBACK_LOG_FILE)
 
 
-if __name__ == "__main__":
-    # Need to run this within an async context if we have top-level async tests
-    # or use a test runner that supports asyncio like `pytest --asyncio-mode=auto`
-    # For unittest, if you have async tests not handled by TestClient, structure can be more complex.
-    # Here, TestClient handles the async nature of endpoints.
-    # For _generate_phi3_json, which is async, we patch it and test its internals,
-    # or call it with asyncio.run() if testing it directly outside TestClient.
-    # The test_prompt_augmentation_logic is an async def, so unittest TestLoader needs to handle it.
-    # Standard unittest doesn't run async test methods directly.
-    # A simple way for this specific test case is to wrap its call in asyncio.run()
-
-    # Re-structure test_prompt_augmentation_logic to be synchronous but call the async function using asyncio.run
-    # Or use a library like `async_case` for unittest with asyncio.
-    # For simplicity in this environment, I'll assume standard unittest execution
-    # and that the test runner or an adapter would handle `async def test_...` methods.
-    # If not, the test_prompt_augmentation_logic would need to be called via asyncio.run().
-
-    # Let's make test_prompt_augmentation_logic callable by standard unittest
-    # by wrapping its core logic in asyncio.run()
-
-    # Save the original test method
-    original_test_prompt_augmentation_logic = (
-        TestFeedbackMechanism.test_prompt_augmentation_logic
-    )
-
-    # Create a new sync method that calls the async one
-    def sync_test_prompt_augmentation_logic(
-        self, mock_load_feedback, mock_outlines_gen_json_factory
-    ):
-        asyncio.run(
-            original_test_prompt_augmentation_logic(
-                self, mock_load_feedback, mock_outlines_gen_json_factory
-            )
-        )
-
-    TestFeedbackMechanism.test_prompt_augmentation_logic = (
-        sync_test_prompt_augmentation_logic
-    )
-
-    unittest.main()
