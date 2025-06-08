@@ -7,6 +7,6 @@ transformers
 accelerate
 auto-gptq
 lancedb
-pyarrow
+pyarrow  # required by LanceDB
 redis
 python-dotenv
