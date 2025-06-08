@@ -1,11 +1,12 @@
 # Default to GPU environment. Override with 'make install ENV_TYPE=cpu'
+# You can also override PYTORCH_INDEX_URL directly if needed.
 ENV_TYPE ?= gpu
 
 # Define PyTorch index URL based on environment type
 ifeq ($(ENV_TYPE),gpu)
-    PYTORCH_INDEX_URL := https://download.pytorch.org/whl/cu121
+    PYTORCH_INDEX_URL ?= https://download.pytorch.org/whl/cu121
 else
-    PYTORCH_INDEX_URL := https://download.pytorch.org/whl/cpu
+    PYTORCH_INDEX_URL ?= https://download.pytorch.org/whl/cpu
 endif
 
 .PHONY: install compile-reqs test

@@ -20,6 +20,8 @@ git clone https://github.com/your/fork.git
 cd osiris
 cp .env.template .env
 make rebuild
+# Optionally install dependencies locally
+make install         # use ENV_TYPE=cpu if you don't have a GPU
 ```
 
 ---
