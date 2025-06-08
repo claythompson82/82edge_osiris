@@ -4,6 +4,10 @@
 #
 #    pip-compile --constraint=/app/constraints.txt --output-file=/app/requirements-dev.txt /app/requirements-dev.in
 #
+anyio==4.9.0
+    # via
+    #   -c /app/requirements-core.txt
+    #   httpx
 async-timeout==5.0.1
     # via
     #   -c /app/requirements-core.txt
@@ -11,10 +15,12 @@ async-timeout==5.0.1
 attrs==25.3.0
     # via hypothesis
 black==24.2.0
-    # via -r /app/requirements-dev.in
+    # via -r requirements-dev.in
 certifi==2025.4.26
     # via
     #   -c /app/requirements-core.txt
+    #   httpcore
+    #   httpx
     #   requests
 charset-normalizer==3.4.2
     # via
@@ -27,15 +33,30 @@ click==8.2.1
 exceptiongroup==1.3.0
     # via
     #   -c /app/requirements-core.txt
+    #   anyio
     #   hypothesis
     #   pytest
 fakeredis==2.29.0
-    # via -r /app/requirements-dev.in
+    # via -r requirements-dev.in
+h11==0.16.0
+    # via
+    #   -c /app/requirements-core.txt
+    #   httpcore
+httpcore==1.0.9
+    # via
+    #   -c /app/requirements-core.txt
+    #   httpx
+httpx==0.28.1
+    # via
+    #   -c /app/requirements-core.txt
+    #   -r requirements-dev.in
 hypothesis==6.135.1
-    # via -r /app/requirements-dev.in
+    # via -r requirements-dev.in
 idna==3.10
     # via
     #   -c /app/requirements-core.txt
+    #   anyio
+    #   httpx
     #   requests
 iniconfig==2.1.0
     # via pytest
@@ -56,13 +77,13 @@ pygments==2.19.1
     # via pytest
 pytest==8.4.0
     # via
-    #   -r /app/requirements-dev.in
+    #   -r requirements-dev.in
     #   pytest-asyncio
     #   pytest-mock
 pytest-asyncio==1.0.0
-    # via -r /app/requirements-dev.in
+    # via -r requirements-dev.in
 pytest-mock==3.14.1
-    # via -r /app/requirements-dev.in
+    # via -r requirements-dev.in
 redis==6.2.0
     # via
     #   -c /app/requirements-core.txt
@@ -70,9 +91,13 @@ redis==6.2.0
 requests==2.32.3
     # via
     #   -c /app/requirements-core.txt
-    #   -r /app/requirements-dev.in
+    #   -r requirements-dev.in
 ruff==0.4.4
-    # via -r /app/requirements-dev.in
+    # via -r requirements-dev.in
+sniffio==1.3.1
+    # via
+    #   -c /app/requirements-core.txt
+    #   anyio
 sortedcontainers==2.4.0
     # via
     #   fakeredis
@@ -84,6 +109,7 @@ tomli==2.2.1
 typing-extensions==4.14.0
     # via
     #   -c /app/requirements-core.txt
+    #   anyio
     #   black
     #   exceptiongroup
     #   fakeredis
