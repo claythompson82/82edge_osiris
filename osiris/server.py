@@ -306,7 +306,8 @@ async def submit_phi3_feedback(feedback: FeedbackItem):
     try:
         # Log to local file for training data
         with open(PHI3_FEEDBACK_DATA_FILE, "a") as f:
-            f.write(json.dumps(feedback_dict) + "\n")
+            f.write(json.dumps(feedback_dict))
+            f.write("\n")
 
         # Add to LanceDB and publish event
         # Explicit serialization for Pydantic v2 with fallback for v1

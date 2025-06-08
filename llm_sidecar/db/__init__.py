@@ -4,6 +4,7 @@ from lancedb.pydantic import LanceModel  # Import LanceModel
 import datetime
 import uuid
 from typing import Optional, Dict, Any, List
+import json
 from pydantic import Field  # BaseModel is replaced by LanceModel
 import pyarrow as pa
 
@@ -22,9 +23,22 @@ class Phi3FeedbackSchema(LanceModel):
     transaction_id: str
     timestamp: str = Field(default_factory=get_current_utc_iso)
     feedback_type: str
-    feedback_content: str  # Can be JSON string
+    feedback_content: Any  # Accept raw JSON/dict or string
     schema_version: str = "1.0"
-    corrected_proposal: Optional[str] = None  # Changed from Dict[str, Any] to str
+    corrected_proposal: Optional[Dict[str, Any]] = None
+
+    @classmethod
+    def to_arrow_schema(cls):
+        return pa.schema(
+            [
+                pa.field("transaction_id", pa.utf8(), nullable=False),
+                pa.field("timestamp", pa.utf8(), nullable=False),
+                pa.field("feedback_type", pa.utf8(), nullable=False),
+                pa.field("feedback_content", pa.utf8(), nullable=True),
+                pa.field("schema_version", pa.utf8(), nullable=False),
+                pa.field("corrected_proposal", pa.utf8(), nullable=True),
+            ]
+        )
 
 
 class OrchestratorRunSchema(LanceModel):
@@ -144,9 +158,22 @@ def append_feedback(feedback_data: Phi3FeedbackSchema | Dict[str, Any]) -> None:
     """
 
     if isinstance(feedback_data, dict):
-        feedback_data = Phi3FeedbackSchema(**feedback_data)
+        feedback_obj = Phi3FeedbackSchema(**feedback_data)
+    else:
+        feedback_obj = feedback_data
 
-    add_to_table("phi3_feedback", feedback_data)
+    row = (
+        feedback_obj.model_dump()
+        if hasattr(feedback_obj, "model_dump")
+        else feedback_obj.dict()
+    )
+
+    for key in ["feedback_content", "corrected_proposal"]:
+        val = row.get(key)
+        if isinstance(val, (dict, list)):
+            row[key] = json.dumps(val)
+
+    add_to_table("phi3_feedback", row)
 
 
 def log_run(run_data: OrchestratorRunSchema) -> None:
