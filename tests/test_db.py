@@ -1,22 +1,36 @@
-from llm_sidecar.db import append_feedback, feedback_tbl, Phi3FeedbackSchema
 import datetime  # Added for timestamp construction
 import json  # For serializing dicts in mock_run_data
 
+import pytest
 
-def test_feedback_append():
-    # Ensure the table is clean before testing, or that tests account for existing data.
-    # For simplicity, we'll assert count increases. A more robust test might clear the table
-    # or use a dedicated test table if the main table is persistent across tests.
-    initial_count = 0
-    try:
-        initial_count = feedback_tbl.count_rows()
-    except (
-        Exception
-    ):  # Handle case where table might not exist before first append or is empty
-        pass
+import llm_sidecar.db as db_module
+
+
+@pytest.fixture
+def setup_temp_db(monkeypatch, tmp_path):
+    new_db_root = tmp_path / "lancedb"
+    new_db_root.mkdir()
+    new_db = db_module.lancedb.connect(new_db_root)
+    monkeypatch.setattr(db_module, "_db", new_db)
+    monkeypatch.setattr(db_module, "DB_ROOT", new_db_root)
+    monkeypatch.setattr(db_module, "_tables", {})
+    monkeypatch.setattr(
+        db_module,
+        "TABLE_SCHEMAS",
+        {"phi3_feedback": db_module.Phi3FeedbackSchema},
+    )
+    db_module.init_db()
+    yield new_db
+    if hasattr(new_db, "close"):
+        new_db.close()
+
+
+def test_feedback_append(setup_temp_db):
+    # Ensure the table is clean before testing.
+    initial_count = db_module.feedback_tbl.count_rows()
 
     # Create an instance of the Pydantic model
-    feedback_instance = Phi3FeedbackSchema(
+    feedback_instance = db_module.Phi3FeedbackSchema(
         transaction_id="test123",
         # timestamp will use default factory
         feedback_type="rating",
@@ -29,10 +43,10 @@ def test_feedback_append():
     # For this test, default factory is fine. If specific timestamp needed:
     # feedback_instance.timestamp = datetime.datetime.utcnow().isoformat()
 
-    append_feedback(feedback_instance)
+    db_module.append_feedback(feedback_instance)
 
     # Verify the row was added
-    final_count = feedback_tbl.count_rows()
+    final_count = db_module.feedback_tbl.count_rows()
     assert (
         final_count > initial_count
     ), "Row count should increase after adding feedback."
