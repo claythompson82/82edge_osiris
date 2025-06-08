@@ -74,7 +74,6 @@ def migrate_data():
         elif cp is None:
             record_dict["corrected_proposal"] = "{}"
 
-
         # Ensure 'feedback_content' is a string.
         fc = record_dict.get("feedback_content")
         if not isinstance(fc, str):
@@ -85,7 +84,7 @@ def migrate_data():
     processed_count = len(processed_records)
     print(f"Processed {processed_count} records for migration.")
 
-    # Step 4: Drop the original table.
+    # Step 4: Drop the original table to prepare for replacement.
     try:
         db.drop_table(original_table_name)
         print(f"Successfully deleted original table '{original_table_name}'.")
