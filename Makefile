@@ -46,7 +46,7 @@ run-dev-sidecar:
 
 # Serve documentation locally
 docs-serve:
-mkdocs serve -f mkdocs.yml
+	mkdocs serve -f mkdocs.yml
 
 install:
 	pip install -r requirements-torch.txt
