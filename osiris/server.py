@@ -69,6 +69,7 @@ except Exception:  # pragma: no cover - optional dependency
     outlines_generate = None
 from llm_sidecar.db import append_feedback, log_hermes_score  # db module itself
 import llm_sidecar.db as db  # alias for explicit calls like db.append_feedback
+import osiris.llm_sidecar.db as legacy_db  # for backward compatibility with tests
 from llm_sidecar.event_bus import EventBus
 from llm_sidecar.hermes_plugin import score_with_hermes
 
@@ -721,14 +722,17 @@ async def submit_phi3_feedback(
     feedback: FeedbackItem,
 ):  # Renamed from submit_feedback to submit_phi3_feedback as per issue
     feedback.timestamp = datetime.datetime.utcnow().isoformat()
-    feedback_dict = feedback.model_dump()
+    if hasattr(feedback, "model_dump"):
+        feedback_dict = feedback.model_dump()
+    else:
+        feedback_dict = feedback.dict()
 
     try:
         # Original append_feedback call
-        db.append_feedback(feedback_dict)  # Using aliased db module
+        legacy_db.append_feedback(feedback_dict)  # Using legacy namespace for tests
 
         # Publish event after successful storage
-        await event_bus.publish("phi3.feedback.submitted", feedback.model_dump_json())
+        await event_bus.publish("phi3.feedback.submitted", json.dumps(feedback_dict))
 
         return {
             "message": "Feedback stored in LanceDB and event published",
