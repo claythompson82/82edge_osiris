@@ -1,5 +1,5 @@
 accelerate==0.27.2
-auto-gptq==0.7.1
+auto-gptq
 bitsandbytes
 fastapi==0.109.2
 huggingface-hub==0.20.3
