@@ -210,9 +210,7 @@ def get_latest_adapter_dir(base_path: str) -> Optional[str]:
 
             # Check for adapter_config.json
             adapter_config_path = os.path.join(dirpath, "adapter_config.json")
-            if not os.path.exists(adapter_config_path) or not os.path.isfile(
-                adapter_config_path
-            ):
+            if not os.path.exists(adapter_config_path):
                 # Missing adapter_config.json
                 continue
 
