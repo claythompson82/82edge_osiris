@@ -194,29 +194,50 @@ _feedback_mtime: Optional[float] = None
 
 
 def _load_recent_feedback(max_examples: int = 3) -> List[Dict[str, Any]]:
+    """Load recent correction feedback examples from disk.
+
+    Only feedback entries of type ``correction`` that contain a valid
+    ``corrected_proposal`` dictionary are returned.  Results are cached based on
+    the file's modification time to avoid unnecessary parsing on subsequent
+    calls.
+    """
+
     global _feedback_cache, _feedback_mtime
 
-    try:
-        mtime = os.path.getmtime(PHI3_FEEDBACK_DATA_FILE)
-    except FileNotFoundError:
+    if not os.path.exists(PHI3_FEEDBACK_DATA_FILE):
+        print(f"Feedback file {PHI3_FEEDBACK_DATA_FILE} not found. No feedback to load.")
         _feedback_cache = []
         _feedback_mtime = None
         return []
 
-    if _feedback_mtime == mtime:
+    try:
+        mtime = os.path.getmtime(PHI3_FEEDBACK_DATA_FILE)
+    except Exception as err:  # pragma: no cover - should rarely happen
+        print(f"Could not stat feedback file {PHI3_FEEDBACK_DATA_FILE}: {err}")
+        mtime = None
+
+    if mtime is not None and _feedback_mtime == mtime and _feedback_cache:
         return _feedback_cache[-max_examples:]
 
     items: List[Dict[str, Any]] = []
-    with open(PHI3_FEEDBACK_DATA_FILE, "r") as f:
-        for line in f:
-            try:
-                obj = json.loads(line.strip())
+    try:
+        with open(PHI3_FEEDBACK_DATA_FILE, "r") as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                try:
+                    obj = json.loads(line.strip())
+                except json.JSONDecodeError as err:
+                    print(f"Error decoding JSON in feedback file: {err}")
+                    continue
+
                 if obj.get("feedback_type") == "correction" and isinstance(
                     obj.get("corrected_proposal"), dict
                 ):
                     items.append(obj)
-            except Exception as err:
-                print(f"[Feedback-load] skipping line: {err}")
+    except Exception as err:
+        print(f"Error reading feedback file {PHI3_FEEDBACK_DATA_FILE}: {err}")
+        return []
 
     _feedback_cache = items
     _feedback_mtime = mtime
