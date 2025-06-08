@@ -49,7 +49,6 @@ docs-serve:
 	mkdocs serve -f mkdocs.yml
 
 install:
-	pip install -r requirements-torch.txt
 	pip install -r requirements.txt
 
 # Check for up-to-date lock files
