@@ -75,18 +75,20 @@ TABLE_SCHEMAS = {
 _tables: Dict[str, Any] = {}
 
 
-def init_db():
+def init_db() -> None:
     """Initialize the database and create tables if they don't exist."""
-    for (
-        table_name,
-        schema_model,
-    ) in TABLE_SCHEMAS.items():  # schema_model is now a LanceModel
+    global _db
+
+    # If _db was cleared or not yet connected, (re)connect now
+    if _db is None:
+        _db = lancedb.connect(DB_ROOT)
+
+    for table_name, schema_model in TABLE_SCHEMAS.items():
         try:
             table = _db.open_table(table_name)
-        except ValueError:  # Catch ValueError, as lancedb seems to raise this
-            table = _db.create_table(
-                table_name, schema=schema_model
-            )  # Pass LanceModel directly
+        except Exception:
+            table = _db.create_table(table_name, schema=schema_model)
+
         _tables[table_name] = table
     # For compatibility with old global variable names, if needed elsewhere (though should be refactored)
     global feedback_tbl, osiris_runs_tbl, hermes_scores_tbl
