@@ -1,8 +1,31 @@
 import argparse
 import datetime
 import json
+import logging
 import lancedb
 import os
+
+logger = logging.getLogger(__name__)
+
+
+def record_matches_filter(record: dict, *, cutoff_ns: int, schema_version: str) -> bool:
+    """Return True if the record should be harvested."""
+    version = str(record.get("schema_version", ""))
+    feedback_type = record.get("feedback_type")
+    when_ts = int(record.get("when", 0))
+    match = (
+        feedback_type == "correction"
+        and when_ts >= cutoff_ns
+        and version.startswith(schema_version)
+    )
+    logger.debug(
+        "Filter record version=%s type=%s when=%s -> %s",
+        version,
+        feedback_type,
+        when_ts,
+        match,
+    )
+    return match
 
 
 def main():
@@ -73,19 +96,24 @@ def main():
             query = query.limit(args.max)
         results = query.to_list()
     except Exception as query_error:
-        print(f"Warning: LanceDB query failed ('{query_error}'). Falling back to manual Python filtering.")
+        print(
+            f"Warning: LanceDB query failed ('{query_error}'). Falling back to manual Python filtering."
+        )
         all_records = table.to_arrow().to_pylist()
-        results = []
-        for r in all_records:
-            if (
-                r.get("feedback_type") == "correction"
-                and r.get("corrected_proposal") not in (None, "")
-                and r.get("when", 0) >= cutoff_timestamp_ns
-                and str(r.get("schema_version", "")).startswith(args.schema_version)
-            ):
-                results.append(r)
+        results = [
+            r
+            for r in all_records
+            if record_matches_filter(r, cutoff_ns=cutoff_timestamp_ns, schema_version=args.schema_version)
+        ]
         if args.max is not None:
             results = results[: args.max]
+
+    # Apply the filter function to ensure consistent behaviour and log decisions
+    results = [
+        r
+        for r in results
+        if record_matches_filter(r, cutoff_ns=cutoff_timestamp_ns, schema_version=args.schema_version)
+    ]
 
 
     # Process and write the filtered records to the output file.
