@@ -6,7 +6,7 @@ repos:
         entry: black
         language: python
         types: [python]
-        additional_dependencies: ["black==24.4.2"]
+        additional_dependencies: ["black==24.2.0"]
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.4.4
     hooks:
