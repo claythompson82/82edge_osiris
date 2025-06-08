@@ -30,7 +30,7 @@ attrs==25.3.0
     #   aiohttp
     #   jsonschema
     #   referencing
-auto-gptq==0.7.1
+auto-gptq==0.7.1+cu121
     # via -r requirements.in
 certifi==2025.4.26
     # via requests
