@@ -1,6 +1,12 @@
 class AutoModelForCausalLM:
-    pass
+    @classmethod
+    def from_pretrained(cls, *args, **kwargs):
+        """Dummy method used for tests."""
+        return cls()
 
 
 class AutoTokenizer:
-    pass
+    @classmethod
+    def from_pretrained(cls, *args, **kwargs):
+        """Dummy method used for tests."""
+        return cls()

@@ -56,11 +56,9 @@ if ENABLE_PROFILING:
 from llm_sidecar.loader import (
     load_hermes_model,
     load_phi3_model,
-    get_hermes_model_and_tokenizer,
-    get_phi3_model_and_tokenizer,
     MICRO_LLM_MODEL_PATH,
-    phi3_adapter_date,
 )
+from osiris.llm_sidecar import loader
 from llm_sidecar.tts import ChatterboxTTS
 
 
@@ -739,7 +737,7 @@ async def swap_phi3_adapter():
     """Reload the Phi-3 model and adapter from disk."""
     try:
         load_phi3_model()
-        return {"status": "ok", "phi3_adapter_date": phi3_adapter_date}
+        return {"status": "ok", "phi3_adapter_date": loader.phi3_adapter_date}
     except Exception as e:
         logger.error(f"Error swapping Phi-3 adapter: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to swap adapter: {e}")
@@ -747,9 +745,9 @@ async def swap_phi3_adapter():
 
 @app.get("/health", tags=["meta"])
 async def health():
-    hermes_ok = all(get_hermes_model_and_tokenizer())
-    phi3_ok = all(get_phi3_model_and_tokenizer())
-    phi3_file = os.path.exists(MICRO_LLM_MODEL_PATH)
+    hermes_ok = all(loader.get_hermes_model_and_tokenizer())
+    phi3_ok = all(loader.get_phi3_model_and_tokenizer())
+    phi3_file = loader.os.path.exists(MICRO_LLM_MODEL_PATH)
 
     status = "ok"
     if not hermes_ok and not phi3_ok:
@@ -804,7 +802,7 @@ async def health():
         "phi3_loaded": phi3_ok,
         "phi3_model_file_exists": phi3_file,
         "device": DEVICE,
-        "phi3_adapter_date": phi3_adapter_date,
+        "phi3_adapter_date": loader.phi3_adapter_date,
         "mean_hermes_score_last_24h": mean_hermes_score_last_24h,
         "num_hermes_scores_last_24h": num_hermes_scores_last_24h,
     }
