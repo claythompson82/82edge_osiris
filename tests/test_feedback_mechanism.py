@@ -43,7 +43,9 @@ class TestFeedbackMechanism:
     @patch(
         "osiris.server._generate_phi3_json"
     )  # This mock will be for the one called by propose_trade_adjustments
-    @patch("osiris.server.open", new_callable=mock_open)  # Mock the open used in server
+    # Patch open() in the same module where it's used so the FileNotFoundError
+    # is avoided when load_recent_feedback accesses the feedback file.
+    @patch("osiris.server.open", new_callable=mock_open)
     def test_log_propose_trade_adjustments(
         self, mock_file_open, mock_internal_phi3_gen, mock_hermes_gen
     ):
@@ -96,7 +98,9 @@ class TestFeedbackMechanism:
         assert write_calls[1].args[0] == "\n"
 
     # Test Case 2: Feedback Submission Endpoint (`/feedback/phi3/`)
-    @patch("osiris.server.open", new_callable=mock_open)  # Mock the open used in server
+    # Patch open() in osiris.server to intercept file access within
+    # load_recent_feedback and avoid FileNotFoundError during tests.
+    @patch("osiris.server.open", new_callable=mock_open)
     def test_submit_feedback_endpoint(self, mock_file_open):
         tx_id = str(uuid.uuid4())
         sample_feedback_payload = {
@@ -147,7 +151,9 @@ class TestFeedbackMechanism:
         )
 
     # Test Case 3: load_recent_feedback Function (Direct Test)
-    @patch("osiris.server.open", new_callable=mock_open)  # Mock the open used in server
+    # Ensure open() is patched in osiris.server so this test doesn't attempt to
+    # read the real feedback file from disk.
+    @patch("osiris.server.open", new_callable=mock_open)
     @patch("builtins.print")  # Mock print to check error logs
     def test_load_recent_feedback_logic(self, mock_print, mock_file_open):
         # Scenario A: Valid Feedback (3 relevant items, ask for 2)
