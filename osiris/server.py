@@ -387,7 +387,11 @@ async def score_proposal_with_hermes(request: ScoreRequest):
 
 @app.post("/speak", tags=["tts"])
 async def speak(request: SpeakRequest):
-    audio_bytes = tts_model.synth(request.text, exaggeration=request.exaggeration, ref_wav_b64=request.ref_wav_b64)
+    audio_bytes = await tts_model.synth(
+        request.text,
+        exaggeration=request.exaggeration,
+        ref_wav_b64=request.ref_wav_b64,
+    )
     return Response(content=audio_bytes, media_type="audio/wav")
 
 
