@@ -49,8 +49,8 @@ docs-serve:
 	mkdocs serve -f mkdocs.yml
 
 install:
-       pip install -r requirements.txt
-       pip install -r requirements-dev.txt
+	pip install -r requirements.txt
+	pip install -r requirements-dev.txt
 
 # Check for up-to-date lock files
 lock:
