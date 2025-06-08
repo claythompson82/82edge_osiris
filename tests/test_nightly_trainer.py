@@ -1,6 +1,7 @@
 import subprocess
 import os
 import sys
+from pathlib import Path
 
 
 def test_driver_marketforge_task_set():
@@ -8,10 +9,14 @@ def test_driver_marketforge_task_set():
     Tests that running driver.py with --task-set marketforge logs "trainer loop stub".
     """
     # Construct the path to the driver.py script relative to this test file.
-    # This assumes the tests directory is at the root of the project,
-    # and nightly_trainer is also at the root.
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    driver_script_path = os.path.join(project_root, "nightly_trainer", "driver.py")
+    # We expect it to live in either <repo>/nightly_trainer/driver.py
+    # or <repo>/scripts/nightly_trainer/driver.py.
+    project_root = Path(__file__).resolve().parents[1]
+    driver_script_path = project_root / "nightly_trainer" / "driver.py"
+    if not driver_script_path.exists():
+        alt_path = project_root / "scripts" / "nightly_trainer" / "driver.py"
+        if alt_path.exists():
+            driver_script_path = alt_path
 
     # Ensure the script path is correct and exists
     if not os.path.exists(driver_script_path):
