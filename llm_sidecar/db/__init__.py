@@ -84,10 +84,10 @@ def init_db() -> None:
         _db = lancedb.connect(DB_ROOT)
 
     for table_name, schema_model in TABLE_SCHEMAS.items():
-        try:
-            table = _db.open_table(table_name)
-        except Exception:
+        if table_name not in _db.table_names():
             table = _db.create_table(table_name, schema=schema_model)
+        else:
+            table = _db.open_table(table_name)
 
         _tables[table_name] = table
     # For compatibility with old global variable names, if needed elsewhere (though should be refactored)
