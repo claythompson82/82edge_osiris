@@ -4,7 +4,7 @@ bitsandbytes
 fastapi==0.109.2
 huggingface-hub==0.20.3
 langgraph
-lancedb>=0.4.9
+lancedb>=0.4.9  # core database component
 onnxruntime
 optimum==1.19.0
 outlines==0.0.36
