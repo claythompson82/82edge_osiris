@@ -10,3 +10,4 @@ lancedb
 pyarrow  # required by LanceDB
 redis
 python-dotenv
+outlines
