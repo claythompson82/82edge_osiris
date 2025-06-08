@@ -97,19 +97,22 @@ def init_db():
 
 # --- Generic Table Helper ---
 def add_to_table(
-    table_name: str, data: LanceModel
-) -> None:  # data is now a LanceModel instance
+    table_name: str, data: Any
+) -> None:
     """
-    Add a Pydantic model (LanceModel) instance to the specified table after validation.
-    The actual async safety depends on LanceDB's capabilities with asyncio.
-    For now, this is a standard synchronous function.
+    Add a record to the specified table after validation. ``data`` can be a
+    Pydantic model instance or a plain dictionary. The actual async safety
+    depends on LanceDB's capabilities with asyncio. For now, this is a
+    synchronous helper.
     """
     if table_name not in _tables:
         raise ValueError(f"Table '{table_name}' not initialized. Call init_db() first.")
 
     table = _tables[table_name]
-    # Validate data with the schema (Pydantic does this on instantiation)
-    if hasattr(data, "model_dump"):
+    # Accept either a Pydantic model instance or a plain dict.
+    if isinstance(data, dict):
+        row = data
+    elif hasattr(data, "model_dump"):
         row = data.model_dump(by_alias=True)
     else:
         row = data.dict(by_alias=True)
