@@ -42,7 +42,7 @@ class TestFeedbackMechanism(unittest.TestCase):
     @patch(
         "osiris.server._generate_phi3_json"
     )  # This mock will be for the one called by propose_trade_adjustments
-    @patch("builtins.open", new_callable=mock_open)  # Mock the built-in open
+    @patch("osiris.server.open", new_callable=mock_open)  # Mock the open used in server
     def test_log_propose_trade_adjustments(
         self, mock_file_open, mock_internal_phi3_gen, mock_hermes_gen
     ):
@@ -98,7 +98,7 @@ class TestFeedbackMechanism(unittest.TestCase):
         self.assertEqual(write_calls[1].args[0], "\n")
 
     # Test Case 2: Feedback Submission Endpoint (`/feedback/phi3/`)
-    @patch("builtins.open", new_callable=mock_open)  # Mock the built-in open
+    @patch("osiris.server.open", new_callable=mock_open)  # Mock the open used in server
     def test_submit_feedback_endpoint(self, mock_file_open):
         tx_id = str(uuid.uuid4())
         sample_feedback_payload = {
@@ -212,7 +212,7 @@ class TestFeedbackMechanism(unittest.TestCase):
         )
 
         with patch("os.path.exists", return_value=True):
-            with patch("builtins.open", mock_open(read_data=mock_jsonl_string_valid)):
+            with patch("osiris.server.open", mock_open(read_data=mock_jsonl_string_valid)):
                 result = load_recent_feedback(max_examples=2)
                 self.assertEqual(len(result), 2)
                 # Should be the last two valid ones: item 3 and item 6
@@ -221,7 +221,7 @@ class TestFeedbackMechanism(unittest.TestCase):
 
         # Scenario B: Empty File or No "correction" Feedback
         with patch("os.path.exists", return_value=True):
-            with patch("builtins.open", mock_open(read_data="")):  # Empty file
+            with patch("osiris.server.open", mock_open(read_data="")):  # Empty file
                 result = load_recent_feedback()
                 self.assertEqual(len(result), 0)
 
@@ -235,7 +235,7 @@ class TestFeedbackMechanism(unittest.TestCase):
         )
         with patch("os.path.exists", return_value=True):
             with patch(
-                "builtins.open", mock_open(read_data=mock_jsonl_string_no_correction)
+                "osiris.server.open", mock_open(read_data=mock_jsonl_string_no_correction)
             ):
                 result = load_recent_feedback()
                 self.assertEqual(len(result), 0)
@@ -254,7 +254,7 @@ class TestFeedbackMechanism(unittest.TestCase):
             mock_data_valid[1]
         )  # Second line is valid
         with patch("os.path.exists", return_value=True):
-            with patch("builtins.open", mock_open(read_data=mock_jsonl_corrupted)):
+            with patch("osiris.server.open", mock_open(read_data=mock_jsonl_corrupted)):
                 result = load_recent_feedback(max_examples=1)
                 self.assertEqual(len(result), 1)  # Should load the valid line
                 self.assertEqual(result[0]["corrected_proposal"]["key"], "val2")
@@ -271,7 +271,7 @@ class TestFeedbackMechanism(unittest.TestCase):
 
         # Scenario E: IO Error during read
         with patch("os.path.exists", return_value=True):
-            with patch("builtins.open", mock_open()) as m_open:
+            with patch("osiris.server.open", mock_open()) as m_open:
                 m_open.side_effect = IOError("Disk full")
                 result = load_recent_feedback()
                 self.assertEqual(len(result), 0)
