@@ -28,6 +28,11 @@ version_variable = "pyproject.toml:version"
 tag_format = "v{version}"
 
 [tool.pytest.ini_options]
+# Specifies that pytest should look for modules starting in the root directory.
+# This is critical for resolving ModuleNotFoundError issues during test collection.
 pythonpath = [
   "."
 ]
+# Configures the default scope for asyncio test fixtures.
+asyncio_default_fixture_loop_scope = "function"
+
