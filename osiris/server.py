@@ -309,7 +309,11 @@ async def submit_phi3_feedback(feedback: FeedbackItem):
             f.write(json.dumps(feedback_dict) + "\n")
 
         # Add to LanceDB and publish event
-        db.append_feedback(feedback_dict)
+        # Explicit serialization for Pydantic v2 with fallback for v1
+        if hasattr(feedback, "model_dump"):
+            db.append_feedback(feedback.model_dump())
+        else:
+            db.append_feedback(feedback.dict())
         if getattr(event_bus, "pubsub", None):
             await event_bus.publish("phi3.feedback.submitted", json.dumps(feedback_dict))
         
