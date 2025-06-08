@@ -13,17 +13,17 @@ import datetime
 import json
 import uuid
 import sys
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import Optional, Dict, Any, List, Union
 
 # --- Main Application Imports ---
 # Imports the Pydantic model and server function for feedback submission.
-# Feedback helpers were moved from the deprecated ``llm_sidecar`` package
-# into ``osiris.server`` during refactoring.
+# Note: These helpers were moved from 'llm_sidecar.server' to 'osiris.server'
+# during our refactoring. The import path is updated to reflect this.
 from osiris.server import FeedbackItem, submit_phi3_feedback
 
 # --- Script Imports for Testing ---
-# Imports the main functions from the utility scripts to be tested.
+# Imports the main functions from the utility scripts that we need to test.
 from osiris.scripts.harvest_feedback import main as harvest_main
 from osiris.scripts.migrate_feedback import main as migrate_main
 
@@ -39,8 +39,9 @@ class FeedbackSchemaForHarvestTest(BaseModel):
     transaction_id: str
     timestamp: str
     feedback_type: str
+    # feedback_content can be a string or a dictionary (e.g., for ratings).
     feedback_content: Union[str, Dict[str, Any]]
-    corrected_proposal: Optional[str] = None  # Stored as JSON string
+    corrected_proposal: Optional[str] = None  # Stored as a JSON string in the DB
     schema_version: str
     when: int  # Nanosecond timestamp for time-based queries
 
@@ -95,7 +96,9 @@ async def test_submit_phi3_feedback_stores_version(mocker):
     the schema_version field. It should use the default "1.0" if not provided
     and preserve a custom version if one is passed in the FeedbackItem.
     """
-    # Patch the underlying database append function to intercept its input
+    # Patch the underlying database append function to intercept its input.
+    # We mock 'llm_sidecar.db.append_feedback' because that's the original location
+    # the function being tested calls.
     mocked_append = mocker.patch("llm_sidecar.db.append_feedback")
 
     # Test Case 1: Default schema_version
@@ -268,4 +271,3 @@ async def test_migrate_feedback_py_script(tmp_path_factory, monkeypatch):
     # Check that ALL records now have the correct schema_version "1.0".
     for record in results:
         assert record.get("schema_version") == "1.0", f"Record {record.get('transaction_id')} was not migrated correctly."
-

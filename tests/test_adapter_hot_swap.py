@@ -1,7 +1,11 @@
 import os
 import unittest
 from unittest import mock
+from unittest.mock import MagicMock
 from datetime import datetime
+import sys
+
+sys.modules.setdefault("sentry_sdk", MagicMock())
 
 from fastapi.testclient import TestClient
 

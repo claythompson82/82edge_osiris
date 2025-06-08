@@ -7,17 +7,7 @@ from unittest.mock import patch
 import lancedb
 from lancedb.pydantic import LanceModel
 
-# Ensure the project root is on the path so test modules can import project code
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-# Now that the path is set, ensure the scripts directory is also available
-scripts_dir = PROJECT_ROOT / "osiris" / "scripts"
-if str(scripts_dir) not in sys.path:
-    sys.path.insert(0, str(scripts_dir))
-
-import harvest_feedback
+from osiris.scripts import harvest_feedback
 
 
 class TestHarvestFeedback(unittest.TestCase):
@@ -78,7 +68,7 @@ class TestHarvestFeedback(unittest.TestCase):
         args = ["--out", output_jsonl]
 
         with (
-            patch("harvest_feedback.lancedb.connect") as mock_connect,
+            patch("osiris.scripts.harvest_feedback.lancedb.connect") as mock_connect,
             patch("os.path.exists", return_value=True),
         ):
             mock_connect.return_value = self.db
