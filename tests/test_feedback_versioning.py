@@ -14,7 +14,7 @@ import json
 import uuid
 import sys
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 
 # --- Main Application Imports ---
 # Imports the Pydantic model and server function for feedback submission.
@@ -37,7 +37,7 @@ class FeedbackSchemaForHarvestTest(BaseModel):
     transaction_id: str
     timestamp: str
     feedback_type: str
-    feedback_content: Any
+    feedback_content: Union[str, Dict[str, Any]]
     corrected_proposal: Optional[str] = None  # Stored as JSON string
     schema_version: str
     when: int  # Nanosecond timestamp for time-based queries
@@ -52,7 +52,7 @@ class TempSchemaForMigrationTest(BaseModel):
     transaction_id: str
     timestamp: str
     feedback_type: str
-    feedback_content: Any
+    feedback_content: Union[str, Dict[str, Any]]
     corrected_proposal: Optional[Dict[str, Any]] = None
     schema_version: Optional[str] = None
 
