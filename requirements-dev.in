@@ -1,12 +1,9 @@
--c requirements-core.txt
+-c requirements.txt
+# Development and testing tools
+pip-tools
 pytest
-pytest-asyncio
-ruff
-black
-fakeredis
-requests
-hypothesis
 pytest-mock
 httpx
-redis
+hypothesis
+fakeredis
 PyGithub

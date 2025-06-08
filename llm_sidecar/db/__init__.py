@@ -3,7 +3,7 @@ import lancedb
 from lancedb.pydantic import LanceModel  # Import LanceModel
 import datetime
 import uuid
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 import json
 from pydantic import Field  # BaseModel is replaced by LanceModel
 import pyarrow as pa
@@ -23,9 +23,9 @@ class Phi3FeedbackSchema(LanceModel):
     transaction_id: str
     timestamp: str = Field(default_factory=get_current_utc_iso)
     feedback_type: str
-    feedback_content: Any  # Accept raw JSON/dict or string
+    feedback_content: Union[str, Dict[str, Any]]
     schema_version: str = "1.0"
-    corrected_proposal: Optional[Dict[str, Any]] = None
+    corrected_proposal: Optional[Union[str, Dict[str, Any]]] = None
 
     @classmethod
     def to_arrow_schema(cls):
