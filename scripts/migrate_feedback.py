@@ -1,17 +1,22 @@
 import lancedb
 import os
-from pydantic import BaseModel
-from typing import Any, Optional, Dict, List
+import json
+import pyarrow as pa
+from typing import Any, Dict, List
 
 
-# Define the target schema for the table, including schema_version
-class FeedbackSchemaWithVersion(BaseModel):
-    transaction_id: str
-    timestamp: str  # Assuming ISO format string
-    feedback_type: str
-    feedback_content: Any  # Using Any for flexibility as in original task
-    corrected_proposal: Optional[Dict[str, Any]] = None
-    schema_version: str
+# Define the target schema for the table using pyarrow.  All fields are
+# stored as strings to keep the migration simple and flexible.
+feedback_schema = pa.schema(
+    [
+        pa.field("transaction_id", pa.string()),
+        pa.field("timestamp", pa.string()),
+        pa.field("feedback_type", pa.string()),
+        pa.field("feedback_content", pa.string()),
+        pa.field("corrected_proposal", pa.string()),
+        pa.field("schema_version", pa.string()),
+    ]
+)
 
 
 def migrate_data():
@@ -55,14 +60,28 @@ def migrate_data():
     # 3. Iterate and update records
     processed_records: List[Dict[str, Any]] = []
     for record in records:
-        # Ensure record is a mutable dict
         record_dict = dict(record)
-        if record_dict.get("schema_version") is None:
+
+        # Ensure the schema_version field exists and is set to "1.0"
+        if record_dict.get("schema_version") is None or record_dict.get("schema_version") != "1.0":
             record_dict["schema_version"] = "1.0"
+
+        # Convert complex fields to JSON strings so they conform to the
+        # simple string-based Arrow schema defined above.
+        cp = record_dict.get("corrected_proposal")
+        if isinstance(cp, dict):
+            record_dict["corrected_proposal"] = json.dumps(cp)
+        elif cp is None:
+            record_dict["corrected_proposal"] = "{}"
+
+        fc = record_dict.get("feedback_content")
+        if not isinstance(fc, str):
+            record_dict["feedback_content"] = str(fc)
+
         processed_records.append(record_dict)
 
     processed_count = len(processed_records)
-    print(f"Processed {processed_count} records. Added 'schema_version' where missing.")
+    print(f"Processed {processed_count} records for migration.")
 
     # 4. If the temporary table already exists, delete it.
     try:
@@ -73,9 +92,9 @@ def migrate_data():
         print(f"Error deleting existing temporary table '{temp_table_name}'. {e}")
         return
 
-    # 5. Create the new temporary table with the defined schema
+    # 5. Create the new temporary table with the defined pyarrow schema
     try:
-        temp_table = db.create_table(temp_table_name, schema=FeedbackSchemaWithVersion)
+        temp_table = db.create_table(temp_table_name, schema=feedback_schema)
         print(f"Created new temporary table '{temp_table_name}' with target schema.")
     except Exception as e:
         print(f"Error creating temporary table '{temp_table_name}'. {e}")
