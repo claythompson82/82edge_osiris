@@ -5,6 +5,7 @@ import os
 import asyncio
 from unittest.mock import patch, mock_open, MagicMock, call, ANY
 import sys
+import pytest
 
 sys.modules.setdefault("sentry_sdk", MagicMock())
 
@@ -266,6 +267,7 @@ class TestFeedbackMechanism:
     # To directly test _generate_phi3_json, we need to mock its internal dependencies like outlines
     @patch("outlines.generate.json")
     @patch("osiris.server.load_recent_feedback")
+    @pytest.mark.asyncio
     async def test_prompt_augmentation_logic(
         self, mock_load_feedback, mock_outlines_gen_json_factory
     ):
