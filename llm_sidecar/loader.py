@@ -4,7 +4,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from optimum.onnxruntime import ORTModelForCausalLM
 from typing import Optional
 from datetime import datetime
-from peft import PeftModel
+from peft import AutoPeftModel
 
 # Global variables for models and tokenizers
 hermes_model = None
@@ -111,10 +111,10 @@ def load_phi3_model():
             print(f"Loading PEFT adapter for Phi-3 from: {latest_adapter_path}")
             try:
                 # Assuming phi3_model is the base model loaded by ORTModelForCausalLM
-                # and it's compatible with PeftModel.from_pretrained's first argument.
+                # and it's compatible with AutoPeftModel.from_pretrained's expected model argument.
                 # This might need adjustment if ORTModelForCausalLM's output isn't directly usable.
                 # For now, we proceed assuming it is.
-                phi3_model = PeftModel.from_pretrained(phi3_model, latest_adapter_path)
+                phi3_model = AutoPeftModel.from_pretrained(phi3_model, latest_adapter_path)
 
                 # Extract date string from path and format it
                 adapter_dir_name = os.path.basename(

@@ -1,6 +1,10 @@
 class AutoModelForCausalLM:
-    pass
+    @classmethod
+    def from_pretrained(cls, *args, **kwargs):
+        pass
 
 
 class AutoTokenizer:
-    pass
+    @classmethod
+    def from_pretrained(cls, *args, **kwargs):
+        pass
