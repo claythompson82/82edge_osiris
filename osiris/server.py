@@ -34,6 +34,8 @@ import torch
 from fastapi import FastAPI, HTTPException, Response, Request
 from fastapi.responses import StreamingResponse
 from contextlib import asynccontextmanager
+import anyio._backends  # Pre-import packages used lazily by Starlette
+import anyio._backends._asyncio  # Avoid filesystem access during first request
 
 try:
     from prometheus_fastapi_instrumentator import Instrumentator
@@ -67,8 +69,8 @@ try:
     from outlines import generate as outlines_generate
 except Exception:  # pragma: no cover - optional dependency
     outlines_generate = None
-from llm_sidecar.db import append_feedback, log_hermes_score  # db module itself
-import llm_sidecar.db as db  # alias for explicit calls like db.append_feedback
+from osiris.llm_sidecar.db import append_feedback, log_hermes_score
+import osiris.llm_sidecar.db as db  # alias for explicit calls like db.append_feedback
 from llm_sidecar.event_bus import EventBus
 from llm_sidecar.hermes_plugin import score_with_hermes
 
@@ -195,27 +197,41 @@ _feedback_mtime: Optional[float] = None
 def _load_recent_feedback(max_examples: int = 3) -> List[Dict[str, Any]]:
     global _feedback_cache, _feedback_mtime
 
-    try:
-        mtime = os.path.getmtime(PHI3_FEEDBACK_DATA_FILE)
-    except FileNotFoundError:
+    if not os.path.exists(PHI3_FEEDBACK_DATA_FILE):
+        print(
+            f"Feedback file {PHI3_FEEDBACK_DATA_FILE} not found. No feedback to load."
+        )
         _feedback_cache = []
         _feedback_mtime = None
         return []
 
-    if _feedback_mtime == mtime:
+    mtime = None
+    try:
+        mtime = os.path.getmtime(PHI3_FEEDBACK_DATA_FILE)
+    except Exception as e:
+        print(f"Error reading feedback file {PHI3_FEEDBACK_DATA_FILE}: {e}")
+
+    if mtime is not None and _feedback_mtime == mtime:
         return _feedback_cache[-max_examples:]
 
     items: List[Dict[str, Any]] = []
-    with open(PHI3_FEEDBACK_DATA_FILE, "r") as f:
-        for line in f:
-            try:
-                obj = json.loads(line.strip())
-                if obj.get("feedback_type") == "correction" and isinstance(
-                    obj.get("corrected_proposal"), dict
-                ):
-                    items.append(obj)
-            except Exception as err:
-                print(f"[Feedback-load] skipping line: {err}")
+    try:
+        with open(PHI3_FEEDBACK_DATA_FILE, "r") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                    if obj.get("feedback_type") == "correction" and isinstance(
+                        obj.get("corrected_proposal"), dict
+                    ):
+                        items.append(obj)
+                except Exception as err:
+                    print(f"Error decoding JSON: {err}")
+    except Exception as e:
+        print(f"Error reading feedback file {PHI3_FEEDBACK_DATA_FILE}: {e}")
+        return []
 
     _feedback_cache = items
     _feedback_mtime = mtime
@@ -592,9 +608,6 @@ async def propose_trade(req: PromptRequest):
     phi3_model, phi3_tok = get_phi3_model_and_tokenizer()
     hermes_model, hermes_tok = get_hermes_model_and_tokenizer()
 
-    if not phi3_model or not hermes_model:
-        return {"error": "Required model(s) not loaded."}
-
     phi3_json = await _generate_phi3_json(
         req.prompt, req.max_length, phi3_model, phi3_tok
     )
@@ -616,25 +629,25 @@ async def propose_trade(req: PromptRequest):
     try:
         entry = {
             "transaction_id": transaction_id,
-            "timestamp": datetime.datetime.utcnow().isoformat(),
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "phi3_proposal": phi3_json,
             "hermes_assessment": hermes_text,
         }
         with open(PHI3_FEEDBACK_LOG_FILE, "a") as f:
-            json.dump(entry, f)
+            f.write(json.dumps(entry))
             f.write("\n")
 
-        # Publish events
-        await event_bus.publish("phi3.proposal.created", json.dumps(phi3_json))
-        # For assessment, let's include the proposal's transaction_id for context
-        assessment_event_payload = {
-            "proposal_transaction_id": transaction_id,  # Correlate with the proposal
-            "assessment_text": hermes_text,
-            "timestamp": entry["timestamp"],  # Use the same timestamp
-        }
-        await event_bus.publish(
-            "phi3.proposal.assessed", json.dumps(assessment_event_payload)
-        )
+        # Publish events only if event_bus is connected
+        if getattr(event_bus, "pubsub", None):
+            await event_bus.publish("phi3.proposal.created", json.dumps(phi3_json))
+            assessment_event_payload = {
+                "proposal_transaction_id": transaction_id,
+                "assessment_text": hermes_text,
+                "timestamp": entry["timestamp"],
+            }
+            await event_bus.publish(
+                "phi3.proposal.assessed", json.dumps(assessment_event_payload)
+            )
 
     except Exception as e:
         print("[Log/Event Publish] write error or event publish error:", e)
@@ -720,18 +733,30 @@ async def speak(req: SpeakRequest):
 async def submit_phi3_feedback(
     feedback: FeedbackItem,
 ):  # Renamed from submit_feedback to submit_phi3_feedback as per issue
-    feedback.timestamp = datetime.datetime.utcnow().isoformat()
+    feedback.timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
     feedback_dict = feedback.model_dump()
 
     try:
-        # Original append_feedback call
-        db.append_feedback(feedback_dict)  # Using aliased db module
+        try:
+            with open(PHI3_FEEDBACK_DATA_FILE, "a") as f:
+                f.write(json.dumps(feedback_dict))
+                f.write("\n")
+        except Exception as e:
+            print(f"Error writing feedback to {PHI3_FEEDBACK_DATA_FILE}: {e}")
 
-        # Publish event after successful storage
-        await event_bus.publish("phi3.feedback.submitted", feedback.model_dump_json())
+        # Original append_feedback call
+        try:
+            db.append_feedback(feedback_dict)  # Using aliased db module
+        except Exception as e:
+            logger.error(f"Error storing feedback in LanceDB: {e}")
+            print(f"Error storing feedback in LanceDB: {e}")
+
+        # Publish event after successful storage if connected
+        if getattr(event_bus, "pubsub", None):
+            await event_bus.publish("phi3.feedback.submitted", feedback.model_dump_json())
 
         return {
-            "message": "Feedback stored in LanceDB and event published",
+            "message": "Feedback received successfully",
             "transaction_id": feedback.transaction_id,
         }
     except Exception as e:
