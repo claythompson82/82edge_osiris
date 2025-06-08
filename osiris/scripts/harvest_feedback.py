@@ -74,7 +74,7 @@ def main():
         results = query.to_list()
     except Exception as query_error:
         print(f"Warning: LanceDB query failed ('{query_error}'). Falling back to manual Python filtering.")
-        all_records = table.to_list()
+        all_records = table.to_arrow().to_pylist()
         results = []
         for r in all_records:
             if (
