@@ -11,7 +11,7 @@ def test_driver_marketforge_task_set():
     # Construct the path to the driver.py script relative to this test file.
     # We expect it to live in either <repo>/nightly_trainer/driver.py
     # or <repo>/scripts/nightly_trainer/driver.py.
-    project_root = Path(__file__).resolve().parents[1]
+    project_root = Path(__file__).resolve().parent.parent
     driver_script_path = project_root / "nightly_trainer" / "driver.py"
     if not driver_script_path.exists():
         alt_path = project_root / "scripts" / "nightly_trainer" / "driver.py"
@@ -19,7 +19,7 @@ def test_driver_marketforge_task_set():
             driver_script_path = alt_path
 
     # Ensure the script path is correct and exists
-    if not os.path.exists(driver_script_path):
+    if not driver_script_path.exists():
         raise FileNotFoundError(f"Could not find driver script at {driver_script_path}")
 
     try:
