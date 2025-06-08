@@ -1,8 +1,5 @@
 import os
-import sys
 from unittest import mock
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from dgm_kernel.hitl_pr import create_hitl_pr
 

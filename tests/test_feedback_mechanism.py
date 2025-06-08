@@ -5,6 +5,9 @@ import uuid
 import os
 import asyncio
 from unittest.mock import patch, mock_open, MagicMock, call
+import sys
+
+sys.modules.setdefault("sentry_sdk", MagicMock())
 
 from fastapi.testclient import TestClient
 

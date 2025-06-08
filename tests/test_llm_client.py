@@ -9,6 +9,7 @@ for name in [
     "torchaudio",
     "chatterbox",
     "sentry_sdk",
+    "tenacity",
     "lancedb",
     "lancedb.pydantic",
     "transformers",
