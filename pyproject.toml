@@ -26,3 +26,6 @@ select = ["E9"]
 [tool.semantic_release]
 version_variable = "pyproject.toml:version"
 tag_format = "v{version}"
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
