@@ -13,8 +13,8 @@ from osiris.server import app, db, FeedbackItem
 def patch_model_loaders():
     """Automatically patch model loaders for all tests in this file."""
     with (
-        patch("osiris.server.load_hermes_model", return_value=None),
-        patch("osiris.server.load_phi3_model", return_value=None),
+        patch("osiris.llm_sidecar.loader.load_hermes_model", return_value=None),
+        patch("osiris.llm_sidecar.loader.load_phi3_model", return_value=None),
         patch("osiris.server.event_bus.connect", new_callable=AsyncMock),
         patch("osiris.server.event_bus.close", new_callable=AsyncMock),
         patch("osiris.server.event_bus.subscribe", new_callable=AsyncMock),
@@ -24,7 +24,10 @@ def patch_model_loaders():
 def test_generate_hermes_default_model_id():
     """Test /generate/ with default model_id (hermes)"""
     with (
-        patch("osiris.server.get_hermes_model_and_tokenizer", return_value=(MagicMock(), MagicMock())) as mock_get_hermes,
+        patch(
+            "osiris.llm_sidecar.loader.get_hermes_model_and_tokenizer",
+            return_value=(MagicMock(), MagicMock()),
+        ) as mock_get_hermes,
         patch("osiris.server._generate_hermes_text", new_callable=AsyncMock, return_value="Hermes mock output") as mock_generate_hermes,
     ):
         client = TestClient(app)
@@ -37,7 +40,10 @@ def test_generate_phi3_explicit_model_id():
     """Test /generate/ with explicit model_id='phi3'"""
     mock_phi3_output = {"phi3_mock_output": "success"}
     with (
-        patch("osiris.server.get_phi3_model_and_tokenizer", return_value=(MagicMock(), MagicMock())) as mock_get_phi3,
+        patch(
+            "osiris.llm_sidecar.loader.get_phi3_model_and_tokenizer",
+            return_value=(MagicMock(), MagicMock()),
+        ) as mock_get_phi3,
         patch("osiris.server._generate_phi3_json", new_callable=AsyncMock, return_value=mock_phi3_output) as mock_generate_phi3,
     ):
         client = TestClient(app)
@@ -56,8 +62,13 @@ def test_generate_invalid_model_id(bad_id: str):
 def test_score_proposal_with_hermes_success():
     """Test /score/hermes/ endpoint successful scoring."""
     with (
-        patch("osiris.server.score_with_hermes", return_value=0.75) as mock_score_func,
-        patch("osiris.server.db.log_hermes_score", return_value=None) as mock_log_score,
+        patch(
+            "osiris.llm_sidecar.hermes_plugin.score_with_hermes",
+            return_value=0.75,
+        ) as mock_score_func,
+        patch(
+            "osiris.llm_sidecar.db.log_hermes_score", return_value=None
+        ) as mock_log_score,
     ):
         client = TestClient(app)
         payload = {"proposal": {"ticker": "XYZ", "action": "BUY"}, "context": "Test context"}
