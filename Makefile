@@ -1,6 +1,6 @@
 # Makefile for LLM Sidecar
 
-.PHONY: rebuild logs dev-shell openapi format-check lint-check test-coverage clean run-dev-sidecar docs-serve
+.PHONY: rebuild logs dev-shell openapi format-check lint-check test-coverage clean run-dev-sidecar docs-serve install
 
 # Default service for logs if not specified
 SVC ?= llm-sidecar
@@ -46,7 +46,11 @@ run-dev-sidecar:
 
 # Serve documentation locally
 docs-serve:
-	mkdocs serve -f mkdocs.yml
+mkdocs serve -f mkdocs.yml
+
+install:
+	pip install -r requirements-torch.txt
+	pip install -r requirements.txt
 
 # Check for up-to-date lock files
 lock:
