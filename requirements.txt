@@ -17,6 +17,8 @@ aiohttp==3.12.9
     #   fsspec
 aiosignal==1.3.2
     # via aiohttp
+airportsdata==20250523
+    # via outlines
 annotated-types==0.7.0
     # via pydantic
 anyio==4.9.0
@@ -24,7 +26,10 @@ anyio==4.9.0
     #   starlette
     #   watchfiles
 attrs==25.3.0
-    # via aiohttp
+    # via
+    #   aiohttp
+    #   jsonschema
+    #   referencing
 auto-gptq==0.7.1
     # via -r requirements.in
 certifi==2025.4.26
@@ -33,6 +38,8 @@ charset-normalizer==3.4.2
     # via requests
 click==8.2.1
     # via uvicorn
+cloudpickle==3.1.1
+    # via outlines
 datasets==2.18.0
     # via auto-gptq
 deprecation==2.1.0
@@ -41,6 +48,8 @@ dill==0.3.8
     # via
     #   datasets
     #   multiprocess
+diskcache==5.6.3
+    # via outlines
 fastapi==0.109.2
     # via -r requirements.in
 filelock==3.18.0
@@ -61,6 +70,8 @@ fsspec[http]==2024.2.0
     #   torch
 gekko==1.3.0
     # via auto-gptq
+genson==1.3.0
+    # via outlines
 h11==0.16.0
     # via uvicorn
 httptools==0.6.4
@@ -77,10 +88,26 @@ idna==3.10
     #   anyio
     #   requests
     #   yarl
+interegular==0.3.3
+    # via
+    #   outlines
+    #   outlines-core
+iso3166==2.1.1
+    # via outlines
 jinja2==3.1.6
-    # via torch
+    # via
+    #   outlines
+    #   torch
+jsonschema==4.24.0
+    # via
+    #   outlines
+    #   outlines-core
+jsonschema-specifications==2025.4.1
+    # via jsonschema
 lancedb==0.23.0
     # via -r requirements.in
+lark==1.2.2
+    # via outlines
 markupsafe==3.0.2
     # via jinja2
 mpmath==1.3.0
@@ -91,6 +118,8 @@ multidict==6.4.4
     #   yarl
 multiprocess==0.70.16
     # via datasets
+nest-asyncio==1.6.0
+    # via outlines
 networkx==3.5
     # via torch
 numpy==2.2.6
@@ -100,6 +129,7 @@ numpy==2.2.6
     #   datasets
     #   gekko
     #   lancedb
+    #   outlines
     #   pandas
     #   peft
     #   transformers
@@ -134,6 +164,10 @@ nvidia-nvjitlink-cu12==12.9.86
     #   nvidia-cusparse-cu12
 nvidia-nvtx-cu12==12.1.105
     # via torch
+outlines==0.2.3
+    # via -r requirements.in
+outlines-core==0.1.26
+    # via outlines
 overrides==7.7.0
     # via lancedb
 packaging==24.2
@@ -169,6 +203,7 @@ pydantic==2.11.5
     #   -r requirements.in
     #   fastapi
     #   lancedb
+    #   outlines
 pydantic-core==2.33.2
     # via pydantic
 python-dateutil==2.9.0.post0
@@ -189,15 +224,25 @@ pyyaml==6.0.2
     #   uvicorn
 redis==6.2.0
     # via -r requirements.in
+referencing==0.36.2
+    # via
+    #   jsonschema
+    #   jsonschema-specifications
+    #   outlines
 regex==2024.11.6
     # via transformers
 requests==2.32.3
     # via
     #   datasets
     #   huggingface-hub
+    #   outlines
     #   transformers
 rouge==1.0.1
     # via auto-gptq
+rpds-py==0.25.1
+    # via
+    #   jsonschema
+    #   referencing
 safetensors==0.5.3
     # via
     #   accelerate
@@ -223,6 +268,7 @@ torch==2.2.2
     #   -r requirements.in
     #   accelerate
     #   auto-gptq
+    #   outlines
     #   peft
 tqdm==4.67.1
     # via
@@ -230,6 +276,7 @@ tqdm==4.67.1
     #   datasets
     #   huggingface-hub
     #   lancedb
+    #   outlines
     #   peft
     #   transformers
 transformers==4.38.2
@@ -244,8 +291,10 @@ typing-extensions==4.14.0
     #   anyio
     #   fastapi
     #   huggingface-hub
+    #   outlines
     #   pydantic
     #   pydantic-core
+    #   referencing
     #   torch
     #   typing-inspection
 typing-inspection==0.4.1
