@@ -89,3 +89,85 @@ def test_feedback_submission_and_retrieval(temp_db, mocker):
         assert len(lines) == 1
         data = json.loads(lines[0])
         assert data['id'] == 'tid123'
+
+
+@pytest.mark.asyncio
+async def test_migrate_feedback_py_script(tmp_path_factory, monkeypatch):
+    """Integration-like test for scripts/migrate_feedback.py."""
+    db_path = tmp_path_factory.mktemp("lancedb_migrate_test")
+
+    # Connect to temporary DB
+    db_conn = lancedb.connect(db_path)
+    table_name = "phi3_feedback"  # Script uses this name
+
+    # Data simulating older feedback records
+    record_A_dict = {
+        "transaction_id": "a",
+        "timestamp": "ts_a",
+        "feedback_type": "type_a",
+        "feedback_content": "content_a",
+        "corrected_proposal": {"key": "val_a"},
+    }
+    record_B_dict = {
+        "transaction_id": "b",
+        "timestamp": "ts_b",
+        "feedback_type": "type_b",
+        "feedback_content": "content_b",
+        "corrected_proposal": {"key": "val_b"},
+        "schema_version": "0.8",
+    }
+    record_C_dict = {
+        "transaction_id": "c",
+        "timestamp": "ts_c",
+        "feedback_type": "type_c",
+        "feedback_content": "content_c",
+        "corrected_proposal": {"key": "val_c"},
+        "schema_version": "1.0",
+    }
+
+    if table_name in db_conn.table_names():
+        db_conn.drop_table(table_name)
+
+    class TempSchemaForInitialData(BaseModel):
+        transaction_id: str
+        timestamp: str
+        feedback_type: str
+        feedback_content: Any
+        corrected_proposal: Optional[Dict[str, Any]] = None
+        schema_version: Optional[str] = None
+
+    try:
+        table = db_conn.create_table(
+            table_name, schema=TempSchemaForInitialData, mode="overwrite"
+        )
+        table.add([record_A_dict, record_B_dict, record_C_dict])
+    except Exception:
+        if table_name in db_conn.table_names():
+            db_conn.drop_table(table_name)
+        # Provide initial data so LanceDB can infer the schema
+        table = db_conn.create_table(
+            table_name,
+            data=[record_A_dict, record_B_dict, record_C_dict],
+            mode="overwrite",
+        )
+
+    def mock_lancedb_connect(path):
+        return db_conn
+
+    monkeypatch.setattr(
+        "osiris.scripts.migrate_feedback.lancedb.connect", mock_lancedb_connect
+    )
+    monkeypatch.setattr(
+        "osiris.scripts.migrate_feedback.os.makedirs",
+        lambda path, exist_ok=False: None,
+        raising=False,
+    )
+
+    migrate_main()
+
+    migrated_table = db_conn.open_table(table_name)
+    results = migrated_table.search().to_list()
+    assert len(results) == 3
+
+    for record in results:
+        assert record.get("schema_version") == "1.0"
