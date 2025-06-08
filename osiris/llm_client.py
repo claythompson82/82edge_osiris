@@ -60,6 +60,10 @@ class LLMClient:
             f"/generate?model_id={model_id}",
             json={"prompt": prompt, "max_length": max_length},
         )
+        if resp is None:
+            logger.error("LLM request failed and returned no response")
+            return None
+
         return resp.json()
 
     def propose_trade_adjustments(
