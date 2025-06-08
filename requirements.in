@@ -5,7 +5,7 @@ pydantic
 torch
 transformers
 accelerate
-auto-gptq
+auto-gptq==0.7.1+cu121
 lancedb
 pyarrow  # required by LanceDB
 redis
