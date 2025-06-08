@@ -245,7 +245,12 @@ async def audio_byte_stream_generator(request: Request):
 @app.post("/feedback/phi3/", tags=["feedback"])
 async def submit_phi3_feedback(feedback: FeedbackItem):
     feedback.timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
-    feedback_dict = feedback.model_dump()
+    # ``model_dump`` exists on Pydantic v2 models. Our tests use v1 so fall back
+    # to ``dict`` for compatibility.
+    if hasattr(feedback, "model_dump"):
+        feedback_dict = feedback.model_dump()
+    else:
+        feedback_dict = feedback.dict()
 
     try:
         # Log to local file for training data
