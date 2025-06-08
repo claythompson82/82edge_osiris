@@ -8,19 +8,25 @@ def test_driver_marketforge_task_set():
     """
     Tests that running driver.py with --task-set marketforge logs "trainer loop stub".
     """
-    # Construct the path to the driver.py script relative to this test file.
-    # We expect it to live in either <repo>/nightly_trainer/driver.py
-    # or <repo>/scripts/nightly_trainer/driver.py.
-    project_root = Path(__file__).resolve().parents[1]
-    driver_script_path = project_root / "nightly_trainer" / "driver.py"
-    if not driver_script_path.exists():
-        alt_path = project_root / "scripts" / "nightly_trainer" / "driver.py"
-        if alt_path.exists():
-            driver_script_path = alt_path
+    # Attempt to locate driver.py by walking up the directory tree until the
+    # nightly_trainer directory is found. This is more robust than assuming a fixed depth.
+    search_start = Path(__file__).resolve()
+    driver_script_path = None
+    for parent in [search_start] + list(search_start.parents):
+        # Check for <root>/nightly_trainer/driver.py
+        candidate = parent / "nightly_trainer" / "driver.py"
+        if candidate.exists():
+            driver_script_path = candidate
+            break
+        # Also check for <root>/scripts/nightly_trainer/driver.py
+        alt_candidate = parent / "scripts" / "nightly_trainer" / "driver.py"
+        if alt_candidate.exists():
+            driver_script_path = alt_candidate
+            break
 
-    # Ensure the script path is correct and exists
-    if not os.path.exists(driver_script_path):
-        raise FileNotFoundError(f"Could not find driver script at {driver_script_path}")
+    # Ensure the script path was found
+    if not driver_script_path or not driver_script_path.exists():
+        raise FileNotFoundError(f"Could not find driver.py. Searched from {search_start}.")
 
     try:
         # Run the script using the same Python interpreter that's running the tests
@@ -60,6 +66,5 @@ def test_driver_marketforge_task_set():
 
 if __name__ == "__main__":
     # This allows running the test directly e.g., python tests/test_nightly_trainer.py
-    # For more comprehensive test runs, a test runner like pytest is recommended.
     test_driver_marketforge_task_set()
     print("Test passed.")
