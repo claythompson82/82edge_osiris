@@ -8,12 +8,15 @@ correctly throughout its lifecycle, including:
 - Data migration for older records to a new schema.
 """
 import pytest
-pytest.skip("LanceDB not fully functional in test environment", allow_module_level=True)
 import lancedb
 import datetime
 import json
 import uuid
 import sys
+from unittest.mock import MagicMock
+
+sys.modules.setdefault("sentry_sdk", MagicMock())
+import tests.test_imports  # Setup dependency stubs for redis and others
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List, Union
 
