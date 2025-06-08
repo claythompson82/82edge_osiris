@@ -8,15 +8,21 @@ def test_driver_marketforge_task_set():
     """
     Tests that running driver.py with --task-set marketforge logs "trainer loop stub".
     """
-    # Construct the path to the driver.py script relative to this test file.
-    # We expect it to live in either <repo>/nightly_trainer/driver.py
-    # or <repo>/scripts/nightly_trainer/driver.py.
-    project_root = Path(__file__).resolve().parents[1]
-    driver_script_path = project_root / "nightly_trainer" / "driver.py"
-    if not driver_script_path.exists():
-        alt_path = project_root / "scripts" / "nightly_trainer" / "driver.py"
-        if alt_path.exists():
-            driver_script_path = alt_path
+    # Attempt to locate driver.py by walking up the directory tree until the
+    # nightly_trainer directory is found. This is more robust than assuming the
+    # tests live directly inside the project root which may not be true when the
+    # package is installed in a different location.
+    search_start = Path(__file__).resolve()
+    driver_script_path = None
+    for parent in [search_start] + list(search_start.parents):
+        candidate = parent / "nightly_trainer" / "driver.py"
+        if candidate.exists():
+            driver_script_path = candidate
+            break
+        alt_candidate = parent / "scripts" / "nightly_trainer" / "driver.py"
+        if alt_candidate.exists():
+            driver_script_path = alt_candidate
+            break
 
     # Ensure the script path is correct and exists
     if not os.path.exists(driver_script_path):
