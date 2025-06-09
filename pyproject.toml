@@ -6,9 +6,26 @@ build-backend = "setuptools.build_meta"
 name = "osiris"
 version = "0.0.0"
 
+# --- Setuptools Configuration ---
+# This combination explicitly tells setuptools that the package's root ("")
+# is located in the 'src' directory, AND to automatically find all packages
+# within that 'src' directory. This is the definitive setup for a src-layout.
+[tool.setuptools]
+package-dir = {"" = "src"}
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
+# --- Pytest Configuration ---
+[tool.pytest.ini_options]
+minversion = "6.0"
+# We explicitly tell pytest to only look for tests in the 'tests' directory.
+testpaths = ["tests"]
+# We do NOT use 'pythonpath'. The editable install now handles the path correctly.
+# 'asyncio_mode = "auto"' is the modern way to configure pytest-asyncio.
+asyncio_mode = "auto"
+
+# --- Formatter and Linter Configurations ---
 [tool.black]
 line-length = 88
 target-version = ["py310"]
@@ -23,16 +40,7 @@ exclude = ["osiris/scripts/*"]
 [tool.ruff.lint]
 select = ["E9"]
 
+# --- Release Configuration ---
 [tool.semantic_release]
 version_variable = "pyproject.toml:version"
 tag_format = "v{version}"
-
-# Specifies that pytest should look for modules starting in the root directory.
-# This is critical for resolving ModuleNotFoundError issues during test collection.
-[tool.pytest.ini_options]
-pythonpath = [
-  "src"
-]
-# Configures the default scope for asyncio test fixtures.
-asyncio_default_fixture_loop_scope = "function"
-

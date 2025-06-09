@@ -1,6 +1,3 @@
-import sys
-sys.path.append('.')
-
 import pytest
 from hypothesis import given, strategies as st
 

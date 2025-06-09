@@ -1,0 +1,6 @@
+Metadata-Version: 2.4
+Name: osiris
+Version: 0.0.0
+License-File: LICENSES.json
+License-File: LICENSES.md
+Dynamic: license-file
