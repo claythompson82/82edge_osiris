@@ -7,7 +7,7 @@
 accelerate==0.27.2
     # via
     #   -r requirements.in
-    #   auto-gptq
+#    #   auto-gptq
     #   peft
 aiohappyeyeballs==2.6.1
     # via aiohttp
@@ -30,7 +30,7 @@ attrs==25.3.0
     #   aiohttp
     #   jsonschema
     #   referencing
-auto-gptq==0.7.1+cu121
+#auto-gptq==0.7.1+cu121
     # via -r requirements.in
 certifi==2025.4.26
     # via requests
@@ -41,7 +41,7 @@ click==8.2.1
 cloudpickle==3.1.1
     # via outlines
 datasets==2.18.0
-    # via auto-gptq
+#    # via auto-gptq
 deprecation==2.1.0
     # via lancedb
 dill==0.3.8
@@ -69,7 +69,7 @@ fsspec[http]==2024.2.0
     #   huggingface-hub
     #   torch
 gekko==1.3.0
-    # via auto-gptq
+#    # via auto-gptq
 genson==1.3.0
     # via outlines
 h11==0.16.0
@@ -125,7 +125,7 @@ networkx==3.5
 numpy==2.2.6
     # via
     #   accelerate
-    #   auto-gptq
+#    #   auto-gptq
     #   datasets
     #   gekko
     #   lancedb
@@ -182,7 +182,7 @@ packaging==24.2
 pandas==2.3.0
     # via datasets
 peft==0.13.2
-    # via auto-gptq
+#    # via auto-gptq
 propcache==0.3.1
     # via
     #   aiohttp
@@ -238,7 +238,7 @@ requests==2.32.3
     #   outlines
     #   transformers
 rouge==1.0.1
-    # via auto-gptq
+#    # via auto-gptq
 rpds-py==0.25.1
     # via
     #   jsonschema
@@ -246,11 +246,11 @@ rpds-py==0.25.1
 safetensors==0.5.3
     # via
     #   accelerate
-    #   auto-gptq
+#    #   auto-gptq
     #   peft
     #   transformers
 sentencepiece==0.1.99
-    # via auto-gptq
+#    # via auto-gptq
 six==1.17.0
     # via
     #   python-dateutil
@@ -267,12 +267,12 @@ torch==2.2.2
     # via
     #   -r requirements.in
     #   accelerate
-    #   auto-gptq
+#    #   auto-gptq
     #   outlines
     #   peft
 tqdm==4.67.1
     # via
-    #   auto-gptq
+#    #   auto-gptq
     #   datasets
     #   huggingface-hub
     #   lancedb
@@ -282,7 +282,7 @@ tqdm==4.67.1
 transformers==4.38.2
     # via
     #   -r requirements.in
-    #   auto-gptq
+#    #   auto-gptq
     #   peft
 triton==2.2.0
     # via torch
