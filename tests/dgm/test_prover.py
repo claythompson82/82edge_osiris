@@ -1,5 +1,7 @@
 import sys
-sys.path.append('.')import pytest
+sys.path.append('.')
+
+import pytest
 from hypothesis import given, strategies as st
 
 from dgm_kernel.prover import prove_patch
