@@ -9,3 +9,14 @@ __pycache__/
 
 .venv
 .venv
+
+# Ignore local virtual environments
+venv/
+.venv/
+
+
+# local cache
+.tmp/
+
+# ignore venv
+.venv/
