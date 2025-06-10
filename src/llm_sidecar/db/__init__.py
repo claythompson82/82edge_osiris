@@ -1,3 +1,4 @@
+import os
 import pathlib
 import lancedb
 from lancedb.pydantic import LanceModel  # Import LanceModel
@@ -8,9 +9,15 @@ import json
 from pydantic import Field  # BaseModel is replaced by LanceModel
 import pyarrow as pa
 
-# --- Configuration ---
-DB_ROOT = pathlib.Path("/app/lancedb_data")
-# Ensure DB_ROOT directory exists
+# --- Configuration -------------------------------------------------
+# Prefer an env-var set by sitecustomize; otherwise use a repo-local
+# .tmp folder that is always writable.
+DB_ROOT = pathlib.Path(
+    os.getenv(
+        "DB_ROOT",
+        pathlib.Path(__file__).resolve().parents[3] / ".tmp" / "lancedb_data",
+    )
+)
 DB_ROOT.mkdir(parents=True, exist_ok=True)
 
 
