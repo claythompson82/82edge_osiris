@@ -1,9 +1,9 @@
+# Development/testing dependencies
 -c requirements.txt
-# Development and testing tools
-pip-tools
 pytest
 pytest-mock
-httpx
-hypothesis
+black
+pytest-asyncio
+pip-tools
 fakeredis
-PyGithub
+hypothesis
