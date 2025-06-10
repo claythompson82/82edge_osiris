@@ -1,13 +1,16 @@
 # Core application dependencies
-fastapi
+fastapi==0.115.12
+packaging<25
 uvicorn[standard]
 pydantic
 torch
+torchaudio
 transformers
 accelerate
-auto-gptq==0.7.1+cu121
+#auto-gptq==0.7.1+cu121
 lancedb
-pyarrow  # required by LanceDB
+pyarrow
 redis
 python-dotenv
 outlines
+numpy<2.0
