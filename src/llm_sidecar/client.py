@@ -1,0 +1,3 @@
+class LLMClient:
+    """Minimal stub used only by legacy tests."""
+    def __init__(self): ...
