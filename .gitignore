@@ -20,3 +20,8 @@ venv/
 
 # ignore venv
 .venv/
+
+# Local models & env
+models/
+.env
+

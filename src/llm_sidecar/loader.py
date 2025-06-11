@@ -23,10 +23,26 @@ MICRO_LLM_MODEL_PARENT_DIR = (
 MICRO_LLM_MODEL_PATH = os.getenv(
     "MICRO_LLM_MODEL_PATH", os.path.join(MICRO_LLM_MODEL_PARENT_DIR, "phi3.onnx")
 )
+# ------------------------------------------------------------------
+# Allow a one-shot override via PHI3_MODEL_PATH ...
+_phi3_override = os.getenv("PHI3_MODEL_PATH")
+if _phi3_override and os.path.exists(_phi3_override):
+    MICRO_LLM_MODEL_PATH = _phi3_override
+    MICRO_LLM_MODEL_PARENT_DIR = os.path.dirname(MICRO_LLM_MODEL_PATH)
+    print(f"[Side-car] Using PHI3_MODEL_PATH override: {MICRO_LLM_MODEL_PATH}")
+# ------------------------------------------------------------------
 
 
 PHI3_TOKENIZER_PATH = "microsoft/phi-3-mini-4k-instruct"
 HERMES_MODEL_PATH = "/app/hermes-model"  # This is a directory
+# ------------------------------------------------------------------
+# Allow an override via HERMES_MODEL_PATH env-var so users can
+# point to any local folder without editing the code again.
+_hermes_override = os.getenv("HERMES_MODEL_PATH")
+if _hermes_override and os.path.isdir(_hermes_override):
+    HERMES_MODEL_PATH = _hermes_override
+    print(f"[Side-car] Using HERMES_MODEL_PATH override: {HERMES_MODEL_PATH}")
+# ------------------------------------------------------------------
 
 
 def load_hermes_model():
