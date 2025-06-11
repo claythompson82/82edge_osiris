@@ -98,7 +98,7 @@ def load_phi3_model():
         # Check if the specific ONNX file exists, as a sanity check from the script.
         if not os.path.exists(MICRO_LLM_MODEL_PATH):
             print(f"Error: ONNX model file not found at {MICRO_LLM_MODEL_PATH}")
-                return None, None  # abort early
+            return None, None  # abort early
 
         if not os.path.isdir(model_dir_to_load):
             print(f"Warning: Parent dir '{model_dir_to_load}' not found; loading ONNX file directly.")
