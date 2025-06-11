@@ -97,15 +97,12 @@ def load_phi3_model():
 
         # Check if the specific ONNX file exists, as a sanity check from the script.
         if not os.path.exists(MICRO_LLM_MODEL_PATH):
-            print(
-                f"Error: ONNX model file not found at {MICRO_LLM_MODEL_PATH}. Ensure it has been downloaded and named correctly."
-            )
-            # Attempt to load from the parent directory anyway, Optimum might find other .onnx files.
-        elif not os.path.isdir(model_dir_to_load):
-            print(
-                f"Warning: MICRO_LLM_MODEL_PARENT_DIR '{model_dir_to_load}' is not a directory. Attempting to load ONNX model directly from '{MICRO_LLM_MODEL_PATH}'. This might fail if config files are separate."
-            )
-            model_dir_to_load = MICRO_LLM_MODEL_PATH  # Fallback to direct path if parent is not a dir (should not happen with current setup)
+        	print(f"Error: ONNX model file not found at {MICRO_LLM_MODEL_PATH}")
+                return None, None  # abort early
+
+        if not os.path.isdir(model_dir_to_load):
+        	print(f"Warning: Parent dir '{model_dir_to_load}' not found; loading ONNX file directly.")
+        	model_dir_to_load = MICRO_LLM_MODEL_PATH
 
         phi3_model = ORTModelForCausalLM.from_pretrained(
             model_dir_to_load,  # Expects directory containing model.onnx and config.json etc.
@@ -115,7 +112,10 @@ def load_phi3_model():
             ),
             use_io_binding=True if device == "cuda" else False,  # IO binding for GPU
         )
-        # No explicit .to(device) for ORTModelForCausalLM, provider handles it.
+        # Even if we never load an adapter, we always return base model & tokenizer
+	return phi3_model, phi3_tokenizer
+
+	# No explicit .to(device) for ORTModelForCausalLM, provider handles it.
         # Inputs to generate will need .to(device)
 
         # Load PEFT adapter if available
