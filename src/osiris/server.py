@@ -62,21 +62,30 @@ if ENABLE_PROFILING:
     from pyinstrument import Profiler
     from starlette.middleware.base import BaseHTTPMiddleware
 
+# core loader functions + adapter date pulled at runtime
 from llm_sidecar.loader import (
     load_hermes_model,
     load_phi3_model,
     MICRO_LLM_MODEL_PATH,
+    get_hermes_model_and_tokenizer,
+    get_phi3_model_and_tokenizer,
 )
-from osiris.llm_sidecar import loader
+import llm_sidecar.loader as loader
+
+# TTS engine
 from llm_sidecar.tts import ChatterboxTTS
 
+# optional outlines generator
 try:
     from outlines import generate as outlines_generate
 except Exception:
     outlines_generate = None
 
+# feedback & scoring
 from llm_sidecar.db import append_feedback, log_hermes_score
 import llm_sidecar.db as db
+
+# event bus & plugins
 from llm_sidecar.event_bus import EventBus
 from llm_sidecar.hermes_plugin import score_with_hermes
 
