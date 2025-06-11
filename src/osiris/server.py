@@ -4,16 +4,39 @@
 # (JSON-structured) plus a feedback loop for nightly QLoRA / DPO training.
 # -----------------------------------------------------------------------------
 # Allow Starlette TestClient to pass `app=` into httpx.Client without breaking
+# -----------------------------------------------------------------------------
+# Shim httpx.Client to accept `app=` for FastAPI TestClient
+# -----------------------------------------------------------------------------
 import httpx
-_original_httpx_client_init = httpx.Client.__init__
+_original_httpx_init = httpx.Client.__init__
 
-def _httpx_init(self, *args, app=None, **kwargs):
-    # Drop the `app` kwarg if provided, and delegate to the real initializer
-    if app is not None:
-        return _original_httpx_client_init(self, *args, **kwargs)
-    return _original_httpx_client_init(self, *args, **kwargs)
+def _shim_httpx_init(self, *args, app=None, **kwargs):
+    # Drop the `app` kwarg if provided
+    return _original_httpx_init(self, *args, **{k: v for k, v in kwargs.items() if k != "app"})
 
-httpx.Client.__init__ = _httpx_init
+httpx.Client.__init__ = _shim_httpx_init
+
+# -----------------------------------------------------------------------------
+# FastAPI side-car setup
+# -----------------------------------------------------------------------------
+from fastapi import FastAPI
+from llm_sidecar.loader import get_hermes_model_and_tokenizer, get_phi3_model_and_tokenizer
+
+app = FastAPI()
+
+@app.get("/health", tags=["meta"])
+async def health():
+    hermes_ok, _ = get_hermes_model_and_tokenizer()
+    phi3_ok, _ = get_phi3_model_and_tokenizer()
+    return {
+        "status": "ok" if (hermes_ok and phi3_ok) else "error",
+        "hermes_loaded": hermes_ok,
+        "phi3_loaded": phi3_ok,
+        "phi3_adapter_date": loader.phi3_adapter_date,
+    }
+
+# ... the rest of your endpoints below, with load_hermes_model() and load_phi3_model()
+#    only called within specific routes or startup events, never at import time.
 
 import os
 import json

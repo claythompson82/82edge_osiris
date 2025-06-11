@@ -37,43 +37,46 @@ def load_hermes_model():
     global hermes_model, hermes_tokenizer
     if hermes_model and hermes_tokenizer:
         return
-    hermes_tokenizer = AutoTokenizer.from_pretrained(HERMES_MODEL_PATH, use_fast=True)
+    hermes_tokenizer = AutoTokenizer.from_pretrained(
+        HERMES_MODEL_PATH, use_fast=True, local_files_only=True
+    )
     hermes_model = AutoModelForCausalLM.from_pretrained(
-        HERMES_MODEL_PATH, device_map="auto", trust_remote_code=True
+        HERMES_MODEL_PATH,
+        device_map="auto",
+        trust_remote_code=True,
+        local_files_only=True,
     )
 
 def load_phi3_model():
-    """
-    1) Always load the base Phi-3 tokenizer & ONNX model.
-    2) Then, if an adapter directory exists, wrap with that adapter.
-    """
     global phi3_model, phi3_tokenizer, phi3_adapter_date
     if phi3_model and phi3_tokenizer:
         return
 
     # 1) Base load
-    phi3_tokenizer = AutoTokenizer.from_pretrained(PHI3_TOKENIZER_PATH, use_fast=True)
+    phi3_tokenizer = AutoTokenizer.from_pretrained(
+        PHI3_TOKENIZER_PATH, use_fast=True, local_files_only=True
+    )
     phi3_model = ORTModelForCausalLM.from_pretrained(
-        MICRO_LLM_MODEL_PATH
+        MICRO_LLM_MODEL_PATH,
+        provider="CUDAExecutionProvider" if torch.cuda.is_available() else "CPUExecutionProvider",
+        use_io_binding=torch.cuda.is_available(),
     )
 
     # 2) Adapter logic
     adapter_base = os.path.join(MICRO_LLM_MODEL_PARENT_DIR, "adapters")
     if os.path.isdir(adapter_base):
-        # find latest date-formatted subfolder
         valid = []
         for d in os.listdir(adapter_base):
-            path = os.path.join(adapter_base, d)
-            cfg = os.path.join(path, "adapter_config.json")
-            if os.path.isdir(path) and os.path.exists(cfg):
+            p = os.path.join(adapter_base, d)
+            cfg = os.path.join(p, "adapter_config.json")
+            if os.path.isdir(p) and os.path.exists(cfg):
                 try:
-                    date = datetime.strptime(d, "%Y%m%d")
-                    valid.append((date, path))
+                    dt = datetime.strptime(d, "%Y%m%d")
+                    valid.append((dt, p))
                 except ValueError:
                     pass
         if valid:
-            _, latest_path = sorted(valid)[-1]
-            # apply adapter
+            latest_path = sorted(valid)[-1][1]
             phi3_model = AutoPeftModel.from_pretrained(phi3_model, latest_path)
             phi3_adapter_date = datetime.strptime(
                 os.path.basename(latest_path), "%Y%m%d"
@@ -88,3 +91,21 @@ def get_hermes_model_and_tokenizer():
 
 def get_phi3_model_and_tokenizer():
     return phi3_model, phi3_tokenizer
+
+def get_latest_adapter_dir(base_path: str) -> Optional[str]:
+    if not os.path.isdir(base_path):
+        return None
+    latest_dir = None
+    latest_date = None
+    for d in os.listdir(base_path):
+        p = os.path.join(base_path, d)
+        cfg = os.path.join(p, "adapter_config.json")
+        if os.path.isdir(p) and os.path.exists(cfg):
+            try:
+                dt = datetime.strptime(d, "%Y%m%d")
+                if latest_date is None or dt.date() > latest_date:
+                    latest_date = dt.date()
+                    latest_dir = p
+            except ValueError:
+                pass
+    return latest_dir
