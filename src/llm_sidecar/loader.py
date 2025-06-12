@@ -35,30 +35,31 @@ if _hermes_override and os.path.isdir(_hermes_override):
 
 def load_hermes_model():
     global hermes_model, hermes_tokenizer
-    if hermes_model and hermes_tokenizer:
-        return
-    hermes_tokenizer = AutoTokenizer.from_pretrained(
-        HERMES_MODEL_PATH, use_fast=True, local_files_only=True
-    )
-    hermes_model = AutoModelForCausalLM.from_pretrained(
-        HERMES_MODEL_PATH,
-        device_map="auto",
-        trust_remote_code=True,
-        local_files_only=True,
-    )
+    # Load once
+    if hermes_model is None or hermes_tokenizer is None:
+        hermes_tokenizer = AutoTokenizer.from_pretrained(
+            HERMES_MODEL_PATH, use_fast=True, local_files_only=True
+        )
+        hermes_model = AutoModelForCausalLM.from_pretrained(
+            HERMES_MODEL_PATH,
+            device_map="auto",
+            trust_remote_code=True,
+            local_files_only=True,
+        )
+
 
 def load_phi3_model():
     global phi3_model, phi3_tokenizer, phi3_adapter_date
-    if phi3_model and phi3_tokenizer:
-        return
 
-    # 1) Base load
+    # 1) Base load (always)
     phi3_tokenizer = AutoTokenizer.from_pretrained(
-        PHI3_TOKENIZER_PATH, use_fast=True, local_files_only=True
+        PHI3_TOKENIZER_PATH,
+        use_fast=True,
+        local_files_only=True,
     )
     phi3_model = ORTModelForCausalLM.from_pretrained(
         MICRO_LLM_MODEL_PATH,
-        provider="CUDAExecutionProvider" if torch.cuda.is_available() else "CPUExecutionProvider",
+        provider=("CUDAExecutionProvider" if torch.cuda.is_available() else "CPUExecutionProvider"),
         use_io_binding=torch.cuda.is_available(),
     )
 
@@ -86,11 +87,14 @@ def load_phi3_model():
     else:
         phi3_adapter_date = None
 
+
 def get_hermes_model_and_tokenizer():
     return hermes_model, hermes_tokenizer
 
+
 def get_phi3_model_and_tokenizer():
     return phi3_model, phi3_tokenizer
+
 
 def get_latest_adapter_dir(base_path: str) -> Optional[str]:
     if not os.path.isdir(base_path):
