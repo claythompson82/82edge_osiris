@@ -1,0 +1,4 @@
+# file: /home/clayt/82edge_osiris/src/llm_sidecar/event_bus.py
+# hypothesis_version: 6.135.4
+
+[0.01, 0.5, 1.0, 'EventBus closed.', 'Hello from EventBus!', '__main__', 'another_event', 'data', 'is_fake', 'message', 'redis://fakeredis', 'test_event', 'type']

@@ -1,0 +1,4 @@
+# file: /home/clayt/82edge_osiris/src/llm_sidecar/hermes_plugin.py
+# hypothesis_version: 6.135.4
+
+[-1.0, 10.0, 512, '(\\d+(\\.\\d+)?)', 'Trade Idea:', 'cpu', 'cuda', 'input_ids', 'pt']

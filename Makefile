@@ -26,5 +26,5 @@ compile-reqs:
 
 # Command to run the test suite
 test:
-	python -m pytest
+	python -m pytest -q --disable-warnings --maxfail=1
 

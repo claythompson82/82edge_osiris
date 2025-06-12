@@ -45,18 +45,16 @@ sys.modules.setdefault("redis.asyncio", redis_asyncio)
 sys.modules.setdefault("redis.asyncio.client", client_mod)
 sys.modules.setdefault("redis.exceptions", exceptions_mod)
 
-# Patch heavy model loading and TTS initialisation before importing server
+# Patch heavy model loading and TTS initialization before importing server
 import llm_sidecar.loader as loader
 import llm_sidecar.tts as tts
 
 loader.load_hermes_model = MagicMock()
-loader.load_phi3_model = MagicMock()
-
+# loader.load_phi3_model = MagicMock()  # ← Commented out so real loader.load_phi3_model() runs
 
 class _DummyTTS:
     def __init__(self, *args, **kwargs):
         pass
-
 
 tts.ChatterboxTTS = _DummyTTS
 

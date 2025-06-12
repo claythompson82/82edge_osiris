@@ -1,0 +1,4 @@
+# file: /home/clayt/82edge_osiris/src/dgm_kernel/llm_client.py
+# hypothesis_version: 6.135.4
+
+['after', 'before', 'dummy_patch.py.txt', 'rationale', 'resources', 'target']

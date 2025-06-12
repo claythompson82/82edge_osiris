@@ -1,0 +1,13 @@
+advisor
+chatterbox
+common
+dgm_kernel
+llm_sidecar
+osiris
+osiris_policy
+outlines
+peft
+sim
+torch
+torchaudio
+transformers
