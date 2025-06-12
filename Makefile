@@ -21,9 +21,10 @@ install: compile-reqs
 # Command to re-compile the requirements files
 compile-reqs:
 	@echo "Compiling requirements with PyTorch index: $(PYTORCH_INDEX_URL)..."
-	pip-compile requirements.in -o requirements.txt --extra-index-url $(PYTORCH_INDEX_URL) --resolver=backtracking
-	pip-compile requirements-dev.in -o requirements-dev.txt --extra-index-url $(PYTORCH_INDEX_URL) --resolver=backtracking
+	pip-compile requirements.in -o requirements.txt --extra-index-url $(PYTORCH_INDEX_URL)
+	pip-compile requirements-dev.in -o requirements-dev.txt --extra-index-url $(PYTORCH_INDEX_URL)
 
 # Command to run the test suite
 test:
-	pytest
+	python -m pytest
+

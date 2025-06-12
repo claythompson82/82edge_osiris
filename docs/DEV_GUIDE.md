@@ -34,6 +34,15 @@ Use either `pyenv` with Poetry or the standard `venv` module. For a pyenv workfl
 ## Pre-commit install
 Install the hooks with `pre-commit install` after installing the package. This ensures formatting and linting checks run automatically before each commit. Run `pre-commit autoupdate` to sync hook versions and `pre-commit run --all-files` one time to lint the entire repo.
 
+## Running the Test Suite
+
+You can now run all tests under your virtualenv’s Python:
+
+```bash
+# From the repo root, with .venv activated
+make test
+
+
 ## Dev environment check
 Run `python scripts/check_dev_env.py` to verify that your system meets the prerequisites.
 The script reports missing tools, blocked ports, and Docker status so you can fix issues
