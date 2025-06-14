@@ -25,3 +25,18 @@ venv/
 models/
 .env
 
+# test caches
+.hypothesis/
+
+# build / packaging artefacts
+*.egg-info/
+dist/
+build/
+
+# LanceDB on-disk datasets
+lancedb_data/
+src/**/lancedb_data/
+
+# editor / OS cruft
+*.swp
+.DS_Store

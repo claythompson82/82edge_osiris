@@ -1,0 +1,191 @@
+src
+├── __init__.py
+├── advisor
+│   ├── __init__.py
+│   ├── __pycache__
+│   └── risk_gate.py
+├── chatterbox
+│   ├── __init__.py
+│   └── __pycache__
+├── common
+│   ├── __init__.py
+│   ├── __pycache__
+│   └── otel_init.py
+├── dgm_kernel
+│   ├── README.md
+│   ├── __init__.py
+│   ├── __pycache__
+│   ├── hitl_pr.py
+│   ├── llm_client.py
+│   ├── meta_loop.py
+│   ├── prover.py
+│   └── sandbox.py
+├── lancedb_data
+│   ├── hermes_scores.lance
+│   ├── orchestrator_runs.lance
+│   └── phi3_feedback.lance
+├── llm_sidecar
+│   ├── README.md
+│   ├── __init__.py
+│   ├── __pycache__
+│   ├── client.py
+│   ├── db
+│   ├── db.py
+│   ├── event_bus.py
+│   ├── hermes_plugin.py
+│   ├── init.py
+│   ├── lancedb_data
+│   ├── loader.py
+│   ├── reward.py
+│   └── tts.py
+├── osiris
+│   ├── __init__.py
+│   ├── __pycache__
+│   ├── init.py
+│   ├── llm_client.py
+│   ├── llm_sidecar
+│   ├── scripts
+│   └── server.py
+├── osiris.egg-info
+│   ├── PKG-INFO
+│   ├── SOURCES.txt
+│   ├── dependency_links.txt
+│   └── top_level.txt
+├── osiris_policy
+│   ├── README.md
+│   ├── __init__.py
+│   ├── __pycache__
+│   └── orchestrator.py
+├── outlines
+│   ├── __init__.py
+│   ├── __pycache__
+│   └── generate.py
+├── peft
+│   ├── __init__.py
+│   └── __pycache__
+├── sim
+│   ├── __init__.py
+│   └── engine.py
+├── torch_local
+│   ├── __init__.py
+│   └── __pycache__
+├── torchaudio
+│   ├── __init__.py
+│   └── __pycache__
+└── transformers_local
+    ├── __init__.py
+    └── __pycache__
+osiris
+├── __init__.py
+├── __pycache__
+│   ├── __init__.cpython-312.pyc
+│   ├── llm_client.cpython-312.pyc
+│   └── server.cpython-312.pyc
+├── init.py
+├── llm_client.py
+├── llm_sidecar
+│   ├── __init__.py
+│   ├── __pycache__
+│   └── server.py
+├── scripts
+│   ├── __init__.py
+│   ├── __pycache__
+│   ├── chaos_redis_restart.py
+│   ├── chaos_restarts.py
+│   ├── ci_check_advice.py
+│   ├── ci_tick_publisher.py
+│   ├── harvest_feedback.py
+│   ├── migrate_feedback.py
+│   ├── migrate_lancedb_20250604.py
+│   └── run_qlora.py
+└── server.py
+tests
+├── __init__.py
+├── __pycache__
+│   ├── __init__.cpython-310.pyc
+│   ├── __init__.cpython-312.pyc
+│   ├── conftest.cpython-312-pytest-7.4.4.pyc
+│   ├── conftest.cpython-312-pytest-8.4.0.pyc
+│   ├── test_adapter_hot_swap.cpython-312-pytest-7.4.4.pyc
+│   ├── test_adapter_hot_swap.cpython-312-pytest-8.4.0.pyc
+│   ├── test_azr_planner.cpython-310-pytest-8.3.5.pyc
+│   ├── test_db.cpython-310-pytest-8.3.5.pyc
+│   ├── test_db.cpython-312-pytest-7.4.4.pyc
+│   ├── test_db.cpython-312-pytest-8.4.0.pyc
+│   ├── test_db_bootstrap.cpython-310-pytest-8.3.5.pyc
+│   ├── test_db_bootstrap.cpython-312-pytest-7.4.4.pyc
+│   ├── test_db_bootstrap.cpython-312-pytest-8.4.0.pyc
+│   ├── test_event_bus.cpython-312-pytest-7.4.4.pyc
+│   ├── test_event_bus.cpython-312-pytest-8.4.0.pyc
+│   ├── test_feedback_mechanism.cpython-312-pytest-7.4.4.pyc
+│   ├── test_feedback_mechanism.cpython-312-pytest-8.4.0.pyc
+│   ├── test_feedback_versioning.cpython-312-pytest-7.4.4.pyc
+│   ├── test_feedback_versioning.cpython-312-pytest-8.4.0.pyc
+│   ├── test_harvest.cpython-312-pytest-7.4.4.pyc
+│   ├── test_harvest.cpython-312-pytest-8.4.0.pyc
+│   ├── test_harvest_filter_function.cpython-312-pytest-7.4.4.pyc
+│   ├── test_harvest_filter_function.cpython-312-pytest-8.4.0.pyc
+│   ├── test_imports.cpython-312-pytest-7.4.4.pyc
+│   ├── test_imports.cpython-312-pytest-8.4.0.pyc
+│   ├── test_llm_client.cpython-312-pytest-7.4.4.pyc
+│   ├── test_llm_client.cpython-312-pytest-8.4.0.pyc
+│   ├── test_llm_sidecar_utils.cpython-312-pytest-7.4.4.pyc
+│   ├── test_llm_sidecar_utils.cpython-312-pytest-8.4.0.pyc
+│   ├── test_metrics.cpython-312-pytest-7.4.4.pyc
+│   ├── test_metrics.cpython-312-pytest-8.4.0.pyc
+│   ├── test_nightly_trainer.cpython-312-pytest-7.4.4.pyc
+│   ├── test_nightly_trainer.cpython-312-pytest-8.4.0.pyc
+│   ├── test_orchestrator.cpython-312-pytest-7.4.4.pyc
+│   ├── test_orchestrator.cpython-312-pytest-8.4.0.pyc
+│   ├── test_orchestrator_e2e.cpython-312-pytest-7.4.4.pyc
+│   ├── test_orchestrator_e2e.cpython-312-pytest-8.4.0.pyc
+│   ├── test_risk_gate.cpython-312-pytest-7.4.4.pyc
+│   ├── test_risk_gate.cpython-312-pytest-8.4.0.pyc
+│   ├── test_server.cpython-312-pytest-7.4.4.pyc
+│   ├── test_server.cpython-312-pytest-8.4.0.pyc
+│   ├── test_traces.cpython-312-pytest-7.4.4.pyc
+│   └── test_traces.cpython-312-pytest-8.4.0.pyc
+├── bench_llm.py
+├── conftest.py
+├── dgm
+│   ├── __init__.py
+│   ├── __pycache__
+│   └── test_prover.py
+├── dgm_kernel_tests
+│   ├── __init__.py
+│   ├── __pycache__
+│   ├── test_meta_loop.py
+│   ├── test_mutation_property.py
+│   ├── test_prover.py
+│   ├── test_sandbox.py
+│   └── test_verify_patch.py
+├── docker-compose.orchestrator-e2e.yaml
+├── docker-compose.traces.yaml
+├── hitl
+│   ├── __pycache__
+│   └── test_hitl_pr.py
+├── mock_orchestrator.py
+├── mock_sidecar.py
+├── otel-collector-config.yaml
+├── smoke_test_adapter_swap.sh
+├── smoke_test_musetalk.sh
+├── test_adapter_hot_swap.py
+├── test_db.py
+├── test_db_bootstrap.py
+├── test_event_bus.py
+├── test_feedback_mechanism.py
+├── test_feedback_versioning.py
+├── test_harvest.py
+├── test_harvest_filter_function.py
+├── test_imports.py
+├── test_llm_client.py
+├── test_llm_sidecar_utils.py
+├── test_metrics.py
+├── test_nightly_trainer.py
+├── test_orchestrator.py
+├── test_orchestrator_e2e.py
+├── test_risk_gate.py
+├── test_server.py
+└── test_traces.py
+
+49 directories, 140 files

@@ -24,7 +24,9 @@ from typing import Optional, Dict, Any, List, Union
 # Imports the Pydantic model and server function for feedback submission.
 # Note: These helpers were moved from 'llm_sidecar.server' to 'osiris.server'
 # during our refactoring. The import path is updated to reflect this.
-from osiris.server import FeedbackItem, submit_phi3_feedback
+from osiris.schemas import FeedbackItem
+from osiris.server import submit_phi3_feedback
+
 
 # --- Script Imports for Testing ---
 # Imports the main functions from the utility scripts that we need to test.

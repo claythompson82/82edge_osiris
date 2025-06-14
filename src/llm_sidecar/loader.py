@@ -1,91 +1,59 @@
-"""
-LLM-sidecar – model-loader utilities & adapter discovery
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Only *very* lightweight, synchronous helpers live here so that unit-tests can
-patch them out without incurring GPU / model-load overhead.
+"""llm_sidecar.loader
+
+Helpers for model loading and adapter directory handling.
 """
 
 from __future__ import annotations
-
-import json
-import re
-import typing as _t
-from datetime import datetime as _dt
+import os
 from pathlib import Path
+import logging
 
-# ---------- adapter hot-swap helpers -------------------------------------------------------------
+logger = logging.getLogger(__name__)
 
-#: where dated adapter directories live; overridable in tests
-ADAPTER_ROOT: Path = Path(__file__).resolve().parent / "adapters"
+# Allow external override (tests will patch this)
+ADAPTER_ROOT = Path(os.getenv("ADAPTER_ROOT", "/adapters"))  # Or your real default path
 
+def _is_dated_dir(p: Path) -> bool:
+    """Check if path is a directory and name looks like a date (YYYY-MM-DD or YYYYMMDD)."""
+    try:
+        # Accept YYYY-MM-DD or YYYYMMDD
+        return p.is_dir() and (
+            (len(p.name) == 10 and p.name[:4].isdigit() and p.name[5:7].isdigit() and p.name[8:10].isdigit())
+            or (len(p.name) == 8 and p.name.isdigit())
+        )
+    except Exception:
+        return False
 
-def _looks_like_date_dir(p: Path) -> bool:
-    """`YYYY-MM-DD` or `YYYYMMDD`."""
-    return (
-        p.is_dir()
-        and re.fullmatch(r"\d{4}[-_]?\d{2}[-_]?\d{2}", p.name) is not None
-    )
-
-
-def get_latest_adapter_dir(base: _t.Union[str, Path, None] = None) -> Path | None:
+def get_latest_adapter_dir(base_dir: str | Path = None) -> Path | None:
     """
-    Return *Path* to the newest adapter directory or **None** when nothing valid
-    exists.
-
-    The helper never raises on a missing path so that tests can point it at
-    arbitrary temp-dirs.  We rely on *lexicographic* max – identical to the
-    approach recommended in many FastAPI hot-swap examples. :contentReference[oaicite:3]{index=3}
+    Returns the Path of the latest dated adapter directory.
+    Returns None if none found (caller must handle).
     """
-    root = Path(base) if base is not None else ADAPTER_ROOT
-    if not root.exists():
+    root = Path(base_dir) if base_dir else ADAPTER_ROOT
+    if not root.exists() or not root.is_dir():
         return None
-    dated = (p for p in root.iterdir() if _looks_like_date_dir(p))
-    latest = max(dated, default=None, key=lambda p: p.name)
+
+    dated = [p for p in root.iterdir() if _is_dated_dir(p)]
+    if not dated:
+        return None
+
+    # Sort by name as YYYYMMDD or YYYY-MM-DD sorts correctly lexicographically
+    latest = max(dated, key=lambda p: p.name)
     return latest
 
+# ===== Dummy model loader functions for patching in tests =====
 
-# ---------- dummy model / tokenizer factories ----------------------------------------------------
-
-def _dummy_model():
-    """Return a cheap stand-in *class* – tests never instantiate it."""
-    from transformers import PreTrainedModel  # light import
-    return PreTrainedModel
-
-
-def _dummy_tokenizer():
-    from transformers import PreTrainedTokenizerBase
-    return PreTrainedTokenizerBase
-
-
+# Patch targets (tests expect these to exist for mocking)
 def load_hermes_model():
-    """Load – or in tests, *pretend* to load – the Hermes model."""
-    return _dummy_model()
-
+    raise NotImplementedError("Should be patched by tests.")
 
 def load_phi3_model():
-    """Load – or in tests, *pretend* to load – the Phi-3 model."""
-    return _dummy_model()
+    raise NotImplementedError("Should be patched by tests.")
 
-
-# ---------- legacy aliases kept for backwards-compat --------------------------------------------
-
-# Many downstream modules still import the old names; keep them as TRUE no-ops
-# instead of breaking import-time.
 def get_hermes_model_and_tokenizer():
-    """Legacy alias expected by `hermes_plugin.py` tests."""
-    return _dummy_model(), _dummy_tokenizer()
-
+    raise NotImplementedError("Should be patched by tests.")
 
 def get_phi3_model_and_tokenizer():
-    """Legacy alias expected by older server paths."""
-    return _dummy_model(), _dummy_tokenizer()
+    raise NotImplementedError("Should be patched by tests.")
 
-
-__all__ = [
-    "ADAPTER_ROOT",
-    "get_latest_adapter_dir",
-    "load_hermes_model",
-    "load_phi3_model",
-    "get_hermes_model_and_tokenizer",
-    "get_phi3_model_and_tokenizer",
-]
+# If you have any additional public imports, add them below.

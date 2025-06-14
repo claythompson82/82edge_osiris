@@ -2,12 +2,13 @@ advisor
 chatterbox
 common
 dgm_kernel
+lancedb_data
 llm_sidecar
 osiris
 osiris_policy
 outlines
 peft
 sim
-torch
+torch_local
 torchaudio
-transformers
+transformers_local
