@@ -1,4 +1,0 @@
-# file: /home/clayt/82edge_osiris/src/dgm_kernel/meta_loop.py
-# hypothesis_version: 6.135.4
-
-[0.0, 100, 3600, 6379, '--once', '-q', '.', '.py', '/', 'DGM Kernel Meta-Loop', 'Sandbox output:\n%s', '__main__', 'after', 'before', 'check', 'dgm:applied_patches', 'dgm:patch_queue', 'dgm:recent_traces', 'diff', 'eval(', 'exec(', 'os.system', 'patch_history.json', 'patch_id', 'pytest', 'redis', 'reward', 'rolled_back', 'ruff', 'sandbox_exit_code', 'store_true', 'subprocess.Popen', 'subprocess.call', 'target', 'timestamp', 'w']

@@ -1,35 +1,85 @@
-# src/osiris/schemas.py
+"""
+Shared pydantic data-models for the Osiris API.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any, Union
-import datetime
 
+
+# --------------------------------------------------------------------------- #
+# Helpers
+# --------------------------------------------------------------------------- #
+def _now_iso() -> str:
+    """UTC timestamp in ISO-8601 format (used as default factory)."""
+    return datetime.now(timezone.utc).isoformat()
+
+
+# --------------------------------------------------------------------------- #
+# Inference / generation
+# --------------------------------------------------------------------------- #
+class GenerateRequest(BaseModel):
+    prompt: str
+    max_length: int
+    model_id: str = Field("hermes", alias="model_id")
+
+
+class GenerateResponse(BaseModel):
+    output: str
+
+
+# --------------------------------------------------------------------------- #
+# Scoring
+# --------------------------------------------------------------------------- #
+class ScoreHermesRequest(BaseModel):
+    proposal: Any
+    context: Optional[str] = None
+
+
+class ScoreHermesResponse(BaseModel):
+    score: float
+
+
+# --------------------------------------------------------------------------- #
+# Health-check
+# --------------------------------------------------------------------------- #
+class HealthResponse(BaseModel):
+    # always present
+    phi_ok: bool
+    hermes_ok: bool
+
+    # optional – populated when ?adapter_date=true
+    latest_adapter: Optional[str] = None
+    mean_hermes_score_last_24h: Optional[float] = None
+    uptime: Optional[int] = Field(
+        default=None,
+        description="Process uptime in seconds (present only when adapter_date=true)",
+    )
+
+    class Config:
+        extra = "allow"  # tolerate future keys without validation errors
+
+
+# --------------------------------------------------------------------------- #
+# Feedback
+# --------------------------------------------------------------------------- #
 class FeedbackItem(BaseModel):
     transaction_id: str
     feedback_type: str
-    feedback_content: Union[str, Dict[str, Any]]
-    corrected_proposal: Optional[Dict[str, Any]] = None
-    schema_version: str = "1.0"
-    timestamp: str
+    feedback_content: Any
+    timestamp: str = Field(default_factory=_now_iso)
+    schema_version: str = Field("1.0", alias="schema_version")
 
-class ScoreRequest(BaseModel):
-    proposal: dict
-    context: str
 
-class GenerateRequest(BaseModel):
-    prompt: str
-    model_id: str = "hermes"
-    max_length: int = 256
+class FeedbackResponse(BaseModel):
+    status: str = "ok"
 
-# If you ever want a LanceDB "table schema" for more static typing, add that here!
-# For example, here's a schema for harvested feedback (with a nanosecond timestamp):
-class FeedbackSchemaForHarvest(BaseModel):
-    transaction_id: str
-    timestamp: str
-    feedback_type: str
-    feedback_content: Union[str, Dict[str, Any]]
-    corrected_proposal: Optional[str] = None
-    schema_version: str
-    when: int  # Nanoseconds since epoch
 
-# You can add more as needed for any new endpoints or migrations!
+# --------------------------------------------------------------------------- #
+# Text-to-speech
+# --------------------------------------------------------------------------- #
+class SpeakRequest(BaseModel):
+    text: str

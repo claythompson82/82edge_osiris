@@ -1,4 +1,0 @@
-# file: /home/clayt/82edge_osiris/src/osiris/scripts/migrate_feedback.py
-# hypothesis_version: 6.135.4
-
-['/app/lancedb_data', '1.0', 'LANCEDB_URI', 'Migration complete.', '__main__', 'corrected_proposal', 'feedback_content', 'feedback_type', 'overwrite', 'phi3_feedback', 'schema_version', 'timestamp', 'transaction_id', '{}']

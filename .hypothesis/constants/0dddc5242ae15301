@@ -1,4 +1,0 @@
-# file: /home/clayt/82edge_osiris/src/llm_sidecar/db/__init__.py
-# hypothesis_version: 6.135.4
-
-['-', '--last', '--table', '.tmp', '1.0', 'Available commands', 'DB_ROOT', 'LLM Sidecar DB CLI', '__main__', 'command', 'corrected_proposal', 'dict', 'feedback_content', 'feedback_type', 'hermes_scores', 'lancedb_data', 'model_dump', 'orchestrator_runs', 'phi3_feedback', 'query-runs', 'rationale', 'run_id', 'schema_version', 'score', 'timestamp', 'transaction_id']

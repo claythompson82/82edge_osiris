@@ -1,4 +1,0 @@
-# file: /home/clayt/82edge_osiris/osiris/server.py
-# hypothesis_version: 6.135.4
-
-[0.5, 1.0, 256, 422, 500, 8000, '/feedback/phi3/', '/generate/', '/health', '/score/hermes/', '/speak', '0.0.0.0', '1', '1.0', ': keep-alive\n\n', 'ENABLE_METRICS', 'ENABLE_PROFILING', 'EventBus closed.', 'Invalid model_id', 'REDIS_URL', 'SENTRY_DSN', '__main__', 'a', 'assessment', 'audio.bytes', 'audio/wav', 'corrected_proposal', 'correction', 'cpu', 'cuda', 'error', 'false', 'feedback', 'feedback_type', 'generated_text', 'hermes', 'hermes_assessment', 'hermes_loaded', 'hermes_scores', 'id', 'message', 'meta', 'model_dump', 'ok', 'phi3', 'phi3_adapter_date', 'phi3_loaded', 'phi3_proposal', 'proposal', 'proposal_id', 'pubsub', 'r', 'score', 'status', 'strategy', 'timestamp', 'transaction_id', 'true', 'tts', 'yes']

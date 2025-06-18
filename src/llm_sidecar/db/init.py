@@ -1,99 +1,104 @@
+"""Osiris FastAPI server – thin wrappers around helper modules.
+
+Key points
+──────────
+•  Exposes *module-level* loader functions so tests can patch them via
+   ``mock.patch("osiris.server.get_phi3_model_and_tokenizer")``.
+•  Imports `llm_sidecar.hermes_plugin` at call time – patches then work.
+"""
+
 from __future__ import annotations
+
+import glob
+import io
 import os
-import pathlib
-import datetime
-from typing import Any, Dict, Optional
-from pydantic import BaseModel, Field
-import lancedb
+from datetime import datetime
 
-# --- SCHEMAS ---
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse, StreamingResponse
 
-class Phi3FeedbackSchema(BaseModel):
-    transaction_id: str
-    feedback_type: str
-    feedback_content: dict
-    schema_version: str = "1.0"
-    timestamp: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
+from osiris.schemas import (
+    GenerateRequest,
+    ScoreHermesRequest,
+    HealthResponse,
+    FeedbackItem,
+    SpeakRequest,
+)
 
-class OrchestratorRunSchema(BaseModel):
-    run_id: str
-    start_time: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
-    end_time: Optional[str] = None
-    status: str = "pending"
-    details: dict = Field(default_factory=dict)
+# ------------------------------------------------------------------ #
+# Model loader wrappers (tests patch these *directly* on this module)
+# ------------------------------------------------------------------ #
+from llm_sidecar.loader import (  # noqa: E402  keep after std-lib imports
+    get_phi3_model_and_tokenizer,
+    get_hermes_model_and_tokenizer,
+)
 
-class HermesScoreSchema(BaseModel):
-    proposal_id: str
-    score: float
-    context: Optional[str] = None
-    timestamp: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
+import llm_sidecar.db as _db  # noqa: E402
+import llm_sidecar.hermes_plugin as _hermes_plugin  # noqa: E402
 
-# --- DATABASE SETUP ---
+from .text import text_to_speech  # noqa: E402
 
-DB_ROOT = pathlib.Path(os.environ.get("OSIRIS_DB_ROOT", "./osiris_db")).resolve()
-if not DB_ROOT.exists():
-    DB_ROOT.mkdir(parents=True, exist_ok=True)
-_db = lancedb.connect(DB_ROOT)
+app = FastAPI()
 
-def _ensure_table(name, schema_model, **kwargs):
-    # Table exists? Open or create
-    try:
-        tbl = _db.open_table(name)
-    except Exception:
-        tbl = _db.create_table(
-            name,
-            data=[schema_model(**{f: None for f in schema_model.model_fields}) for _ in range(1)],
-            **kwargs
-        )
-    return tbl
+# ------------------------------------------------------------------ #
+# Async generation helpers
+# ------------------------------------------------------------------ #
+async def _generate_hermes_text(prompt: str, max_length: int) -> str:
+    model, _ = get_hermes_model_and_tokenizer()
+    return await model.generate(prompt, max_length)  # type: ignore[attr-defined]
 
-_tables = {
-    "phi3_feedback": _ensure_table("phi3_feedback", Phi3FeedbackSchema),
-    "orchestrator_runs": _ensure_table("orchestrator_runs", OrchestratorRunSchema),
-    "hermes_scores": _ensure_table("hermes_scores", HermesScoreSchema),
-}
 
-# --- LOGGING FUNCTIONS ---
+async def _generate_phi3_json(prompt: str, max_length: int) -> dict:
+    model, _ = get_phi3_model_and_tokenizer()
+    return await model.generate_json(prompt, max_length)  # type: ignore[attr-defined]
 
-def append_feedback(feedback: Phi3FeedbackSchema):
-    tbl = _tables["phi3_feedback"]
-    tbl.add(feedback.model_dump())
 
-def log_run(run: OrchestratorRunSchema):
-    tbl = _tables["orchestrator_runs"]
-    tbl.add(run.model_dump())
+# ------------------------------------------------------------------ #
+# Endpoints
+# ------------------------------------------------------------------ #
+@app.post("/generate/")
+async def generate_endpoint(req: GenerateRequest):
+    if (req.model_id or "hermes") == "hermes":
+        out = await _generate_hermes_text(req.prompt, req.max_length)
+        return JSONResponse({"output": out})
+    return JSONResponse(await _generate_phi3_json(req.prompt, req.max_length))
 
-def log_hermes_score(score: HermesScoreSchema):
-    tbl = _tables["hermes_scores"]
-    tbl.add(score.model_dump())
 
-def get_mean_hermes_score_last_24h():
-    tbl = _tables["hermes_scores"]
-    import pandas as pd
-    now = datetime.datetime.now(datetime.timezone.utc)
-    # Get rows from last 24h
-    rows = [r for r in tbl.to_pandas().to_dict(orient="records") if
-            "timestamp" in r and
-            pd.to_datetime(r["timestamp"]) > (now - datetime.timedelta(hours=24))]
-    if not rows:
-        return None
-    return sum(float(r["score"]) for r in rows if "score" in r) / len(rows)
+@app.post("/score/hermes/")
+def score_hermes_endpoint(req: ScoreHermesRequest):
+    score = _hermes_plugin.score_with_hermes(req.proposal, req.context)
+    _db.log_hermes_score(int(datetime.utcnow().timestamp() * 1e9), score)
+    return JSONResponse({"score": score})
 
-# --- CLI (for test_db.py dummy) ---
 
-def cli_main(argv):
-    if not argv or (argv[0] not in ("query-runs",)):
-        print("usage: db.py [query-runs|...]", file=os.sys.stderr)
-        raise SystemExit(2)
-    elif argv[0] == "query-runs":
-        print("Run 1\nRun 2")
-    else:
-        print("Unknown command", file=os.sys.stderr)
-        raise SystemExit(2)
+@app.post("/feedback/phi3/")
+async def submit_phi3_feedback(req: FeedbackItem):
+    _db.append_feedback(req.model_dump(by_alias=True, exclude_none=True))
+    return JSONResponse({"status": "success"})
 
-# --- For test imports ---
-__all__ = [
-    "Phi3FeedbackSchema", "OrchestratorRunSchema", "HermesScoreSchema",
-    "append_feedback", "log_run", "log_hermes_score", "get_mean_hermes_score_last_24h",
-    "cli_main"
-]
+
+@app.get("/health", response_model=HealthResponse)
+def health(adapter_date: bool = False):
+    """Cheap liveness endpoint plus optional adapter metadata."""
+    def _flag(v):  # tuples, bools, None → bool
+        return bool(v[0] if isinstance(v, tuple) else v)
+
+    info = {
+        "phi_ok": _flag(get_phi3_model_and_tokenizer()),
+        "hermes_ok": _flag(get_hermes_model_and_tokenizer()),
+    }
+
+    if adapter_date:
+        from llm_sidecar import loader as _loader  # local to pick up patches
+        dirs = [d for d in glob.glob(os.path.join(_loader.ADAPTER_ROOT, "*")) if os.path.isdir(d)]
+        dirs.sort()
+        info["latest_adapter"] = os.path.basename(dirs[-1]) if dirs else None
+        info["mean_hermes_score_last_24h"] = _db.get_mean_hermes_score_last_24h()
+
+    return info
+
+
+@app.post("/speak")
+def speak_endpoint(req: SpeakRequest):
+    audio = text_to_speech(req.text)
+    return StreamingResponse(io.BytesIO(audio), media_type="audio/mpeg")

@@ -1,4 +1,0 @@
-# file: /home/clayt/82edge_osiris/src/llm_sidecar/tts.py
-# hypothesis_version: 6.135.4
-
-[0.5, 'audio.bytes', 'utf-8', 'wav']

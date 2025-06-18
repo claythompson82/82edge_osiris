@@ -1,105 +1,102 @@
-"""
-harvest_feedback.py
+# src/osiris/scripts/harvest_feedback.py
 
-Extracts feedback records from the phi3_feedback table and writes them as JSONL.
-Includes filtering by schema version, feedback_type, and days_back (for tests and data pipeline use).
-
-Exports:
-    - record_matches_filter: For test_harvest_filter_function.py and others.
-"""
 import argparse
 import json
-import os
 import datetime
-from typing import Optional, Any, Dict
+from pathlib import Path
 
-try:
-    from llm_sidecar import db as lls_db
-except ImportError:
-    # Fallback for some test environments
-    import sys
-    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../llm_sidecar')))
-    import db as lls_db
+import lancedb
+
 
 def record_matches_filter(
-    record: Dict[str, Any],
-    schema_version: Optional[str] = None,
-    feedback_type: Optional[str] = None,
-    days_back: Optional[int] = None,
-    now_utc: Optional[datetime.datetime] = None
+    record: dict,
+    cutoff_ns: int,
+    schema_version: str = None,
+    feedback_type: str = "correction",
 ) -> bool:
     """
-    Returns True if record matches all filter criteria.
-    - schema_version: String prefix match (e.g., "1.0" matches "1.0.1").
-    - feedback_type: Exact match.
-    - days_back: Only include records newer than now - days_back.
+    Return True if `record` passes the given filters:
+    - 'when' timestamp >= cutoff_ns
+    - schema_version startswith given prefix (if any)
+    - feedback_type exactly matches (default = "correction")
     """
-    if schema_version:
-        rec_ver = str(record.get("schema_version", ""))
-        # Accepts prefix matches (e.g., "1.0" will match "1.0.1" and "1.0")
-        if not rec_ver.startswith(schema_version):
-            return False
-    if feedback_type:
-        if record.get("feedback_type") != feedback_type:
-            return False
-    if days_back is not None:
-        # Try several timestamp fields (int nanoseconds "when", or ISO "timestamp")
-        now_utc = now_utc or datetime.datetime.now(datetime.timezone.utc)
-        threshold = now_utc - datetime.timedelta(days=days_back)
-        # Handle nanosecond integer timestamps
-        when = record.get("when")
-        if when:
-            # convert to datetime (assume UTC)
-            try:
-                ts = datetime.datetime.utcfromtimestamp(int(when) / 1e9).replace(tzinfo=datetime.timezone.utc)
-                if ts < threshold:
-                    return False
-            except Exception:
-                pass  # fallback to ISO below
-        elif "timestamp" in record:
-            try:
-                ts = datetime.datetime.fromisoformat(record["timestamp"])
-                if ts.tzinfo is None:
-                    ts = ts.replace(tzinfo=datetime.timezone.utc)
-                if ts < threshold:
-                    return False
-            except Exception:
-                pass  # If unparseable, let it through (for legacy/test records)
+    # time filter
+    if record.get("when", 0) < cutoff_ns:
+        return False
+    # version prefix filter
+    if schema_version and not record.get("schema_version", "").startswith(schema_version):
+        return False
+    # type filter
+    if feedback_type and record.get("feedback_type") != feedback_type:
+        return False
     return True
 
+
 def main():
-    parser = argparse.ArgumentParser(description="Harvest phi3_feedback to JSONL.")
-    parser.add_argument("--out", required=True, help="Output JSONL file")
-    parser.add_argument("--schema-version", help="Only include schema version (prefix match, e.g., '1.0')")
-    parser.add_argument("--feedback-type", help="Only include given feedback_type")
-    parser.add_argument("--days-back", type=int, help="Only include records from the last N days")
+    parser = argparse.ArgumentParser(description="Harvest phi3_feedback → JSONL")
+    parser.add_argument("--out", required=True, help="Output JSONL file path")
+    parser.add_argument(
+        "--schema-version",
+        help="Only include records whose schema_version starts with this prefix (e.g. '1.0')",
+    )
+    parser.add_argument(
+        "--feedback-type",
+        help="Only include records with this exact feedback_type (overrides default 'correction')",
+    )
+    parser.add_argument(
+        "--days-back",
+        type=int,
+        help="Only include records from the last N days",
+    )
     args = parser.parse_args()
 
-    tbl = lls_db._tables["phi3_feedback"]
-    df = tbl.to_pandas()
+    # Ensure output directory exists
+    out_path = Path(args.out)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Apply filters if requested
-    if not df.empty:
-        records = df.to_dict(orient="records")
-        now_utc = datetime.datetime.now(datetime.timezone.utc)
-        filtered_records = [
-            rec for rec in records
-            if record_matches_filter(
-                rec,
-                schema_version=args.schema_version,
-                feedback_type=args.feedback_type,
-                days_back=args.days_back,
-                now_utc=now_utc,
-            )
-        ]
-    else:
-        filtered_records = []
+    # Connect to the DB in the directory of the output file
+    db = lancedb.connect(out_path.parent)
 
-    # Write the filtered (or all, if no filters) records to the output file
-    with open(args.out, "w") as f:
-        for rec in filtered_records:
-            json.dump(rec, f, default=str)
-            f.write("\n")
+    # Fetch the phi3_feedback table (support both real LanceDB and test DummyDB)
+    try:
+        # DummyDB and some clients expose .table()
+        table = db.table("phi3_feedback")
+    except Exception:
+        # Fallback for real LanceDBConnection
+        table = db.open_table("phi3_feedback")
+
+    # Pull all rows into an Arrow table and then into Python dicts
+    arrow_tbl = table.to_arrow()
+    all_rows = arrow_tbl.to_pylist()
+
+    # Determine if we need to filter at all
+    use_filter = bool(args.schema_version or args.days_back or args.feedback_type)
+
+    # Prepare cutoff timestamp in nanoseconds
+    cutoff_ns = 0
+    if args.days_back is not None:
+        cutoff = (
+            datetime.datetime.now(datetime.timezone.utc)
+            - datetime.timedelta(days=args.days_back)
+        )
+        cutoff_ns = int(cutoff.timestamp() * 1e9)
+
+    # Write out JSONL
+    with open(out_path, "w") as out_f:
+        for rec in all_rows:
+            if use_filter:
+                # Always default to filtering "correction" unless user provided --feedback-type
+                ft = args.feedback_type if args.feedback_type is not None else "correction"
+                if not record_matches_filter(
+                    rec,
+                    cutoff_ns=cutoff_ns,
+                    schema_version=args.schema_version,
+                    feedback_type=ft,
+                ):
+                    continue
+            out_f.write(json.dumps(rec))
+            out_f.write("\n")
+
 
 if __name__ == "__main__":
     main()

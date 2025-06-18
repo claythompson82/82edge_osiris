@@ -1,4 +1,0 @@
-# file: /home/clayt/82edge_osiris/src/llm_sidecar/loader.py
-# hypothesis_version: 6.135.4
-
-['%Y%m%d', '%Y-%m-%d', '/app/hermes-model', 'CPUExecutionProvider', 'HERMES_MODEL_PATH', 'Hermes loaded.', 'MICRO_LLM_MODEL_PATH', 'PHI3_MODEL_PATH', 'Phi-3 loaded.', '__main__', 'adapter_config.json', 'auto', 'cpu', 'cuda', 'phi3.onnx']

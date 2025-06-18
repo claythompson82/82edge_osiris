@@ -1,4 +1,0 @@
-# file: /home/clayt/82edge_osiris/src/dgm_kernel/sandbox.py
-# hypothesis_version: 6.135.4
-
-['--cpus', '--memory', '--network=none', '--rm', '-c', '-v', '.', '/', '1', '512m', 'Sandbox command: %s', 'after', 'docker', 'docker missing', 'python', 'python:3.11-slim', 'repo', 'run', 'target']

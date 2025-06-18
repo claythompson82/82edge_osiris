@@ -1,4 +1,0 @@
-# file: /home/clayt/82edge_osiris/src/dgm_kernel/prover.py
-# hypothesis_version: 6.135.4
-
-[0.0, '+++ ', '--- ', '.py', '/__?snapshots__?/', 'STUB', '^\\.env', '^secrets/', 'a/', 'b/', 'empty patch', 'passed', 'pylint', 'stub', 'w']

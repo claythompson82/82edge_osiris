@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  llm-sidecar:
+    build:
+      context: .
+      dockerfile: Dockerfile         # adjust if you have multiple Dockerfiles
+    container_name: llm-sidecar
+    ports:
+      - "8080:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+
+  orchestrator:
+    build:
+      context: osiris_policy         # or wherever your orchestrator Dockerfile lives
+      dockerfile: ../Dockerfile      # adjust path if needed
+    container_name: orchestrator
+    ports:
+      - "9000:9000"
+    depends_on:
+      - llm-sidecar
+      - redis
+
+volumes:
+  redis_data:

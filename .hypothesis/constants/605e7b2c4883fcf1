@@ -1,4 +1,0 @@
-# file: /home/clayt/82edge_osiris/sitecustomize.py
-# hypothesis_version: 6.135.4
-
-['.tmp', 'DB_ROOT', 'lancedb_data']

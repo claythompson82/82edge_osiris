@@ -1,4 +1,0 @@
-# file: /home/clayt/82edge_osiris/src/osiris/scripts/harvest_feedback.py
-# hypothesis_version: 6.135.4
-
-[1000000000, '--days-back', '--max', '--out', '--schema-version', '/app/lancedb_data', '1.0', 'LANCEDB_URI', '__main__', 'assessment', 'corrected_proposal', 'correction', 'feedback_content', 'feedback_data.jsonl', 'feedback_type', 'phi3_feedback', 'prompt', 'proposal', 'response', 'schema_version', 'transaction_id', 'w', 'when']

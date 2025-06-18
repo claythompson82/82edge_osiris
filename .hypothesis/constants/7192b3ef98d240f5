@@ -1,4 +1,0 @@
-# file: /home/clayt/82edge_osiris/osiris/server.py
-# hypothesis_version: 6.135.7
-
-[256, 8000, '/feedback/phi3/', '/health', '0.0.0.0', '1', '1.0', 'CHATTERBOX_MODEL_DIR', 'CUDA_VISIBLE_DEVICES', 'ENABLE_METRICS', 'ENABLE_PROFILING', 'REDIS_URL', 'SENTRY_DSN', '__main__', 'a', 'app', 'context', 'cpu', 'cuda', 'error', 'false', 'feedback', 'hermes', 'hermes_assessment', 'hermes_loaded', 'max_length', 'message', 'meta', 'ok', 'phi3_adapter_date', 'phi3_loaded', 'phi3_proposal', 'prompt', 'status', 'strategy', 'timestamp', 'transaction_id', 'true', 'yes']

@@ -1,4 +1,0 @@
-# file: /home/clayt/82edge_osiris/src/advisor/risk_gate.py
-# hypothesis_version: 6.135.4
-
-[-300.0, 0.01, 0.02, 0.15, 100.0, 10000.0, '/app/lancedb_data', 'BUY', 'TEST', '__main__', 'accepted', 'action', 'advice', 'max_daily_loss_pct', 'price_estimate', 'quantity', 'reason', 'run_123', 'run_124', 'run_id', 'ticker']
