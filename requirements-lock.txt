@@ -1,0 +1,4 @@
+chatterbox-tts @ git+https://github.com/resemble-ai/chatterbox@eb90621fa748f341a5b768aed0c0c12fc561894b
+openai-whisper @ git+https://github.com/openai/whisper@dd985ac4b90cafeef8712f2998d62c59c3e62d22
+torch==2.7.1+cpu
+torchaudio==2.7.1+cpu

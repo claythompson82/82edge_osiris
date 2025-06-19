@@ -28,3 +28,5 @@ compile-reqs:
 test:
 	python -m pytest -q --disable-warnings --maxfail=1
 
+voice:  ## one-liner for new devs
+	./scripts/setup_voice.sh && python scripts/voice_smoke.py
