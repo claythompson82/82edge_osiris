@@ -1,0 +1,12 @@
+# ── CPU wheels straight from PyTorch index ─────────────────────────
+torch==2.7.1+cpu           --extra-index-url https://download.pytorch.org/whl/cpu
+torchaudio==2.7.1+cpu      --extra-index-url https://download.pytorch.org/whl/cpu
+
+# ── Whisper from HEAD (needs *any* torch, no pin) ──────────────────
+git+https://github.com/openai/whisper@main#egg=openai-whisper
+
+# ── Minimal helpers ────────────────────────────────────────────────
+soundfile>=0.13
+ffmpeg-python>=0.2
+websockets>=12
+pydub>=0.25
