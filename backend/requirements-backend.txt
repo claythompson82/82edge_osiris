@@ -1,0 +1,7 @@
+# ── FastAPI Server & ASR Dependencies ───────────────────────────────
+fastapi>=0.95
+uvicorn[standard]>=0.22
+webrtcvad>=2.0.10
+git+https://github.com/openai/whisper@main#egg=openai-whisper
+torch>=2.7.1
+numpy>=1.24
