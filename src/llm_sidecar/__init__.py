@@ -12,7 +12,6 @@ The public surface MUST expose:
 """
 
 from __future__ import annotations
-
 import datetime as _dt
 import os
 import sys
@@ -40,16 +39,15 @@ _db = lancedb.connect(str(DB_ROOT))
 # ----------  table schemas  --------------------------------------------------
 ###############################################################################
 
-
 class Phi3FeedbackSchema(LanceModel):
     transaction_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     feedback_type: str
-    feedback_content: Any
+    feedback_content: Any = Field(exclude=True)
     timestamp: str = Field(
         default_factory=lambda: _dt.datetime.now(_dt.timezone.utc).isoformat()
     )
     schema_version: str = Field(default="1.0")
-    corrected_proposal: Optional[Dict[str, Any]] = None
+    corrected_proposal: Optional[Dict[str, Any]] = Field(default=None, exclude=True)
 
 
 class OrchestratorRunSchema(LanceModel):
@@ -72,7 +70,6 @@ class HermesScoreSchema(LanceModel):
     score: float
     rationale: Optional[str] = None
 
-
 ###############################################################################
 # ----------  bootstrap tables  ----------------------------------------------
 ###############################################################################
@@ -92,7 +89,6 @@ _tables["hermes_scores"] = _open_or_create("hermes_scores", HermesScoreSchema)
 
 feedback_tbl = _tables["phi3_feedback"]  # tests patch this symbol directly
 
-
 ###############################################################################
 # ----------  helper functions  ----------------------------------------------
 ###############################################################################
@@ -102,7 +98,6 @@ def append_feedback(item: Phi3FeedbackSchema | Dict[str, Any]) -> None:
     """Add a feedback row (the tests patch this)."""
     if isinstance(item, BaseModel):
         item = item.model_dump()
-    # ensure default version
     item.setdefault("schema_version", "1.0")
     feedback_tbl.add([item])
 
@@ -124,7 +119,6 @@ def log_hermes_score(
         rationale=rationale,
     )
     _tables["hermes_scores"].add([row.model_dump()])
-
 
 ###############################################################################
 # -------------  super-tiny CLI  (used by tests/test_db.py)  ------------------

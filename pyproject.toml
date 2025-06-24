@@ -1,13 +1,22 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
 [project]
 name = "osiris"
 version = "0.0.0"
-[tool.setuptools]
-package-dir = {"" = "src"}
+requires-python = ">=3.10"
+# (you can also add description, authors, readme, dependencies, etc.)
+
+# ──────────── src-layout configuration ────────────────────────────────────────
+[tool.setuptools.package-dir]
+"" = "src"
+
 [tool.setuptools.packages.find]
 where = ["src"]
+include = ["*"]
+
+# ──────────── pytest settings ────────────────────────────────────────────────
 [tool.pytest.ini_options]
 minversion = "6.0"
 testpaths = ["tests"]

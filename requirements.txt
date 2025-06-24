@@ -240,6 +240,6 @@ watchfiles==1.0.5
     # via uvicorn
 websockets==15.0.1
     # via uvicorn
-
+sounddevice>=0.4.6
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools

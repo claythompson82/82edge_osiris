@@ -1,6 +1,7 @@
 Metadata-Version: 2.4
 Name: osiris
 Version: 0.0.0
+Requires-Python: >=3.10
 License-File: LICENSES.json
 License-File: LICENSES.md
 Dynamic: license-file
