@@ -1,12 +1,17 @@
-# ── CPU wheels straight from PyTorch index ─────────────────────────
-torch==2.7.1+cpu           --extra-index-url https://download.pytorch.org/whl/cpu
-torchaudio==2.7.1+cpu      --extra-index-url https://download.pytorch.org/whl/cpu
+# ── PyTorch (CPU/GPU agnostic) ───────────────────────────────────────
+torch
+torchaudio
 
-# ── Whisper from HEAD (needs *any* torch, no pin) ──────────────────
+# ── Whisper ASR (latest HEAD) ───────────────────────────────────────
 git+https://github.com/openai/whisper@main#egg=openai-whisper
 
-# ── Minimal helpers ────────────────────────────────────────────────
+# ── Real-time Audio I/O & VAD ──────────────────────────────────────
+sounddevice>=0.5.2
 soundfile>=0.13
+webrtcvad>=2.0.10
+
+# ── Numerical & Helper Libraries ───────────────────────────────────
+numpy>=1.24
+pydub>=0.25
 ffmpeg-python>=0.2
 websockets>=12
-pydub>=0.25
