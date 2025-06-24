@@ -1,0 +1,1456 @@
+[
+  {
+    "timestamp": "2025-06-22T22:07:42Z",
+    "model": "TCNChronoLayer",
+    "device": "cpu",
+    "avg_latency_ms": 0.0028443336486816406,
+    "mse": 0.0
+  },
+  {
+    "timestamp": "2025-06-22T22:07:42Z",
+    "model": "TiDEChronoLayer",
+    "device": "cpu",
+    "avg_latency_ms": 0.0029158592224121094,
+    "mse": 0.0
+  },
+  {
+    "timestamp": "2025-06-22T22:16:12Z",
+    "model": "TCNChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.48089027404785156,
+    "mse": 0.8555301075401162
+  },
+  {
+    "timestamp": "2025-06-22T22:16:12Z",
+    "model": "TCNChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.07151133978544776,
+    "mse": 0.9878469323074428
+  },
+  {
+    "timestamp": "2025-06-22T22:16:12Z",
+    "model": "TCNChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.06581715175083705,
+    "mse": 0.9220280749247989
+  },
+  {
+    "timestamp": "2025-06-22T22:16:12Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.17769078174269343,
+    "mse": 0.9221772913704281
+  },
+  {
+    "timestamp": "2025-06-22T22:16:12Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.03696555521950793,
+    "mse": 0.9104135212142587
+  },
+  {
+    "timestamp": "2025-06-22T22:16:12Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.036409923008510044,
+    "mse": 0.7459467724989737
+  },
+  {
+    "timestamp": "2025-06-22T22:23:27Z",
+    "model": "TCNChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.5307657172880977,
+    "mse": 0.8673429376245452
+  },
+  {
+    "timestamp": "2025-06-22T22:23:27Z",
+    "model": "TCNChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.06284998424017607,
+    "mse": 0.9697932993454811
+  },
+  {
+    "timestamp": "2025-06-22T22:23:27Z",
+    "model": "TCNChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.06469999040876116,
+    "mse": 1.0127638157790755
+  },
+  {
+    "timestamp": "2025-06-22T22:23:27Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.1741288656211761,
+    "mse": 0.8623156992318849
+  },
+  {
+    "timestamp": "2025-06-22T22:23:27Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.04043507931837395,
+    "mse": 0.9166766833501059
+  },
+  {
+    "timestamp": "2025-06-22T22:23:27Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.04036767142159598,
+    "mse": 0.6917780665581981
+  },
+  {
+    "timestamp": "2025-06-22T22:26:46Z",
+    "model": "TCNChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.20329939211652578,
+    "mse": 1.0709137092533196
+  },
+  {
+    "timestamp": "2025-06-22T22:26:46Z",
+    "model": "TCNChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.05582421125766046,
+    "mse": 1.1362075580614224
+  },
+  {
+    "timestamp": "2025-06-22T22:26:46Z",
+    "model": "TCNChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.05819355999981916,
+    "mse": 0.9897364967710789
+  },
+  {
+    "timestamp": "2025-06-22T22:27:51Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.1111786222197319,
+    "mse": 0.999844585432776
+  },
+  {
+    "timestamp": "2025-06-22T22:27:51Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.05419811088881807,
+    "mse": 1.0494651343187464
+  },
+  {
+    "timestamp": "2025-06-22T22:27:51Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.04608366224500868,
+    "mse": 0.9804463538724886
+  },
+  {
+    "timestamp": "2025-06-23T00:03:42Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.2612207756667841,
+    "mse": 0.9997622732885325
+  },
+  {
+    "timestamp": "2025-06-23T00:03:42Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.03934620383256924,
+    "mse": 1.0403623723012434
+  },
+  {
+    "timestamp": "2025-06-23T00:03:42Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.04470966480396412,
+    "mse": 0.963661394902342
+  },
+  {
+    "timestamp": "2025-06-23T00:08:16Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.2834783877179922,
+    "mse": 1.0037528895681684
+  },
+  {
+    "timestamp": "2025-06-23T00:08:16Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.039663143500596465,
+    "mse": 1.0188390594628407
+  },
+  {
+    "timestamp": "2025-06-23T00:08:16Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.05351525765878183,
+    "mse": 0.9856144465901703
+  },
+  {
+    "timestamp": "2025-06-23T00:09:11Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.14973989601343707,
+    "mse": 0.9986942606306626
+  },
+  {
+    "timestamp": "2025-06-23T00:09:11Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.09575004349211733,
+    "mse": 1.0504537713712916
+  },
+  {
+    "timestamp": "2025-06-23T00:09:11Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.0457869635687934,
+    "mse": 0.9988865995127528
+  },
+  {
+    "timestamp": "2025-06-23T00:11:13Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.20537871480639516,
+    "mse": 0.9850270553440912
+  },
+  {
+    "timestamp": "2025-06-23T00:11:13Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.04119930153121491,
+    "mse": 1.0524620505499092
+  },
+  {
+    "timestamp": "2025-06-23T00:11:13Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.06515361644603589,
+    "mse": 1.0408101552436864
+  },
+  {
+    "timestamp": "2025-06-23T00:12:51Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.14506532846252776,
+    "mse": 0.9914673476177559
+  },
+  {
+    "timestamp": "2025-06-23T00:12:51Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.06393187060327588,
+    "mse": 1.0271728906205255
+  },
+  {
+    "timestamp": "2025-06-23T00:12:51Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.12297983522768374,
+    "mse": 0.99015922487657
+  },
+  {
+    "timestamp": "2025-06-23T00:20:07Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.13756230880653925,
+    "mse": 1.006609364471071
+  },
+  {
+    "timestamp": "2025-06-23T00:20:07Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.07097307079566453,
+    "mse": 1.0027517433181343
+  },
+  {
+    "timestamp": "2025-06-23T00:20:07Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.03952273616084346,
+    "mse": 1.0271487740794296
+  },
+  {
+    "timestamp": "2025-06-23T00:23:36Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.12763080701150528,
+    "mse": 0.9948794873714508
+  },
+  {
+    "timestamp": "2025-06-23T00:23:36Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.10245717214253135,
+    "mse": 1.0249000370602268
+  },
+  {
+    "timestamp": "2025-06-23T00:23:36Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.05392145227502893,
+    "mse": 0.9813116756244759
+  },
+  {
+    "timestamp": "2025-06-23T00:26:49Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.16650215524141906,
+    "mse": 1.0214241614031523
+  },
+  {
+    "timestamp": "2025-06-23T00:26:49Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.06268267146127667,
+    "mse": 1.0309797738598552
+  },
+  {
+    "timestamp": "2025-06-23T00:26:49Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.03978941175672743,
+    "mse": 0.9808644055463832
+  },
+  {
+    "timestamp": "2025-06-23T00:28:52Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.1712132021377647,
+    "mse": 0.9993211443371361
+  },
+  {
+    "timestamp": "2025-06-23T00:28:52Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.054082470739673,
+    "mse": 1.0479445723376366
+  },
+  {
+    "timestamp": "2025-06-23T00:28:52Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.07614382991084347,
+    "mse": 0.9913551676103194
+  },
+  {
+    "timestamp": "2025-06-23T00:36:13Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.16320989431579255,
+    "mse": 0.9899756295801972
+  },
+  {
+    "timestamp": "2025-06-23T00:36:13Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.06327086580013801,
+    "mse": 1.0291165525286425
+  },
+  {
+    "timestamp": "2025-06-23T00:36:13Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.04867447747124566,
+    "mse": 0.9694679925966195
+  },
+  {
+    "timestamp": "2025-06-23T00:39:15Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.16309263927689016,
+    "mse": 1.0088119974278396
+  },
+  {
+    "timestamp": "2025-06-23T00:39:15Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.0375644889420378,
+    "mse": 1.0091212762099213
+  },
+  {
+    "timestamp": "2025-06-23T00:39:15Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.039268423009801795,
+    "mse": 0.9739384822097996
+  },
+  {
+    "timestamp": "2025-06-23T00:41:19Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.16027721550946677,
+    "mse": 1.0114643422552667
+  },
+  {
+    "timestamp": "2025-06-23T00:41:19Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.039076376817897406,
+    "mse": 1.0219321440188316
+  },
+  {
+    "timestamp": "2025-06-23T00:41:19Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.04569689432779948,
+    "mse": 0.9855239947617819
+  },
+  {
+    "timestamp": "2025-06-23T00:47:30Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.15483658170439507,
+    "mse": 1.011445917182243
+  },
+  {
+    "timestamp": "2025-06-23T00:47:30Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.05718476758031788,
+    "mse": 1.0690118861866102
+  },
+  {
+    "timestamp": "2025-06-23T00:47:30Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.11735845495153356,
+    "mse": 0.9768632233319373
+  },
+  {
+    "timestamp": "2025-06-23T00:54:42Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.151187344326999,
+    "mse": 1.002053576002544
+  },
+  {
+    "timestamp": "2025-06-23T00:54:42Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.040359839707791445,
+    "mse": 1.0228665614418038
+  },
+  {
+    "timestamp": "2025-06-23T00:54:42Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.039222505357530385,
+    "mse": 0.9909938310127197
+  },
+  {
+    "timestamp": "2025-06-23T00:59:06Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.13109634482795424,
+    "mse": 0.9965511806455067
+  },
+  {
+    "timestamp": "2025-06-23T00:59:06Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.03929909117921384,
+    "mse": 1.034063630847875
+  },
+  {
+    "timestamp": "2025-06-23T00:59:06Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.04106980782968027,
+    "mse": 0.9945888172554732
+  },
+  {
+    "timestamp": "2025-06-23T01:21:41Z",
+    "model": "TCNChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.1927931912749423,
+    "mse": 1.6026331836977652
+  },
+  {
+    "timestamp": "2025-06-23T01:21:41Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.021560431482388683,
+    "mse": 0.9976596402828101
+  },
+  {
+    "timestamp": "2025-06-23T01:21:41Z",
+    "model": "TCNChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.17317540112856364,
+    "mse": 0.9978986686493168
+  },
+  {
+    "timestamp": "2025-06-23T01:21:41Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.022469125708117578,
+    "mse": 1.024849807719227
+  },
+  {
+    "timestamp": "2025-06-23T01:21:41Z",
+    "model": "TCNChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.18185118522658875,
+    "mse": 1.6159007961288097
+  },
+  {
+    "timestamp": "2025-06-23T01:21:41Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.022051896262888074,
+    "mse": 1.0017699102555984
+  },
+  {
+    "timestamp": "2025-06-23T21:23:04Z",
+    "model": "TCNChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.2753217484128644,
+    "mse": 1.387815356901104
+  },
+  {
+    "timestamp": "2025-06-23T21:23:05Z",
+    "model": "TCNChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.17648452092021352,
+    "mse": 1.1608353890522924
+  },
+  {
+    "timestamp": "2025-06-23T21:23:05Z",
+    "model": "TCNChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.41949477782947253,
+    "mse": 1.2839523787215847
+  },
+  {
+    "timestamp": "2025-06-24T00:19:11Z",
+    "model": "TCNChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.2934629508453839,
+    "mse": 0.9663313295381732
+  },
+  {
+    "timestamp": "2025-06-24T00:19:12Z",
+    "model": "TCNChronoLayer",
+    "history_size": 16,
+    "device": "cuda",
+    "avg_latency_ms": 0.7426847030556267,
+    "mse": 0.9704198529872486
+  },
+  {
+    "timestamp": "2025-06-24T00:19:12Z",
+    "model": "TCNChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.3348967904980646,
+    "mse": 1.0263517019969128
+  },
+  {
+    "timestamp": "2025-06-24T00:19:12Z",
+    "model": "TCNChronoLayer",
+    "history_size": 32,
+    "device": "cuda",
+    "avg_latency_ms": 0.5724077510262677,
+    "mse": 1.0740892932988593
+  },
+  {
+    "timestamp": "2025-06-24T00:19:12Z",
+    "model": "TCNChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.23626994036560603,
+    "mse": 0.9957824190637432
+  },
+  {
+    "timestamp": "2025-06-24T00:19:12Z",
+    "model": "TCNChronoLayer",
+    "history_size": 64,
+    "device": "cuda",
+    "avg_latency_ms": 0.5468010796440972,
+    "mse": 0.9574352560609473
+  },
+  {
+    "timestamp": "2025-06-24T00:19:17Z",
+    "model": "TCNChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.21081078162860847,
+    "mse": 0.9874157320611778
+  },
+  {
+    "timestamp": "2025-06-24T00:19:17Z",
+    "model": "TCNChronoLayer",
+    "history_size": 16,
+    "device": "cuda",
+    "avg_latency_ms": 0.5894090412744407,
+    "mse": 0.9765770598854091
+  },
+  {
+    "timestamp": "2025-06-24T00:19:18Z",
+    "model": "TCNChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.21192692865897805,
+    "mse": 1.009899203313905
+  },
+  {
+    "timestamp": "2025-06-24T00:19:18Z",
+    "model": "TCNChronoLayer",
+    "history_size": 32,
+    "device": "cuda",
+    "avg_latency_ms": 0.6356845787185395,
+    "mse": 0.9987052944652971
+  },
+  {
+    "timestamp": "2025-06-24T00:19:18Z",
+    "model": "TCNChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.48901551107755276,
+    "mse": 1.0668827312044067
+  },
+  {
+    "timestamp": "2025-06-24T00:19:18Z",
+    "model": "TCNChronoLayer",
+    "history_size": 64,
+    "device": "cuda",
+    "avg_latency_ms": 0.5630940190067998,
+    "mse": 0.9938547984893995
+  },
+  {
+    "timestamp": "2025-06-24T00:40:29Z",
+    "model": "TCNChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.7260625686876914,
+    "mse": 1.0009464398579804
+  },
+  {
+    "timestamp": "2025-06-24T00:40:30Z",
+    "model": "TCNChronoLayer",
+    "history_size": 16,
+    "device": "cuda",
+    "avg_latency_ms": 0.8143368713517006,
+    "mse": 1.0060117705681286
+  },
+  {
+    "timestamp": "2025-06-24T00:40:30Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.027948836158246025,
+    "mse": 0.979075991796539
+  },
+  {
+    "timestamp": "2025-06-24T00:40:30Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cuda",
+    "avg_latency_ms": 0.11760716881256937,
+    "mse": 1.0039072819259154
+  },
+  {
+    "timestamp": "2025-06-24T00:40:30Z",
+    "model": "TCNChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.3048393473745056,
+    "mse": 0.9868154809356445
+  },
+  {
+    "timestamp": "2025-06-24T00:40:30Z",
+    "model": "TCNChronoLayer",
+    "history_size": 32,
+    "device": "cuda",
+    "avg_latency_ms": 0.6865684315116106,
+    "mse": 0.9923884928246134
+  },
+  {
+    "timestamp": "2025-06-24T00:40:30Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.022072418823609587,
+    "mse": 1.0260996116398269
+  },
+  {
+    "timestamp": "2025-06-24T00:40:30Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cuda",
+    "avg_latency_ms": 0.11214486206184604,
+    "mse": 1.0699922031632585
+  },
+  {
+    "timestamp": "2025-06-24T00:40:30Z",
+    "model": "TCNChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.3897250738831375,
+    "mse": 0.9857225081200225
+  },
+  {
+    "timestamp": "2025-06-24T00:40:30Z",
+    "model": "TCNChronoLayer",
+    "history_size": 64,
+    "device": "cuda",
+    "avg_latency_ms": 0.6358480585945977,
+    "mse": 1.0732888887965517
+  },
+  {
+    "timestamp": "2025-06-24T00:40:30Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.022016777775543568,
+    "mse": 0.9821760014891077
+  },
+  {
+    "timestamp": "2025-06-24T00:40:30Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cuda",
+    "avg_latency_ms": 0.11619342179210097,
+    "mse": 0.9693985943048633
+  },
+  {
+    "timestamp": "2025-06-24T00:40:35Z",
+    "model": "TCNChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.36501654623683205,
+    "mse": 0.9909696680909386
+  },
+  {
+    "timestamp": "2025-06-24T00:40:35Z",
+    "model": "TCNChronoLayer",
+    "history_size": 16,
+    "device": "cuda",
+    "avg_latency_ms": 0.615364022105118,
+    "mse": 0.9742095112250495
+  },
+  {
+    "timestamp": "2025-06-24T00:40:35Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.020675562815791595,
+    "mse": 1.0072411203734808
+  },
+  {
+    "timestamp": "2025-06-24T00:40:35Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cuda",
+    "avg_latency_ms": 0.10944594485593624,
+    "mse": 0.9448096873820444
+  },
+  {
+    "timestamp": "2025-06-24T00:40:35Z",
+    "model": "TCNChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.7017296170352255,
+    "mse": 1.022039663722479
+  },
+  {
+    "timestamp": "2025-06-24T00:40:36Z",
+    "model": "TCNChronoLayer",
+    "history_size": 32,
+    "device": "cuda",
+    "avg_latency_ms": 0.7417843352534814,
+    "mse": 1.0711465735949637
+  },
+  {
+    "timestamp": "2025-06-24T00:40:36Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.020789712197621338,
+    "mse": 0.994963549123301
+  },
+  {
+    "timestamp": "2025-06-24T00:40:36Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cuda",
+    "avg_latency_ms": 0.1102819636821033,
+    "mse": 1.0009659555482437
+  },
+  {
+    "timestamp": "2025-06-24T00:40:36Z",
+    "model": "TCNChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.33694742262553146,
+    "mse": 1.0023795315885038
+  },
+  {
+    "timestamp": "2025-06-24T00:40:36Z",
+    "model": "TCNChronoLayer",
+    "history_size": 64,
+    "device": "cuda",
+    "avg_latency_ms": 0.624325688900771,
+    "mse": 0.9750383779761396
+  },
+  {
+    "timestamp": "2025-06-24T00:40:36Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.021164251827738352,
+    "mse": 1.0199924593646512
+  },
+  {
+    "timestamp": "2025-06-24T00:40:36Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cuda",
+    "avg_latency_ms": 0.14098085871449223,
+    "mse": 0.985286248696952
+  },
+  {
+    "timestamp": "2025-06-24T00:43:30Z",
+    "model": "TCNChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.6394137485163373,
+    "mse": 0.992125593195798
+  },
+  {
+    "timestamp": "2025-06-24T00:43:30Z",
+    "model": "TCNChronoLayer",
+    "history_size": 16,
+    "device": "cuda",
+    "avg_latency_ms": 0.6720253551592592,
+    "mse": 0.9671204037402733
+  },
+  {
+    "timestamp": "2025-06-24T00:43:30Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.02052502734796526,
+    "mse": 0.9739271960271166
+  },
+  {
+    "timestamp": "2025-06-24T00:43:30Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cuda",
+    "avg_latency_ms": 0.1464325244960889,
+    "mse": 0.9923890138012847
+  },
+  {
+    "timestamp": "2025-06-24T00:43:31Z",
+    "model": "TCNChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.3831476286126156,
+    "mse": 0.9971616513118968
+  },
+  {
+    "timestamp": "2025-06-24T00:43:31Z",
+    "model": "TCNChronoLayer",
+    "history_size": 32,
+    "device": "cuda",
+    "avg_latency_ms": 0.6062926930224825,
+    "mse": 1.0959735461019713
+  },
+  {
+    "timestamp": "2025-06-24T00:43:31Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.020802430789373973,
+    "mse": 1.0043522760884336
+  },
+  {
+    "timestamp": "2025-06-24T00:43:31Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cuda",
+    "avg_latency_ms": 0.1039371491928479,
+    "mse": 1.0098070774335488
+  },
+  {
+    "timestamp": "2025-06-24T00:43:31Z",
+    "model": "TCNChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.31683954105203693,
+    "mse": 0.9673281539233768
+  },
+  {
+    "timestamp": "2025-06-24T00:43:31Z",
+    "model": "TCNChronoLayer",
+    "history_size": 64,
+    "device": "cuda",
+    "avg_latency_ms": 0.6364548767054522,
+    "mse": 0.9732694343605989
+  },
+  {
+    "timestamp": "2025-06-24T00:43:31Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.020641073987698526,
+    "mse": 0.9720455526040382
+  },
+  {
+    "timestamp": "2025-06-24T00:43:31Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cuda",
+    "avg_latency_ms": 0.09798139248181273,
+    "mse": 0.9674108992223589
+  },
+  {
+    "timestamp": "2025-06-24T00:43:35Z",
+    "model": "TCNChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.41743105459039714,
+    "mse": 0.9870506880634045
+  },
+  {
+    "timestamp": "2025-06-24T00:43:36Z",
+    "model": "TCNChronoLayer",
+    "history_size": 16,
+    "device": "cuda",
+    "avg_latency_ms": 0.7016363723681924,
+    "mse": 0.9832341306060942
+  },
+  {
+    "timestamp": "2025-06-24T00:43:36Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.021010158461699253,
+    "mse": 0.9820385949429931
+  },
+  {
+    "timestamp": "2025-06-24T00:43:36Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cuda",
+    "avg_latency_ms": 0.11183387892005223,
+    "mse": 0.9579347658766519
+  },
+  {
+    "timestamp": "2025-06-24T00:43:36Z",
+    "model": "TCNChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.4435448145213632,
+    "mse": 0.9900599366184196
+  },
+  {
+    "timestamp": "2025-06-24T00:43:36Z",
+    "model": "TCNChronoLayer",
+    "history_size": 32,
+    "device": "cuda",
+    "avg_latency_ms": 0.6129262765010673,
+    "mse": 1.0170027420413772
+  },
+  {
+    "timestamp": "2025-06-24T00:43:36Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.020619958573269162,
+    "mse": 1.0190446481402826
+  },
+  {
+    "timestamp": "2025-06-24T00:43:36Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cuda",
+    "avg_latency_ms": 0.13006811962646994,
+    "mse": 0.9972214331584615
+  },
+  {
+    "timestamp": "2025-06-24T00:43:36Z",
+    "model": "TCNChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.455539555319033,
+    "mse": 0.9835829789622598
+  },
+  {
+    "timestamp": "2025-06-24T00:43:37Z",
+    "model": "TCNChronoLayer",
+    "history_size": 64,
+    "device": "cuda",
+    "avg_latency_ms": 0.6219266357245269,
+    "mse": 0.9614567965387154
+  },
+  {
+    "timestamp": "2025-06-24T00:43:37Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.0211552813804398,
+    "mse": 0.9843702893978948
+  },
+  {
+    "timestamp": "2025-06-24T00:43:37Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cuda",
+    "avg_latency_ms": 0.10614257791527995,
+    "mse": 0.9710125511016027
+  },
+  {
+    "timestamp": "2025-06-24T00:46:45Z",
+    "model": "TCNChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.5134526828476966,
+    "mse": 0.9849955731621276
+  },
+  {
+    "timestamp": "2025-06-24T00:46:45Z",
+    "model": "TCNChronoLayer",
+    "history_size": 16,
+    "device": "cuda",
+    "avg_latency_ms": 0.7976101418661941,
+    "mse": 1.0433369276127622
+  },
+  {
+    "timestamp": "2025-06-24T00:46:45Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.020968513583950188,
+    "mse": 1.007360591968065
+  },
+  {
+    "timestamp": "2025-06-24T00:46:45Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cuda",
+    "avg_latency_ms": 0.19558382453651377,
+    "mse": 0.999963132542979
+  },
+  {
+    "timestamp": "2025-06-24T00:46:46Z",
+    "model": "TCNChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.341670503440762,
+    "mse": 1.031923356663304
+  },
+  {
+    "timestamp": "2025-06-24T00:46:46Z",
+    "model": "TCNChronoLayer",
+    "history_size": 32,
+    "device": "cuda",
+    "avg_latency_ms": 0.6871099406016801,
+    "mse": 0.9948404567199663
+  },
+  {
+    "timestamp": "2025-06-24T00:46:46Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.02094436537796453,
+    "mse": 1.003591247070475
+  },
+  {
+    "timestamp": "2025-06-24T00:46:46Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cuda",
+    "avg_latency_ms": 0.10211736556075647,
+    "mse": 0.9971882455441596
+  },
+  {
+    "timestamp": "2025-06-24T00:46:46Z",
+    "model": "TCNChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.3238352224191961,
+    "mse": 1.0606142542038073
+  },
+  {
+    "timestamp": "2025-06-24T00:46:46Z",
+    "model": "TCNChronoLayer",
+    "history_size": 64,
+    "device": "cuda",
+    "avg_latency_ms": 0.6951767687444333,
+    "mse": 0.980006690000125
+  },
+  {
+    "timestamp": "2025-06-24T00:46:46Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.021042836575630913,
+    "mse": 1.0485233990819562
+  },
+  {
+    "timestamp": "2025-06-24T00:46:46Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cuda",
+    "avg_latency_ms": 0.13065220662565144,
+    "mse": 0.9940628514550562
+  },
+  {
+    "timestamp": "2025-06-24T00:46:50Z",
+    "model": "TCNChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.3184966665541224,
+    "mse": 0.997279430717749
+  },
+  {
+    "timestamp": "2025-06-24T00:46:51Z",
+    "model": "TCNChronoLayer",
+    "history_size": 16,
+    "device": "cuda",
+    "avg_latency_ms": 0.6109709291835952,
+    "mse": 0.9864160324634874
+  },
+  {
+    "timestamp": "2025-06-24T00:46:51Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.022190699522075613,
+    "mse": 0.9932405362223383
+  },
+  {
+    "timestamp": "2025-06-24T00:46:51Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cuda",
+    "avg_latency_ms": 0.13854198919130806,
+    "mse": 0.9603783956477226
+  },
+  {
+    "timestamp": "2025-06-24T00:46:51Z",
+    "model": "TCNChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.6298629701131269,
+    "mse": 1.0103897199617211
+  },
+  {
+    "timestamp": "2025-06-24T00:46:51Z",
+    "model": "TCNChronoLayer",
+    "history_size": 32,
+    "device": "cuda",
+    "avg_latency_ms": 0.638279087886125,
+    "mse": 0.9808669083860918
+  },
+  {
+    "timestamp": "2025-06-24T00:46:51Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.0210500479216442,
+    "mse": 1.0114600311232143
+  },
+  {
+    "timestamp": "2025-06-24T00:46:51Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cuda",
+    "avg_latency_ms": 0.11223626382158187,
+    "mse": 1.0134206206547514
+  },
+  {
+    "timestamp": "2025-06-24T00:46:52Z",
+    "model": "TCNChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.3592276218114421,
+    "mse": 1.0373057417271152
+  },
+  {
+    "timestamp": "2025-06-24T00:46:52Z",
+    "model": "TCNChronoLayer",
+    "history_size": 64,
+    "device": "cuda",
+    "avg_latency_ms": 0.6077252745628356,
+    "mse": 1.0715452121409095
+  },
+  {
+    "timestamp": "2025-06-24T00:46:52Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.02138413326099032,
+    "mse": 1.0347557231803668
+  },
+  {
+    "timestamp": "2025-06-24T00:46:52Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cuda",
+    "avg_latency_ms": 0.10367881512200391,
+    "mse": 0.984875775073939
+  },
+  {
+    "timestamp": "2025-06-24T00:48:04Z",
+    "model": "TCNChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.29558946444211487,
+    "mse": 1.012786785656631
+  },
+  {
+    "timestamp": "2025-06-24T00:48:05Z",
+    "model": "TCNChronoLayer",
+    "history_size": 16,
+    "device": "cuda",
+    "avg_latency_ms": 0.6539091567198435,
+    "mse": 0.9802018583959592
+  },
+  {
+    "timestamp": "2025-06-24T00:48:05Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.02008470468244724,
+    "mse": 1.0022548662927344
+  },
+  {
+    "timestamp": "2025-06-24T00:48:05Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cuda",
+    "avg_latency_ms": 0.1671714969691846,
+    "mse": 0.989879927607872
+  },
+  {
+    "timestamp": "2025-06-24T00:48:05Z",
+    "model": "TCNChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.4537987781926978,
+    "mse": 1.059237057496271
+  },
+  {
+    "timestamp": "2025-06-24T00:48:05Z",
+    "model": "TCNChronoLayer",
+    "history_size": 32,
+    "device": "cuda",
+    "avg_latency_ms": 0.6641502271512312,
+    "mse": 1.0112764309355287
+  },
+  {
+    "timestamp": "2025-06-24T00:48:05Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.02230604794915085,
+    "mse": 1.0003153423793534
+  },
+  {
+    "timestamp": "2025-06-24T00:48:05Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cuda",
+    "avg_latency_ms": 0.17566658695880882,
+    "mse": 1.0191704168964675
+  },
+  {
+    "timestamp": "2025-06-24T00:48:05Z",
+    "model": "TCNChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.3145865631436377,
+    "mse": 0.9882270516570923
+  },
+  {
+    "timestamp": "2025-06-24T00:48:05Z",
+    "model": "TCNChronoLayer",
+    "history_size": 64,
+    "device": "cuda",
+    "avg_latency_ms": 0.6293496878058822,
+    "mse": 1.0133104016802488
+  },
+  {
+    "timestamp": "2025-06-24T00:48:05Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.020404740644153208,
+    "mse": 1.000257805452243
+  },
+  {
+    "timestamp": "2025-06-24T00:48:05Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cuda",
+    "avg_latency_ms": 0.11351276972779521,
+    "mse": 0.9722432345104273
+  },
+  {
+    "timestamp": "2025-06-24T00:48:10Z",
+    "model": "TCNChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.2837706284640138,
+    "mse": 0.984402568468068
+  },
+  {
+    "timestamp": "2025-06-24T00:48:10Z",
+    "model": "TCNChronoLayer",
+    "history_size": 16,
+    "device": "cuda",
+    "avg_latency_ms": 0.7635193024176717,
+    "mse": 0.9657880532784827
+  },
+  {
+    "timestamp": "2025-06-24T00:48:10Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cpu",
+    "avg_latency_ms": 0.02071654653562172,
+    "mse": 0.9777059865756215
+  },
+  {
+    "timestamp": "2025-06-24T00:48:10Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 16,
+    "device": "cuda",
+    "avg_latency_ms": 0.1460368083433701,
+    "mse": 0.9697339930624876
+  },
+  {
+    "timestamp": "2025-06-24T00:48:10Z",
+    "model": "TCNChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.42540441329234063,
+    "mse": 1.1637464573823035
+  },
+  {
+    "timestamp": "2025-06-24T00:48:10Z",
+    "model": "TCNChronoLayer",
+    "history_size": 32,
+    "device": "cuda",
+    "avg_latency_ms": 0.7165919017648983,
+    "mse": 1.00771903386893
+  },
+  {
+    "timestamp": "2025-06-24T00:48:11Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cpu",
+    "avg_latency_ms": 0.02221888005991416,
+    "mse": 1.023796678223888
+  },
+  {
+    "timestamp": "2025-06-24T00:48:11Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 32,
+    "device": "cuda",
+    "avg_latency_ms": 0.1014304196874717,
+    "mse": 0.985851562450781
+  },
+  {
+    "timestamp": "2025-06-24T00:48:11Z",
+    "model": "TCNChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.3399388223274232,
+    "mse": 0.9696844577337869
+  },
+  {
+    "timestamp": "2025-06-24T00:48:11Z",
+    "model": "TCNChronoLayer",
+    "history_size": 64,
+    "device": "cuda",
+    "avg_latency_ms": 0.6300107854383963,
+    "mse": 0.967085571070455
+  },
+  {
+    "timestamp": "2025-06-24T00:48:11Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cpu",
+    "avg_latency_ms": 0.020533192555713294,
+    "mse": 0.9831920887623707
+  },
+  {
+    "timestamp": "2025-06-24T00:48:11Z",
+    "model": "TiDEChronoLayer",
+    "history_size": 64,
+    "device": "cuda",
+    "avg_latency_ms": 0.10124563022896095,
+    "mse": 1.0002489154569967
+  }
+]

@@ -1,0 +1,9 @@
+from pathlib import Path
+
+TEST_DIR = Path(__file__).parent
+
+@pytest.fixture(scope="module")
+def ticks_list():
+    data_path = TEST_DIR / "data" / "spy_2024-05-17.parquet"
+    df = pd.read_parquet(data_path)
+    return [row.values for _, row in df.iterrows()]
