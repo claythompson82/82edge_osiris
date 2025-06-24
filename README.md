@@ -331,6 +331,66 @@ The console uses Server-Sent Events (SSE) via the `/stream/audio` endpoint, whic
 3. **QLoRA / DPO fine-tune** – a nightly job trains on the feedback set and produces a new int8 ONNX; the next morning `llm-sidecar` hot-loads it.
 4. **Prompt-augmentation** – latest high-quality corrections are few-shot-prepended to Phi-3 prompts during the day.
 
+
+## ChronoStack
+
+### Overview
+
+```
+Incoming tick → [Micro: TCN/TiDE] → [Meso: TFT] → [Macro: TGNN]
+  real‑time        medium-term       regime awareness
+```
+
+* **Micro layer** – fast per‑tick prediction using either a Temporal Convolutional Network (TCN) or the TiDE baseline.
+* **Meso layer** – asynchronous medium-horizon forecasting via a Temporal Fusion Transformer (TFT).
+* **Macro layer** – background regime detection with a Temporal Graph Neural Network (TGNN).
+
+### Configuration
+
+```yaml
+chrono_stack:
+  micro_enabled:        # bool – enable/disable micro layer
+  use_tide_baseline:    # bool – choose TiDE vs. TCN
+  tcn_input_dim:        # int – feature dimension for TCN
+  tcn_output_dim:       # int – output dimension for TCN
+  tcn_sequence_length:  # int – history length for TCN & TiDE
+  tide_hidden_dims:     # list[int] – hidden dims for TiDE
+  meso_enabled:         # bool – enable/disable TFT layer
+  tft_hyperparams:      # dict – e.g. hidden_size, attention_head_size, dropout
+  macro_enabled:        # bool – enable/disable TGNN layer
+  tgnn_hyperparams:     # dict – e.g. node_feature_dim, hidden_dim, num_layers
+```
+
+Defaults live in [`src/common/config.py`](src/common/config.py). These values are consumed when layers are instantiated in [`create_chrono_layers`](core/chrono/factory.py).
+
+### Quick CLI Usage
+
+```bash
+python -m osiris.scripts.cli_main --help
+```
+
+Running the CLI sets multiprocessing to "spawn", builds the enabled layers via the factory, spawns a meso-layer process, then runs a short loop feeding dummy data from micro → meso before shutting down.
+
+### Benchmarking ChronoStack
+
+```bash
+pytest core/chrono/tests/test_chrono_ab_benchmark.py -q --ignore=transcribe_test.py
+```
+
+This benchmark loads engineered tick features from `core/chrono/tests/data/spy_*.parquet`, times both `TCNChronoLayer` and `TiDEChronoLayer` on CPU and GPU, and asserts that at least one model achieves ≤50 ms average latency on CPU.
+
+Helper utilities such as `compute_mse` live in [`core/chrono/tests/utils.py`](core/chrono/tests/utils.py).
+
+### References
+
+- [High-level architecture](docs/ARCH.md)
+- [Chrono layer factory](core/chrono/factory.py)
+- [TCN micro layer](core/chrono/tcn_layer.py)
+- [TiDE micro layer](core/chrono/tide_layer.py)
+- [TFT meso layer](core/chrono/tft_layer.py)
+- [CLI entry point](src/osiris/scripts/cli_main.py)
+- [Benchmark test](core/chrono/tests/test_chrono_ab_benchmark.py)
+
 ---
 
 ## CI / CD
