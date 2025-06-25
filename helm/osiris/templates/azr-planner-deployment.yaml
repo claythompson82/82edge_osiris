@@ -1,52 +1,21 @@
-{{- if .Values.azrPlanner.enabled -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "osiris.fullname" . }}-azr-planner
-  labels:
-    {{- include "osiris.labels" . | nindent 4 }}
-    app.kubernetes.io/component: azr-planner
+  name: azr-planner
 spec:
-  replicas: {{ .Values.azrPlanner.replicaCount }}
-  selector:
-    matchLabels:
-      {{- include "osiris.selectorLabels" . | nindent 6 }}
-      app.kubernetes.io/component: azr-planner
   template:
-    metadata:
-      labels:
-        {{- include "osiris.selectorLabels" . | nindent 8 }}
-        app.kubernetes.io/component: azr-planner
     spec:
-      serviceAccountName: {{ include "osiris.serviceAccountName" . }}
       containers:
         - name: azr-planner
-          image: "{{ .Values.azrPlanner.image.repository }}:{{ .Values.azrPlanner.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.azrPlanner.image.pullPolicy }}
+          image: your-registry/82edge_osiris:latest
+          env:
+            - name: ALPHA_TASKS_PER_UNIT
+              value: "{{ .Values.azrPlanner.alphaTasksPerUnit | quote }}"
+            - name: BETA_TASKS_PER_UNIT
+              value: "{{ .Values.azrPlanner.betaTasksPerUnit | quote }}"
+            - name: ALPHA_IN_USE
+              value: "{{ .Values.azrPlanner.alphaInUse | default \"0\" | quote }}"
+            - name: BETA_IN_USE
+              value: "{{ .Values.azrPlanner.betaInUse | default \"0\" | quote }}"
           ports:
-            - name: http
-              containerPort: {{ .Values.azrPlanner.service.port }}
-              protocol: TCP
-          # livenessProbe:
-          #   httpGet:
-          #     path: /health
-          #     port: http
-          # readinessProbe:
-          #   httpGet:
-          #     path: /health
-          #     port: http
-          # resources:
-          #   {{- toYaml .Values.azrPlanner.resources | nindent 12 }}
-      # {{- with .Values.azrPlanner.nodeSelector }}
-      # nodeSelector:
-      #   {{- toYaml . | nindent 8 }}
-      # {{- end }}
-      # {{- with .Values.azrPlanner.affinity }}
-      # affinity:
-      #   {{- toYaml . | nindent 8 }}
-      # {{- end }}
-      # {{- with .Values.azrPlanner.tolerations }}
-      # tolerations:
-      #   {{- toYaml . | nindent 8 }}
-      # {{- end }}
-{{- end }}
+            - containerPort: 8080

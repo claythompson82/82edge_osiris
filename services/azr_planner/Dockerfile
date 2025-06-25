@@ -1,12 +1,15 @@
-FROM python:3.10-slim
+# Base image
+FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY ./services/azr_planner/requirements.txt /app/requirements.txt
+# Install dependencies first for cache
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY ./services/azr_planner/main.py /app/main.py
+# Then copy rest of code
+COPY . .
 
-EXPOSE 8001
+EXPOSE 8080
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["uvicorn", "services.azr_planner.main:app", "--host", "0.0.0.0", "--port", "8080"]

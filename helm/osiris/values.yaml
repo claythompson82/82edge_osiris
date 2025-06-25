@@ -17,30 +17,17 @@ serviceAccount:
 # Orchestrator specific values
 orchestrator:
   name: orchestrator
-  replicaCount: 1 # Default replica count for orchestrator
+  replicaCount: 1  # Default replica count for orchestrator
   image:
-    repository: your-repo/orchestrator # Placeholder
+    repository: your-repo/orchestrator  # Placeholder
     pullPolicy: IfNotPresent
     tag: "latest"
   service:
     type: ClusterIP
     port: 80
   resources: {}
-  #   limits:
-  #     cpu: 100m
-  #     memory: 128Mi
-  #   requests:
-  #     cpu: 100m
-  #     memory: 128Mi
-  podSecurityContext: {} # Default empty map
-  #  fsGroup: 2000
-  securityContext: {} # Default empty map
-  #  capabilities:
-  #    drop:
-  #    - ALL
-  #  readOnlyRootFilesystem: true
-  #  runAsNonRoot: true
-  #  runAsUser: 1000
+  podSecurityContext: {}
+  securityContext: {}
   autoscaling:
     enabled: false
     minReplicas: 1
@@ -52,7 +39,7 @@ orchestrator:
   nodeSelector: {}
   tolerations: []
   affinity: {}
-  config: # Placeholder for application-specific configurations, e.g., key: value pairs
+  config:
     SENTRY_DSN: ""
     SENTRY_ENV: "development"
     SENTRY_TRACES_SAMPLE_RATE: "0.2"
@@ -61,41 +48,22 @@ orchestrator:
 # LLM-Sidecar specific values
 llmSidecar:
   name: llm-sidecar
-  replicaCount: 1 # Default replica count for llmSidecar
+  replicaCount: 1
   image:
-    repository: your-repo/llm-sidecar # Placeholder
+    repository: your-repo/llm-sidecar  # Placeholder
     pullPolicy: IfNotPresent
     tag: "latest"
   service:
     type: ClusterIP
-    port: 8000 # Matches docker/compose.yaml
-
-  # When enabled, these annotations allow Prometheus to scrape metrics from the
-  # llm-sidecar container. Adjust the path and port if your metrics endpoint
-  # differs.
+    port: 8000
   prometheusScrape:
     enabled: false
     path: /metrics
     port: 8000
-
-  # GPU node selector. Adapt to your cluster's GPU node labels.
-  # Example: if nodes are labeled 'accelerator=nvidia-tesla-v100' or 'gpu=true'
   nodeSelector: {}
-  #   gpu: "true"
-  #   accelerator: "nvidia-tesla-v100"
-
   resources: {}
-  # Example for GPU:
-  #   limits:
-  #     cpu: "2"
-  #     memory: "8Gi"
-  #     nvidia.com/gpu: 1 # Requesting 1 GPU
-  #   requests:
-  #     cpu: "1"
-  #     memory: "4Gi"
-  #     nvidia.com/gpu: 1 # Requesting 1 GPU
-  podSecurityContext: {} # Default empty map
-  securityContext: {} # Default empty map
+  podSecurityContext: {}
+  securityContext: {}
   autoscaling:
     enabled: false
     minReplicas: 1
@@ -104,9 +72,9 @@ llmSidecar:
   pdb:
     enabled: false
     minAvailable: 1
-  tolerations: [] # For GPU nodes if they have taints (e.g., nvidia.com/gpu=present:NoSchedule)
+  tolerations: []
   affinity: {}
-  config: # Placeholder for application-specific configurations
+  config:
     SENTRY_DSN: ""
     SENTRY_ENV: "development"
     SENTRY_TRACES_SAMPLE_RATE: "0.2"
@@ -114,15 +82,21 @@ llmSidecar:
 
 # AZR Planner Configuration
 azrPlanner:
-  enabled: false
+  enabled: true
   replicaCount: 1
   image:
-    repository: osiris/azr-planner # Adjust if you have a different image naming scheme
+    repository: osiris/azr-planner
     pullPolicy: IfNotPresent
-    tag: "latest" # Or specific version
+    tag: "latest"
   service:
     type: ClusterIP
     port: 8001
+
+  # Tunable batch sizes per Helm values
+  alphaThresholdHigh: 0.5
+  alphaTasksPerUnit: 2
+  betaTasksPerUnit: 1
+
   # resources: {}
   # nodeSelector: {}
   # tolerations: []
@@ -139,28 +113,14 @@ redis:
     type: ClusterIP
     port: 6379
   resources: {}
-  #   limits:
-  #     cpu: 500m
-  #     memory: 512Mi
-  #   requests:
-  #     cpu: 200m
-  #     memory: 256Mi
-  # For production, consider a StatefulSet and proper persistence configuration.
   persistence:
     enabled: false
-    # storageClassName: "standard" # Example: "gp2" on AWS, "standard" on GKE
-    # size: 1Gi
-    # accessModes:
-    #   - ReadWriteOnce
-  # securityContext for Redis pod (example, adjust as per redis image requirements)
   podSecurityContext:
     fsGroup: 1001
     runAsUser: 1001
-  # securityContext for Redis container
   securityContext:
     runAsNonRoot: true
     runAsUser: 1001
-
 
 # Placeholder for other global settings
 global: {}
@@ -195,41 +155,29 @@ musetalk:
 
 prometheus:
   rules:
-    create: true # Set to true to deploy the PrometheusRule custom resource
+    create: true
+
 observability:
   grafana:
     enabled: false
     prometheus:
       url: http://prometheus-server
 
-
 # Avatar specific values
 avatar:
   enabled: false
   image:
-    repository: your-repo/avatar-worker # Placeholder
+    repository: your-repo/avatar-worker  # Placeholder
     pullPolicy: IfNotPresent
     tag: "latest"
   useTrt: false
   service:
     type: ClusterIP
-    port: 8080 # Default avatar port, confirm if different
-  # nodeSelector for GPU assignment, e.g.
-  # nodeSelector:
-  #   nvidia.com/gpu.present: "true"
+    port: 8080
   nodeSelector: {}
   resources: {}
-  # Example for GPU:
-  #   limits:
-  #     cpu: "2"
-  #     memory: "8Gi"
-  #     nvidia.com/gpu: 1 # Requesting 1 GPU
-  #   requests:
-  #     cpu: "1"
-  #     memory: "4Gi"
-  #     nvidia.com/gpu: 1 # Requesting 1 GPU
   replicaCount: 1
-  config: {} # Placeholder for avatar-specific configurations
+  config: {}
 
 # LanceDB service values
 lancedb:
@@ -250,4 +198,3 @@ networkPolicy:
     enabled: true
   lancedb:
     enabled: false
-
