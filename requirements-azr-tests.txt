@@ -1,0 +1,7 @@
+# Exact minimum packages for AZR planner tests in sandbox
+fastapi>=0.110
+pydantic>=2.7
+pytest
+pytest-mock
+hypothesis
+mypy

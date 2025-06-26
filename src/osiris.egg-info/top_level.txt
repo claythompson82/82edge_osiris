@@ -1,10 +1,9 @@
 advisor
+azr_planner
 chatterbox
 common
 db_data
 dgm_kernel
-lance_db
-lancedb_data
 llm_sidecar
 osiris
 osiris_policy

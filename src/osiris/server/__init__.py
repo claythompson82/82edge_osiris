@@ -148,3 +148,31 @@ async def submit_phi3_feedback(item) -> Dict[str, str]:
 
     _db.append_feedback(row)
     return {"status": "OK", "stored_schema_version": schema_ver}
+
+
+# --------------------------------------------------------------------------- #
+#  AZR Planner (internal, test only)
+# --------------------------------------------------------------------------- #
+import os
+# Ensure imports are conditional or handled if azr_planner is optional
+if os.environ.get("OSIRIS_TEST"):
+    from azr_planner import engine as azr_engine, schemas as azr_schemas
+
+    router_azr = fastapi.APIRouter()
+
+    @router_azr.post(
+        "/internal/azr/planner/propose_trade",
+        response_model=azr_schemas.TradeProposal,
+        tags=["AZR Planner"], # Add tags here for OpenAPI
+    )
+    async def propose_trade(ctx: azr_schemas.PlanningContext):
+        """
+        AZR Planner: Propose a trade based on the given context.
+        """
+        return azr_engine.generate_plan(ctx)
+
+    app.include_router(router_azr, prefix="/azr_api") # Removed tags from here, added to route decorator
+
+# Ensure app.include_router is also conditional if router_azr itself is conditional
+# The above structure handles this: router_azr is only defined if OSIRIS_TEST is set,
+# and app.include_router is called immediately after, within the same conditional block.
