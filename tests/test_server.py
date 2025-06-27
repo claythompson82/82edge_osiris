@@ -73,11 +73,12 @@ import importlib # For reloading server module
 
 # Sample data for testing the AZR Planner endpoint
 # Needs to be defined globally for use in tests.
+# Using camelCase for aliased fields
 SAMPLE_PLANNING_CONTEXT_DATA_AZR = {
     "timestamp": datetime.now(timezone.utc).isoformat(),
-    "equityCurve": [100.0 + i for i in range(35)],
-    "volSurface": {"MES": 0.15, "M2K": 0.20},
-    "riskFreeRate": 0.02,
+    "equityCurve": [100.0 + i for i in range(35)], # Alias: equityCurve
+    "volSurface": {"MES": 0.15, "M2K": 0.20},   # Alias: volSurface
+    "riskFreeRate": 0.02,                      # Alias: riskFreeRate
 }
 
 @pytest.fixture(scope="module", autouse=True)
@@ -130,10 +131,63 @@ def test_azr_planner_smoke_endpoint_exists(test_client_azr: TestClient) -> None:
     response = test_client_azr.post("/azr_api/internal/azr/planner/propose_trade", json=SAMPLE_PLANNING_CONTEXT_DATA_AZR)
     assert response.status_code == 200, f"Response content: {response.text}"
     data = response.json()
-    assert "latentRisk" in data
-    assert "legs" in data
-    assert data["latentRisk"] == 0.0
-    assert data["legs"] == []
+
+    # Expect TradePlan response. Actual content depends on mocked latent_risk or default placeholder.
+    # For a generic smoke test without mocking latent_risk here, we check structure.
+    # The engine's placeholder latent_risk might result in "HOLD" or "ENTER".
+    assert "action" in data
+    assert data["action"] in ["HOLD", "ENTER"] # Check it's one of the valid actions
+    assert "rationale" in data
+    assert isinstance(data["rationale"], str)
+    assert "latent_risk" in data
+    assert isinstance(data["latent_risk"], float)
+    assert "confidence" in data
+    assert isinstance(data["confidence"], float)
+    assert 0.0 <= data["confidence"] <= 1.0
+
+    if data["action"] == "ENTER":
+        assert "legs" in data
+        assert isinstance(data["legs"], list)
+        if data["legs"]: # If legs are present
+            assert len(data["legs"]) == 1 # Current logic adds one leg for ENTER
+            leg = data["legs"][0]
+            assert leg["instrument"] == "MES"
+            assert leg["direction"] == "LONG"
+            assert leg["size"] == 1.0
+    elif data["action"] == "HOLD":
+        assert data.get("legs") is None or data.get("legs") == []
+
+
+@patch('azr_planner.engine.calculate_latent_risk') # Mock at engine level
+def test_azr_planner_action_enter_on_low_risk(mock_calc_lr, test_client_azr: TestClient) -> None:
+    """Test endpoint returns ENTER action when latent risk is low."""
+    mock_calc_lr.return_value = 0.1 # Low risk
+
+    response = test_client_azr.post("/azr_api/internal/azr/planner/propose_trade", json=SAMPLE_PLANNING_CONTEXT_DATA_AZR)
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["action"] == "ENTER"
+    assert data["latent_risk"] == 0.1
+    assert data["confidence"] == 1.0
+    assert len(data["legs"]) == 1
+    assert data["legs"][0]["instrument"] == "MES"
+    assert data["latent_risk"] <= 0.3 # As per ticket requirement
+
+@patch('azr_planner.engine.calculate_latent_risk')
+def test_azr_planner_action_hold_on_high_risk(mock_calc_lr, test_client_azr: TestClient) -> None:
+    """Test endpoint returns HOLD action when latent risk is high."""
+    mock_calc_lr.return_value = 0.5 # High risk
+
+    response = test_client_azr.post("/azr_api/internal/azr/planner/propose_trade", json=SAMPLE_PLANNING_CONTEXT_DATA_AZR)
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["action"] == "HOLD"
+    assert data["latent_risk"] == 0.5
+    assert data["confidence"] == 0.5
+    assert data.get("legs") is None
+
 
 def test_azr_planner_invalid_input_equity_curve_too_short(test_client_azr: TestClient) -> None:
     """Test AZR planner with invalid input (equity curve too short)."""
@@ -143,7 +197,10 @@ def test_azr_planner_invalid_input_equity_curve_too_short(test_client_azr: TestC
     assert response.status_code == 422
     data = response.json()
     assert "detail" in data
-    assert any("equity_curve" in error.get("loc", []) and "too short" in error.get("msg", "") for error in data["detail"])
+    # print("DEBUG: test_azr_planner_invalid_input_equity_curve_too_short - data['detail']:", data["detail"]) # DEBUG PRINT removed
+    # Pydantic error loc for FastAPI body fields is typically ('body', <field_name_or_alias>)
+    # Error loc from FastAPI is a list: ['body', 'equityCurve']
+    assert any(error.get("loc") == ['body', 'equityCurve'] and error.get("msg", "").startswith("List should have at least 30 items") for error in data["detail"])
 
 def test_azr_planner_invalid_input_missing_required_field(test_client_azr: TestClient) -> None:
     """Test AZR planner with invalid input (missing timestamp)."""

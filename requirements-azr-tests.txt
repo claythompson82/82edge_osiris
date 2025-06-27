@@ -5,3 +5,9 @@ pytest
 pytest-mock
 hypothesis
 mypy
+httpx # For TestClient
+pytest-asyncio # For async tests / FastAPI event loop
+pandas # For math_utils
+pandas-stubs # For mypy type checking of pandas
+lancedb # For server tests (transitive via llm_sidecar)
+pyarrow # For lancedb

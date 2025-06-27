@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List, Dict, Optional, Annotated
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class Instrument(str, Enum):
@@ -28,22 +28,58 @@ class Leg(BaseModel):
     size: Annotated[float, Field(gt=0)]
     limit_price: Optional[Annotated[float, Field(ge=0)]] = Field(default=None)
 
-    model_config = {"extra": "forbid"}
+    model_config = ConfigDict(
+        populate_by_name=True,
+        extra="forbid",
+        str_strip_whitespace=True,
+    )
 
 
 class PlanningContext(BaseModel):
     """Input context for trade planning."""
     timestamp: datetime
-    equity_curve: Annotated[List[float], Field(min_length=30)]
-    vol_surface: Dict[str, float] = Field(default_factory=dict)
-    risk_free_rate: Optional[float] = Field(default=None)
+    equity_curve: Annotated[
+        List[float],
+        Field(alias="equityCurve", min_length=30)
+    ]
+    vol_surface: Annotated[ # Now required, no default_factory
+        Dict[str, float],
+        Field(alias="volSurface")
+    ]
+    risk_free_rate: Annotated[ # Now required, not Optional, no default
+        float,
+        Field(alias="riskFreeRate", ge=0.0, le=0.2)
+    ]
 
-    model_config = {"extra": "forbid"}
+    model_config = ConfigDict(
+        populate_by_name=True,
+        extra="forbid",
+        str_strip_whitespace=True,
+        frozen=True,
+    )
 
 
 class TradeProposal(BaseModel):
-    """Output trade proposal."""
-    latent_risk: Annotated[float, Field(ge=0)]
+    """Output trade proposal - to be kept as is."""
+    latent_risk: Annotated[float, Field(ge=0, alias="latentRisk")]
     legs: List[Leg]
 
-    model_config = {"extra": "forbid"}
+    model_config = ConfigDict(
+        populate_by_name=True,
+        extra="forbid",
+        str_strip_whitespace=True,
+    )
+
+class TradePlan(BaseModel):
+    """Simplified trade plan for current stub engine."""
+    action: str = Field(..., examples=["HOLD", "ENTER", "EXIT"])
+    rationale: str
+    latent_risk: float  # Added: The computed latent risk that led to this plan
+    confidence: Annotated[float, Field(ge=0, le=1)]  # Added: Confidence in this plan
+    legs: Optional[List[Leg]] = Field(default=None)  # Added: Optional list of legs for the plan
+
+    model_config = ConfigDict(
+        populate_by_name=True, # Allow population by alias if fields get them later
+        extra="forbid",
+        str_strip_whitespace=True,
+    )

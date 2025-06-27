@@ -51,7 +51,17 @@ def text_to_speech(text: str) -> bytes:  # Patched in tests
 # --------------------------------------------------------------------------- #
 #  FastAPI setup
 # --------------------------------------------------------------------------- #
-app = fastapi.FastAPI(title="Osiris-stub", version="test")
+# Define tags for OpenAPI
+openapi_tags_metadata = [
+    {"name": "AZR Planner", "description": "Alpha-Zero-Risk planner"}
+    # Add other tags here if needed
+]
+
+app = fastapi.FastAPI(
+    title="Osiris-stub",
+    version="test",
+    openapi_tags=openapi_tags_metadata
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -155,24 +165,30 @@ async def submit_phi3_feedback(item) -> Dict[str, str]:
 # --------------------------------------------------------------------------- #
 import os
 # Ensure imports are conditional or handled if azr_planner is optional
-if os.environ.get("OSIRIS_TEST"):
-    from azr_planner import engine as azr_engine, schemas as azr_schemas
+if os.getenv("OSIRIS_TEST") == "1": # More specific check for "1"
+    # Import specific models needed
+    from azr_planner.schemas import PlanningContext, TradePlan
+    from azr_planner.engine import generate_plan as azr_generate_plan # Alias to avoid name clash
 
-    router_azr = fastapi.APIRouter()
+    # router_azr name is fine as it's local to this conditional block
+    router_azr = fastapi.APIRouter(
+        prefix="/azr_api/internal/azr/planner", # Full prefix for the router
+        tags=["AZR Planner"], # Tags defined on the router apply to all its routes
+    )
 
     @router_azr.post(
-        "/internal/azr/planner/propose_trade",
-        response_model=azr_schemas.TradeProposal,
-        tags=["AZR Planner"], # Add tags here for OpenAPI
+        "/propose_trade", # Path is now relative to the router's prefix
+        response_model=TradePlan, # Use the new TradePlan model
+        # Tags are inherited from APIRouter, but can be overridden or extended here
     )
-    async def propose_trade(ctx: azr_schemas.PlanningContext):
+    async def propose_trade(ctx: PlanningContext) -> TradePlan:
         """
-        AZR Planner: Propose a trade based on the given context.
+        Thin HTTP wrapper around azr_planner.engine.generate_plan.
         """
-        return azr_engine.generate_plan(ctx)
+        # The engine function is now imported as azr_generate_plan
+        return azr_generate_plan(ctx)
 
-    app.include_router(router_azr, prefix="/azr_api") # Removed tags from here, added to route decorator
+    app.include_router(router_azr) # No prefix needed here as it's on APIRouter
 
 # Ensure app.include_router is also conditional if router_azr itself is conditional
-# The above structure handles this: router_azr is only defined if OSIRIS_TEST is set,
-# and app.include_router is called immediately after, within the same conditional block.
+# The above structure handles this: router_azr and app.include_router are within the OSIRIS_TEST check.
