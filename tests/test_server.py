@@ -271,8 +271,82 @@ def test_azr_planner_prefix_and_tags_available_when_osiris_test_set(test_client_
 
     operation = openapi_schema["paths"][path_key].get("post")
     assert operation is not None, "POST operation not found."
-    assert "AZR Planner" in operation.get("tags", []), "Tag 'AZR Planner' not applied to operation."
+    assert "AZR Planner Internal" in operation.get("tags", []), "Tag 'AZR Planner Internal' not applied to operation for internal route."
 
     # Check tag definition (optional, but good for completeness)
+    # The main "AZR Planner" tag should also be defined for the v1 endpoint.
     defined_tags = [tag["name"] for tag in openapi_schema.get("tags", [])]
-    assert "AZR Planner" in defined_tags, "Tag 'AZR Planner' not defined in OpenAPI schema."
+    assert "AZR Planner Internal" in defined_tags, "Tag 'AZR Planner Internal' not defined in OpenAPI schema."
+    assert "AZR Planner" in defined_tags, "Tag 'AZR Planner' (for v1 endpoint) not defined in OpenAPI schema."
+
+
+# --- Tests for AZR Planner V1 Public Endpoint ---
+def test_azr_api_v1_propose_trade_happy_path(test_client_azr: TestClient) -> None:
+    """
+    End-to-end happy path for POST /azr_api/v1/propose_trade.
+    Uses a minimal 35-point equityCurve and dailyHistoryHLC.
+    Asserts action is ENTER or HOLD, and latent_risk is within [0, 1].
+    """
+    # Construct minimal valid PlanningContext payload
+    # LR_V2_MIN_POINTS is 30. Task asks for 35 points for equityCurve.
+    # dailyHistoryHLC also needs to be sufficient for latent_risk_v2.
+    num_points = 35
+    equity_curve_data = [100.0 + i * 0.1 for i in range(num_points)]
+    hlc_data = _generate_hlc_data_for_server_test(num_points)
+
+    payload = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "equityCurve": equity_curve_data,
+        "dailyHistoryHLC": hlc_data,
+        "volSurface": {"MES": 0.22},
+        "riskFreeRate": 0.02,
+        "nSuccesses": 5, # Example values
+        "nFailures": 2   # Example values
+        # dailyVolume and currentPositions are optional and omitted for minimal payload
+    }
+
+    response = test_client_azr.post("/azr_api/v1/propose_trade", json=payload)
+    assert response.status_code == 200, f"Response content: {response.text}"
+
+    data = response.json()
+    from azr_planner.schemas import TradeProposal as TradeProposalSchema
+
+    try:
+        TradeProposalSchema.model_validate(data)
+    except Exception as e:
+        pytest.fail(f"Response does not match TradeProposal schema for v1 endpoint: {e}\nResponse data: {data}")
+
+    # Assert action ∈ {"ENTER","HOLD"} and 0 ≤ latent_risk ≤ 1.
+    # The exact action depends on the dummy data and current latent_risk_v2 logic.
+    # Given it's a "happy path" with gently rising equity, latent risk should be low.
+    # Confidence depends on nSuccesses/nFailures. With 5S/2F and alpha=3,beta=4: (5+3)/(5+2+3+4) = 8/14 = 0.57
+    # ENTER: lr < 0.25 and conf > 0.7  (0.57 is not > 0.7, so not ENTER this way)
+    # EXIT: lr > 0.7 or conf < 0.4 (0.57 is not < 0.4)
+    # So, it should be HOLD if lr is not extreme.
+    # If lr is very low (e.g. <0.25), but conf is 0.57, it will be HOLD.
+    # If lr is very high (e.g. >0.7), it will be EXIT.
+    # The spec says "assert action ∈ {\"ENTER\",\"HOLD\"}". This implies the test data should lead to one of these.
+    # A flat equity curve gives lr=0. With conf=0.57, this is not ENTER.
+    # Let's make nSuccesses higher to get conf > 0.7 for a potential ENTER.
+    # e.g. nSuccesses=10, nFailures=1 => conf = (10+3)/(10+1+3+4) = 13/18 = 0.72
+
+    payload_for_enter_hold = payload.copy()
+    payload_for_enter_hold["nSuccesses"] = 10
+    payload_for_enter_hold["nFailures"] = 1
+    # To ensure low latent risk for potential ENTER, use a flat equity curve
+    payload_for_enter_hold["equityCurve"] = [100.0] * num_points
+    # HLC data for flat curve also (otherwise returns for vol/entropy might be non-zero)
+    payload_for_enter_hold["dailyHistoryHLC"] = [[100.0, 100.0, 100.0]] * num_points
+
+
+    response_enter_hold = test_client_azr.post("/azr_api/v1/propose_trade", json=payload_for_enter_hold)
+    assert response_enter_hold.status_code == 200
+    data_enter_hold = response_enter_hold.json()
+
+    # With flat curve, lr should be 0. With 10S/1F, conf is ~0.72.
+    # lr (0) < 0.25 AND conf (0.72) > 0.7 => Should be ENTER
+    assert data_enter_hold["action"] in ["ENTER", "HOLD"], f"Action was {data_enter_hold['action']}, lr={data_enter_hold['latent_risk']}, conf={data_enter_hold['confidence']}"
+
+    assert "latent_risk" in data_enter_hold
+    assert isinstance(data_enter_hold["latent_risk"], float)
+    assert 0.0 <= data_enter_hold["latent_risk"] <= 1.0

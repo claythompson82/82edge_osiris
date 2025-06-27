@@ -106,6 +106,69 @@ class WorkflowState(TypedDict):
     current_nav: Optional[float]  # Current Net Asset Value
     daily_pnl: Optional[float]  # Current Daily Profit and Loss
     risk_gate_decision: Optional[Dict[str, Any]]  # Output from risk_gate_accept
+    latest_proposal: Optional[Dict[str, Any]] # For AZR Planner's TradeProposal (will be dict when serialized in state)
+
+
+# --- AZR Planner Integration ---
+from azr_planner.schemas import PlanningContext, TradeProposal
+from azr_planner.engine import generate_plan as azr_generate_plan
+from azr_planner.math_utils import LR_V2_MIN_POINTS # For dummy data generation
+
+def _generate_dummy_hlc_data(num_periods: int, start_price: float = 100.0) -> List[tuple[float, float, float]]:
+    """Generates simple HLC data where H=L=C and price increases by 0.1 each period."""
+    return [(start_price + i*0.1, start_price + i*0.1, start_price + i*0.1) for i in range(num_periods)]
+
+def azr_planning_node(state: WorkflowState) -> WorkflowState:
+    """
+    Generates a trade proposal using the AZR Planner.
+    Constructs a PlanningContext with dummy data for now.
+    """
+    with tracer.start_as_current_span("orchestrator.azr_planning_node"):
+        run_id = state.get("run_id", "N/A")
+        logger.info(f"Executing AZR Planning node for run_id: {run_id}...")
+
+        # TODO(AZR-07): Replace dummy data with actual data from conversation state / services
+        # Equity curve: Use LR_V2_MIN_POINTS + some buffer (e.g., +5) for length
+        num_equity_points = LR_V2_MIN_POINTS + 5
+        dummy_equity_curve = [10000.0 + i * 10 for i in range(num_equity_points)]
+
+        # Daily HLC: Ensure at least LR_V2_MIN_POINTS for latent_risk_v2 internal calcs
+        # and other potential uses (like ATR if it were still used directly by engine).
+        # The generate_plan function itself might have checks, but latent_risk_v2 needs LR_V2_MIN_POINTS.
+        num_hlc_points = LR_V2_MIN_POINTS + 5
+        dummy_hlc_data = _generate_dummy_hlc_data(num_hlc_points)
+
+        try:
+            planning_context = PlanningContext(
+                timestamp=datetime.datetime.now(datetime.timezone.utc),
+                equityCurve=dummy_equity_curve,
+                dailyHistoryHLC=dummy_hlc_data,
+                dailyVolume=None, # Optional
+                currentPositions=None, # Optional
+                nSuccesses=state.get("n_successes_azr", 0), # TODO(AZR-07): Get from actual state if available
+                nFailures=state.get("n_failures_azr", 0),   # TODO(AZR-07): Get from actual state if available
+                volSurface={"MES": 0.20}, # Dummy
+                riskFreeRate=0.01 # Dummy
+            )
+
+            logger.info(f"Run_id {run_id}: Generated PlanningContext for AZR Planner.")
+
+            trade_proposal: TradeProposal = azr_generate_plan(planning_context)
+
+            logger.info(f"Run_id {run_id}: AZR Planner generated proposal: Action={trade_proposal.action}, Confidence={trade_proposal.confidence:.2f}, LatentRisk={trade_proposal.latent_risk:.2f}")
+
+            # Persist as dict for JSON serializable state
+            # Pydantic's model_dump(mode='json') or by_alias=True can be useful here.
+            # For LangGraph state, which is a TypedDict, we usually store Python dicts.
+            # The TradeProposal itself might be stored if the state field is typed as Optional[TradeProposal].
+            # The spec says: graph_state["latest_proposal"] and type is Optional[Dict[str, Any]]
+            # So, model_dump() is appropriate.
+            return {**state, "latest_proposal": trade_proposal.model_dump(by_alias=True)}
+
+        except Exception as e:
+            error_message = f"Error in AZR Planning node for run_id {run_id}"
+            logger.exception(error_message) # Includes stack trace
+            return {**state, "error": f"{error_message}: {e}"}
 
 
 # --- Node Implementations ---
@@ -671,6 +734,7 @@ def build_graph():
     # All HTTP calls now use the async httpx client so the graph is fully async.
     # Synchronous nodes are automatically wrapped by LangGraph to be compatible with `ainvoke`.
 
+    workflow.add_node("azr_planning_node", azr_planning_node) # Added AZR planner node
     workflow.add_node(
         "generate_proposal", generate_proposal_node
     )  # Will be wrapped by LangGraph for ainvoke
@@ -680,8 +744,8 @@ def build_graph():
 
     # Define edges
     workflow.set_entry_point("query_market")
-    workflow.add_edge("query_market", "generate_proposal")
-    # workflow.add_edge("generate_proposal", "evaluate_proposal") # This is replaced
+    workflow.add_edge("query_market", "azr_planning_node") # New AZR planning node
+    workflow.add_edge("azr_planning_node", "generate_proposal") # Phi-3 proposal after AZR
     workflow.add_edge("generate_proposal", "risk_management")
 
     def should_evaluate_proposal(state: WorkflowState) -> str:
