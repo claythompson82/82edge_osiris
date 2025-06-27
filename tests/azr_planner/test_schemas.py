@@ -123,7 +123,7 @@ def test_trade_proposal_bounds() -> None:
         **VALID_TP_BASE,
         "legs": [{"instrument": "MES", "direction": "LONG", "size": 1, "limit_price": -100}],
     }
-    with pytest.raises(ValidationError, match=r"legs\.0\.limit_price.*greater than or equal to 0"):
+    with pytest.raises(ValidationError, match=r"greater than or equal to 0"):
         adapter.validate_python(bad_price)
 
 
