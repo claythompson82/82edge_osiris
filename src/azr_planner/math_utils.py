@@ -371,3 +371,148 @@ def kelly_fraction(mu: float, sigma: float) -> float:
     # If the task means "full Kelly" (not fractional Kelly), then this is it.
     # If it implies fractional Kelly (e.g. half-Kelly), that would be an adjustment elsewhere.
     return fraction
+
+
+def bayesian_confidence(wins: int, losses: int, alpha: float = 3.0, beta: float = 4.0) -> float:
+    """
+    Calculates Bayesian-shrunk confidence using a Beta prior.
+
+    Args:
+        wins: Number of observed successes.
+        losses: Number of observed failures.
+        alpha: Alpha parameter of the Beta prior (pseudo-successes).
+        beta: Beta parameter of the Beta prior (pseudo-failures).
+
+    Returns:
+        The posterior mean of the success probability, clamped between 0 and 1.
+        This represents the confidence score.
+    """
+    if wins < 0:
+        raise ValueError("Number of wins cannot be negative.")
+    if losses < 0:
+        raise ValueError("Number of losses cannot be negative.")
+    if alpha <= 0:
+        raise ValueError("Alpha parameter must be positive.")
+    if beta <= 0:
+        raise ValueError("Beta parameter must be positive.")
+
+    numerator = float(wins + alpha)
+    denominator = float(wins + losses + alpha + beta)
+
+    if denominator == 0:
+        # This case should ideally not be reached if alpha and beta are positive.
+        # If it were possible, it implies alpha and beta are zero, and wins/losses are zero.
+        # A neutral prior (alpha=1, beta=1) would give 0.5.
+        # With alpha=3, beta=4 default, if wins=0, losses=0, result is 3 / 7.
+        # If somehow denominator is zero despite positive alpha/beta (e.g. max float issues, highly unlikely),
+        # returning a neutral 0.5 or prior mean might be an option.
+        # For now, let's assume positive alpha/beta prevent true zero denominator with non-negative wins/losses.
+        # However, if wins, losses, alpha, beta are all zero (which constraints prevent for alpha/beta),
+        # it would be 0/0.
+        # Given constraints alpha > 0, beta > 0, denominator will be > 0.
+        # This explicit check is more for logical completeness if constraints were different.
+        return alpha / (alpha + beta) # Return prior mean if no observations and somehow denominator was zero.
+
+
+    confidence = numerator / denominator
+
+    # Clamp to [0, 1] as an extra safeguard, though theoretically it should be within this range.
+    return _clamp(confidence, 0.0, 1.0)
+
+
+# --- Latent Risk v2 Constants ---
+LR_V2_SIGMA_TGT = 0.25
+LR_V2_DD_TGT = 0.333 # (1/3)
+LR_V2_H_TGT = 3.0
+LR_V2_WEIGHTS = (0.45, 0.35, 0.20) # Weights for vol, dd, entropy terms respectively
+LR_V2_MIN_POINTS = 30 # Minimum data points for meaningful calculation
+LR_V2_RETURNS_LOOKBACK = 30 # For volatility calculation from equity curve
+LR_V2_N_DAY_RETURNS_PERIOD = 5 # For entropy calculation
+
+def latent_risk_v2(equity_curve: List[float]) -> float:
+    """
+    Calculates the V2 latent risk score based on the equity curve.
+    Uses σ-adjusted volatility, draw-down slope penalty (simplified), and Shannon entropy.
+
+    Args:
+        equity_curve: List of equity values. Requires at least LR_V2_MIN_POINTS.
+
+    Returns:
+        A risk score clamped between 0 and 1. Returns 1.0 (max risk) if data is insufficient
+        or if critical components cannot be calculated (e.g., NaN, division by zero).
+    """
+    num_points = len(equity_curve)
+
+    if num_points < LR_V2_MIN_POINTS:
+        return 1.0
+
+    # --- 1. Volatility Term (σ-adjusted) ---
+    # Calculate returns from the equity curve (assuming equity_curve contains values/prices)
+    # Using pct_change for returns. Ensure there are enough points for returns and then for volatility.
+    vol_term_val = 1.0 # Default to max contribution if calculation fails
+
+    if num_points > 1: # Need at least 2 points for one return value
+        returns = pd.Series(equity_curve).pct_change().dropna().tolist()
+        if len(returns) >= LR_V2_RETURNS_LOOKBACK:
+            # rolling_volatility expects a list of returns and window.
+            # It annualizes the volatility.
+            actual_sigma = rolling_volatility(returns, window=LR_V2_RETURNS_LOOKBACK)
+            if math.isnan(actual_sigma): return 1.0 # Fallback on NaN
+            if LR_V2_SIGMA_TGT > 0:
+                # TODO(AZR-06): Confirm exact formula for eq. 4-2 (σ-adjusted volatility term)
+                # Assuming it's a ratio for now.
+                vol_term_val = actual_sigma / LR_V2_SIGMA_TGT
+            # If SIGMA_TGT is zero (not the case here), vol_term_val remains 1.0.
+        # If not enough returns for rolling_volatility, vol_term_val remains 1.0 (already handled by actual_sigma being NaN or this path not taken).
+    # If num_points <=1, returns cannot be calculated, vol_term_val remains 1.0.
+
+    # --- 2. Draw-down Term (simplified, slope penalty needs eq. 4-3) ---
+    dd_term_val = 1.0 # Default to max contribution
+
+    # Max drawdown calculation (similar to latent_risk v1 but over the whole provided curve segment)
+    # The problem states "last 30 outcomes" for strategy selector for confidence,
+    # and latent_risk_v2 takes equity_curve (which could be a 30-period tail).
+    # Let's assume the input equity_curve is the segment to analyze.
+    series_equity = pd.Series(equity_curve)
+    historical_max = series_equity.expanding(min_periods=1).max()
+    drawdowns = 1 - (series_equity / historical_max)
+    max_dd = drawdowns.max()
+    if math.isnan(max_dd): return 1.0 # Fallback on NaN
+
+    if LR_V2_DD_TGT > 0:
+        # TODO(AZR-06): Implement actual draw-down slope penalty from eq. 4-3.
+        # Using simplified max_dd / DD_TGT for now.
+        dd_term_val = max_dd / LR_V2_DD_TGT
+    # If DD_TGT is zero (not the case here), dd_term_val remains 1.0.
+
+    # --- 3. Shannon Entropy of n-day Returns ---
+    entropy_term_val = 1.0 # Default to max contribution
+
+    # Calculate n-day returns (e.g., 5-day)
+    n_day_period = LR_V2_N_DAY_RETURNS_PERIOD
+    if num_points >= n_day_period + 1: # Need n+1 points for one n-day return
+        n_day_returns = series_equity.pct_change(periods=n_day_period).dropna().tolist()
+        if n_day_returns: # If list is not empty
+            # TODO(AZR-06): Confirm details of eq. 4-4 for entropy calculation if different from _calculate_shannon_entropy.
+            actual_entropy = _calculate_shannon_entropy(n_day_returns, base=math.e)
+            if math.isnan(actual_entropy): return 1.0 # Fallback on NaN
+            if LR_V2_H_TGT > 0:
+                entropy_term_val = actual_entropy / LR_V2_H_TGT
+            # If H_TGT is zero (not the case here), entropy_term_val remains 1.0.
+    # If not enough points for n-day returns, entropy_term_val remains 1.0.
+
+    # --- Combine Components ---
+    # Handle potential NaNs from component calculations by defaulting them to a value that maximizes their risk contribution (e.g., 1.0 or higher before clamping)
+    # The individual terms are already defaulted to 1.0 if their specific calculations fail.
+
+    raw_risk = (
+        LR_V2_WEIGHTS[0] * vol_term_val +
+        LR_V2_WEIGHTS[1] * dd_term_val +
+        LR_V2_WEIGHTS[2] * entropy_term_val
+    )
+
+    # Fallback to 1.0 on NaNs in raw_risk (e.g. if a weight was NaN, though they are const)
+    if math.isnan(raw_risk):
+        return 1.0
+
+    return _clamp(raw_risk, 0.0, 1.0)

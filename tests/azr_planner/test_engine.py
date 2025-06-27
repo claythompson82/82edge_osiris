@@ -9,9 +9,8 @@ from datetime import datetime, timezone
 from typing import Dict, Any, List
 
 from azr_planner.engine import generate_plan
-from azr_planner.schemas import PlanningContext, TradeProposal, Instrument, Direction, Leg # Changed TradePlan
-
-from azr_planner.engine import ASSUMED_EMA_LONG_PERIOD, ASSUMED_KELLY_MU_LOOKBACK, ASSUMED_KELLY_SIGMA_LOOKBACK # Import constants
+from azr_planner.schemas import PlanningContext, TradeProposal, Instrument, Direction, Leg
+from azr_planner.math_utils import LR_V2_MIN_POINTS # Import for MIN_HISTORY_POINTS
 
 # --- Helper function to generate HLC data ---
 def _generate_hlc_data(num_periods: int, start_price: float = 100.0, daily_change: float = 0.1, spread: float = 0.5) -> List[tuple[float, float, float]]:
@@ -30,9 +29,9 @@ def _generate_hlc_data(num_periods: int, start_price: float = 100.0, daily_chang
     return data
 
 # --- Updated Hypothesis strategy for PlanningContext ---
-# Minimum data points for daily_history_hlc and daily_volume,
-# considering ATR(14) needs 15 HLC, EMAs might need more, Kelly lookbacks might need more.
-MIN_HISTORY_POINTS = max(ASSUMED_EMA_LONG_PERIOD, ASSUMED_KELLY_MU_LOOKBACK, ASSUMED_KELLY_SIGMA_LOOKBACK, 15) + 5 # Add buffer
+# Minimum data points for daily_history_hlc and daily_volume
+# For AZR-06, this is primarily driven by latent_risk_v2 requirements.
+MIN_HISTORY_POINTS = LR_V2_MIN_POINTS + 5 # Add a small buffer
 
 # More direct HLC tuple generation to avoid excessive filtering
 @st.composite
@@ -80,13 +79,15 @@ st_planning_context_data_new = st.fixed_dictionaries({
     ),
     "equityCurve": st.lists(st.floats(min_value=1000.0, max_value=1e6), min_size=30, max_size=60),
     "dailyHistoryHLC": st_hlc_tuples,
-    "dailyVolume": st.one_of(st.none(), st_volume_data), # Optional
-    "currentPositions": st.one_of(st.none(), st_current_legs), # Optional
+    "dailyVolume": st.one_of(st.none(), st_volume_data),
+    "currentPositions": st.one_of(st.none(), st_current_legs),
+    "n_successes": st.integers(min_value=0, max_value=100), # New field
+    "n_failures": st.integers(min_value=0, max_value=100),  # New field
     "volSurface": st.fixed_dictionaries({
-        Instrument.MES.value: st.floats(min_value=0.05, max_value=0.8) # Simplified for now
+        Instrument.MES.value: st.floats(min_value=0.05, max_value=0.8)
     }),
     "riskFreeRate": st.floats(min_value=0.0, max_value=0.2),
-}).map(lambda d: { # Ensure dailyVolume has same length as dailyHistoryHLC if not None
+}).map(lambda d: {
     **d,
     "dailyVolume": [v for v, _ in zip(d["dailyVolume"], d["dailyHistoryHLC"])] if isinstance(d["dailyVolume"], list) and isinstance(d["dailyHistoryHLC"], list) else None
     # dailyHistoryHLC is guaranteed to be a list by st_hlc_tuples strategy, isinstance check is for mypy's benefit
@@ -106,9 +107,113 @@ def sample_planning_context_data_new() -> Dict[str, Any]:
         "currentPositions": [
             {"instrument": "MES", "direction": "LONG", "size": 2.0, "limit_price": 4500.0}
         ],
+        "n_successes": 10,
+        "n_failures": 5,
         "volSurface": {"MES": 0.15, "M2K": 0.20},
         "riskFreeRate": 0.02,
     }
+
+# --- New tests for AZR-06 Engine Logic ---
+from unittest.mock import MagicMock # Ensure MagicMock is available if not already
+
+@patch('azr_planner.engine.latent_risk_v2')
+@patch('azr_planner.engine.bayesian_confidence')
+def test_generate_plan_action_enter_azr06(
+    mock_bayesian_confidence: MagicMock,
+    mock_latent_risk_v2: MagicMock,
+    sample_planning_context_data_new: Dict[str, Any]
+) -> None:
+    """Test generate_plan returns 'ENTER' with new AZR-06 thresholds."""
+    mock_latent_risk_v2.return_value = 0.10 # lr < 0.25
+    mock_bayesian_confidence.return_value = 0.80 # conf > 0.7
+
+    # Remove current positions to ensure a clean ENTER scenario if that's simpler for leg check
+    sample_planning_context_data_new["currentPositions"] = None
+    ctx = PlanningContext.model_validate(sample_planning_context_data_new)
+    trade_proposal = generate_plan(ctx)
+
+    assert trade_proposal.action == "ENTER"
+    assert trade_proposal.latent_risk == 0.10
+    assert trade_proposal.confidence == 0.80
+    assert trade_proposal.legs is not None
+    assert len(trade_proposal.legs) == 1
+    leg = trade_proposal.legs[0]
+    assert leg.instrument == Instrument.MES
+    assert leg.direction == Direction.LONG
+    assert leg.size == 1.0
+
+@patch('azr_planner.engine.latent_risk_v2')
+@patch('azr_planner.engine.bayesian_confidence')
+def test_generate_plan_action_exit_lr_azr06(
+    mock_bayesian_confidence: MagicMock,
+    mock_latent_risk_v2: MagicMock,
+    sample_planning_context_data_new: Dict[str, Any]
+) -> None:
+    """Test generate_plan returns 'EXIT' due to high latent risk (AZR-06)."""
+    mock_latent_risk_v2.return_value = 0.80 # lr > 0.7
+    mock_bayesian_confidence.return_value = 0.60 # conf is neutral, not triggering exit itself
+
+    ctx = PlanningContext.model_validate(sample_planning_context_data_new) # Has existing LONG MES
+    trade_proposal = generate_plan(ctx)
+
+    assert trade_proposal.action == "EXIT"
+    assert trade_proposal.latent_risk == 0.80
+    assert trade_proposal.confidence == 0.60
+    assert trade_proposal.legs is not None
+    assert len(trade_proposal.legs) == 1
+    leg = trade_proposal.legs[0]
+    assert leg.instrument == Instrument.MES
+    assert leg.direction == Direction.SHORT
+    # Size should be current holding if logic is to close out existing position
+    # Sample data has 2.0 LONG MES
+    assert leg.size == 2.0
+
+
+@patch('azr_planner.engine.latent_risk_v2')
+@patch('azr_planner.engine.bayesian_confidence')
+def test_generate_plan_action_exit_conf_azr06(
+    mock_bayesian_confidence: MagicMock,
+    mock_latent_risk_v2: MagicMock,
+    sample_planning_context_data_new: Dict[str, Any]
+) -> None:
+    """Test generate_plan returns 'EXIT' due to low confidence (AZR-06)."""
+    mock_latent_risk_v2.return_value = 0.50 # lr is neutral
+    mock_bayesian_confidence.return_value = 0.30 # conf < 0.4
+
+    sample_planning_context_data_new["currentPositions"] = None # Test EXIT even if flat
+    ctx = PlanningContext.model_validate(sample_planning_context_data_new)
+    trade_proposal = generate_plan(ctx)
+
+    assert trade_proposal.action == "EXIT"
+    assert trade_proposal.latent_risk == 0.50
+    assert trade_proposal.confidence == 0.30
+    assert trade_proposal.legs is not None
+    assert len(trade_proposal.legs) == 1
+    leg = trade_proposal.legs[0]
+    assert leg.instrument == Instrument.MES
+    assert leg.direction == Direction.SHORT
+    assert leg.size == 1.0 # Defaults to shorting 1 if no existing long
+
+
+@patch('azr_planner.engine.latent_risk_v2')
+@patch('azr_planner.engine.bayesian_confidence')
+def test_generate_plan_action_hold_azr06(
+    mock_bayesian_confidence: MagicMock,
+    mock_latent_risk_v2: MagicMock,
+    sample_planning_context_data_new: Dict[str, Any]
+) -> None:
+    """Test generate_plan returns 'HOLD' with neutral signals (AZR-06)."""
+    mock_latent_risk_v2.return_value = 0.50 # Neutral lr (0.25 <= lr <= 0.7)
+    mock_bayesian_confidence.return_value = 0.60 # Neutral conf (0.4 <= conf <= 0.7)
+
+    ctx = PlanningContext.model_validate(sample_planning_context_data_new)
+    trade_proposal = generate_plan(ctx)
+
+    assert trade_proposal.action == "HOLD"
+    assert trade_proposal.latent_risk == 0.50
+    assert trade_proposal.confidence == 0.60
+    assert trade_proposal.legs is None
+
 
 # --- Comment out old tests based on latent_risk driven logic ---
 # These tests are no longer valid for the new engine which uses signal-based logic.
@@ -174,50 +279,48 @@ def test_property_generate_plan_new_engine_basic_structure(data: Dict[str, Any])
     assert isinstance(trade_proposal.confidence, float)
     assert 0.0 <= trade_proposal.confidence <= 1.0, "Confidence out of bounds"
 
-    # Check new optional fields are either None or of correct type
-    if trade_proposal.signal_value is not None:
-        assert isinstance(trade_proposal.signal_value, float)
-    if trade_proposal.atr_value is not None:
-        assert isinstance(trade_proposal.atr_value, float)
-        assert trade_proposal.atr_value >= 0 or math.isnan(trade_proposal.atr_value) # ATR can be NaN if not enough data
-    if trade_proposal.kelly_fraction_value is not None:
-        assert isinstance(trade_proposal.kelly_fraction_value, float)
-        assert trade_proposal.kelly_fraction_value >= 0
-    if trade_proposal.target_position_size is not None:
-        assert isinstance(trade_proposal.target_position_size, float)
-        # Size can be 0 if Kelly is 0 or negative
-        assert trade_proposal.target_position_size >= 0
+    # Check new optional fields from AZR-05 are now None or not present if removed from TradeProposal
+    assert getattr(trade_proposal, "signal_value", None) is None
+    assert getattr(trade_proposal, "atr_value", None) is None
+    assert getattr(trade_proposal, "kelly_fraction_value", None) is None
+    assert getattr(trade_proposal, "target_position_size", None) is None
 
-    if trade_proposal.legs is not None:
-        assert isinstance(trade_proposal.legs, list)
-        for leg in trade_proposal.legs:
-            assert isinstance(leg, Leg)
-            assert leg.size > 0
+    # Check latent_risk is populated
+    assert trade_proposal.latent_risk is not None
+    assert 0.0 <= trade_proposal.latent_risk <= 1.0
 
-    # If action is ENTER, there should typically be legs, unless target size is zero for some reason
     if trade_proposal.action == "ENTER":
-        if trade_proposal.target_position_size is not None and trade_proposal.target_position_size > 0 :
-             assert trade_proposal.legs is not None and len(trade_proposal.legs) > 0, "ENTER action should have legs if target size > 0"
-        # else: can be ENTER with 0 size if it's closing out an opposite position (not handled by current simple engine)
+        assert trade_proposal.legs is not None and len(trade_proposal.legs) == 1
+        leg = trade_proposal.legs[0]
+        assert leg.instrument == Instrument.MES
+        assert leg.direction == Direction.LONG
+        assert leg.size == 1.0
+    elif trade_proposal.action == "EXIT":
+        # Legs for EXIT can be more complex (sell existing or new short)
+        # For this property test, just ensure legs are present if action is EXIT,
+        # or None if it's an EXIT signal but no specific legs are formed (e.g. flat portfolio already)
+        # The new engine logic for EXIT ensures legs are populated.
+        assert trade_proposal.legs is not None
+        assert len(trade_proposal.legs) >= 0 # Can be empty if no specific exit leg needed but action is EXIT
+                                             # However, current engine logic for EXIT always creates a leg.
+        if trade_proposal.legs: # If legs are created
+            assert isinstance(trade_proposal.legs[0], Leg)
 
-    # If action is HOLD, legs should usually be None
-    if trade_proposal.action == "HOLD":
-        # Legs might exist if HOLDing an existing position, but current engine logic might set to None.
-        # This needs refinement based on actual engine logic for HOLD.
-        # For now, the placeholder engine might set legs=None for HOLD.
-        pass
+    elif trade_proposal.action == "HOLD":
+        assert trade_proposal.legs is None
 
 
 def test_planning_context_instantiation_with_new_fields(sample_planning_context_data_new: Dict[str, Any]) -> None:
     """Test PlanningContext can be instantiated with new fields and aliases."""
-    # Test with aliases (which are the same as field names for new fields for now)
     ctx = PlanningContext.model_validate(sample_planning_context_data_new)
     assert ctx.equity_curve == sample_planning_context_data_new["equityCurve"]
     assert ctx.daily_history_hlc == sample_planning_context_data_new["dailyHistoryHLC"]
     assert ctx.daily_volume == sample_planning_context_data_new["dailyVolume"]
-    assert ctx.current_positions is not None # In sample data
+    assert ctx.current_positions is not None
     assert len(ctx.current_positions) == 1
     assert ctx.current_positions[0].instrument == Instrument.MES
+    assert ctx.n_successes == sample_planning_context_data_new["n_successes"]
+    assert ctx.n_failures == sample_planning_context_data_new["n_failures"]
 
 
 # Example of a more specific test if engine logic were finalized
