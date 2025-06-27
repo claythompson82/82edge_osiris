@@ -231,3 +231,143 @@ def latent_risk(equity_curve: List[float]) -> float:
     final_risk_score = _clamp(raw_risk, 0.0, 1.0)
 
     return final_risk_score
+
+
+def atr(hlc_data: List[tuple[float, float, float]], window: int = 14) -> float:
+    """
+    Calculates the Average True Range (ATR).
+
+    Args:
+        hlc_data: A list of tuples, where each tuple contains (high, low, close)
+                  for a period. Data should be in chronological order.
+        window: The period for the ATR calculation.
+
+    Returns:
+        The Average True Range value. Returns float('nan') if data is insufficient.
+
+    Raises:
+        ValueError: If window is not positive or hlc_data is empty.
+    """
+    if window <= 0:
+        raise ValueError("Window must be positive for ATR calculation.")
+    if not hlc_data:
+        raise ValueError("Input data list cannot be empty for ATR calculation.")
+    if len(hlc_data) < window: # Need at least 'window' periods to calculate initial SMA of TR
+        # More precisely, we need 'window' TR values. A single HLC tuple gives one TR value
+        # if we have the *previous* close. So, we need len(hlc_data) >= window + 1
+        # to form 'window' TR values for the initial ATR (which is an SMA of TRs).
+        # However, a common library approach (like pandas_ta) might use Wilder's smoothing
+        # from the start, which can begin with fewer values.
+        # For a simple SMA of TRs for the first ATR value:
+        # We need `window` TR values. The first TR value requires `hlc_data[0]` and `hlc_data[-1]` (previous close).
+        # So, to get `window` TRs, we need `window + 1` HLC data points.
+        # Example: hlc_data[0] (no prev_close for TR), hlc_data[1] (uses hlc_data[0].close for TR1), ...
+        # Let's adjust: we need at least `window` TRs. The first TR is calculated using the first two HLC points.
+        # No, standard ATR: first TR uses current H, L and *previous* C.
+        # So, to get N TR values, you need N HLC tuples and 1 *prior* close.
+        # If hlc_data[0] is the first period, we need a close before that, or start TR calculation from the 2nd period.
+        # Let's assume hlc_data[0] is period 1, hlc_data[1] is period 2.
+        # True Range for period `i`:
+        #   tr1 = high[i] - low[i]
+        #   tr2 = abs(high[i] - close[i-1])
+        #   tr3 = abs(low[i] - close[i-1])
+        #   TR[i] = max(tr1, tr2, tr3)
+        # This means we need at least 2 data points in hlc_data to calculate the first TR.
+        # For `window` TRs, we need `window + 1` data points in hlc_data.
+        return float('nan')
+
+
+    true_ranges = []
+    if not hlc_data or len(hlc_data) < 2: # Need at least 2 days for the first TR
+        return float('nan')
+
+    # Calculate True Ranges
+    for i in range(1, len(hlc_data)):
+        high, low, _ = hlc_data[i]
+        prev_close = hlc_data[i-1][2] # close of the previous period
+
+        tr1 = high - low
+        tr2 = abs(high - prev_close)
+        tr3 = abs(low - prev_close)
+        true_range = max(tr1, tr2, tr3)
+        true_ranges.append(true_range)
+
+    if not true_ranges or len(true_ranges) < window:
+        # Not enough TR values to calculate ATR over the specified window
+        return float('nan')
+
+    # Calculate ATR:
+    # First ATR is the simple average of the first 'window' TRs.
+    # Subsequent ATRs use Wilder's smoothing: ATR = (Previous ATR * (window - 1) + Current TR) / window
+
+    # For simplicity and alignment with many libraries, we can use pandas ewm for Wilder's smoothing
+    # Wilder's smoothing is equivalent to an EMA with alpha = 1/N.
+    # Span for EMA is 2*N - 1. So for ATR, span = 2*window - 1.
+    # However, the first value of ATR is typically an SMA.
+    # Let's implement manually to be clear.
+
+    if not true_ranges: # Should be caught above, but as a safeguard
+        return float('nan')
+
+    tr_series = pd.Series(true_ranges)
+
+    # Calculate initial ATR as SMA of the first 'window' TRs
+    # Then apply Wilder's smoothing for subsequent values.
+    # Pandas ewm with com = window - 1 (alpha = 1/window) and adjust=True
+    # is commonly used for Wilder's smoothing.
+    # Or, more directly, alpha = 1/window, so span = 2*window -1 for adjust=False EMA
+    # Or, alpha = 1/window, com = window -1 for adjust=True EMA (closer to Wilder's)
+
+    # For ATR, typically the first value is an SMA, then smoothing.
+    # A common way: SMA for first `window` TRs, then RMA/SMMA/Wilder's for the rest.
+    # pd.Series.ewm(alpha=1/window, adjust=False).mean() gives the SMMA / Wilder's.
+    # Let's use this for the whole series of TRs and take the last value.
+    # This is a common simplification.
+    if len(tr_series) == 0: # If true_ranges was empty
+        return float('nan')
+
+    atr_values = tr_series.ewm(alpha=1/window, adjust=False, min_periods=window).mean()
+
+    if atr_values.empty or pd.isna(atr_values.iloc[-1]):
+        return float('nan')
+
+    return float(atr_values.iloc[-1])
+
+
+def kelly_fraction(mu: float, sigma: float) -> float:
+    """
+    Calculates the Kelly fraction.
+
+    Args:
+        mu: The expected excess return (e.g., mean of returns over risk-free rate).
+        sigma: The standard deviation of returns.
+
+    Returns:
+        The Kelly fraction (K = mu / sigma^2). Returns 0.0 if sigma is zero
+        or if the resulting fraction is negative (implying no bet).
+    """
+    if sigma <= 0: # sigma is std dev, must be positive. sigma^2 cannot be zero unless sigma is zero.
+        return 0.0  # Or raise error, but returning 0 implies no allocation.
+
+    # Standard Kelly for simple bets: f = p - (1-p)/b where p is win prob, b is odds.
+    # For continuous returns: f = mu / sigma^2
+    # Assuming 'mu' is already the expected *excess* return.
+    # If mu is not excess return (e.g. just mean return), and r is risk-free rate,
+    # then it would be (mu - r) / sigma^2. The problem says "mu, sigma", implying mu is appropriate.
+
+    fraction = mu / (sigma ** 2)
+
+    # Kelly fraction should typically be between 0 and 1 for long-only, full Kelly.
+    # If mu is negative, fraction is negative, meaning bet against or don't bet.
+    # We can cap it at 0 if negative, as negative fraction isn't directly usable for sizing a long position.
+    if fraction < 0:
+        return 0.0
+
+    # The problem mentions "Kelly fraction w/ cap 3 × ATR".
+    # This function should return the raw Kelly fraction. The capping logic
+    # will be applied in the position sizing step in the engine.
+    # Some sources also cap Kelly fraction at 1 (i.e., no leverage from Kelly itself).
+    # For now, returning the raw computed positive fraction.
+    # If the task means "full Kelly" (not fractional Kelly), then this is it.
+    # If it implies fractional Kelly (e.g. half-Kelly), that would be an adjustment elsewhere.
+    return fraction

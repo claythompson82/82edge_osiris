@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from hypothesis import given, settings, assume, strategies as st
+from hypothesis.strategies import DrawFn # For type hinting draw in composite strategies
 from pydantic import ValidationError
 from pydantic import TypeAdapter
 
@@ -18,8 +19,51 @@ from azr_planner.math_utils import (
     ema,
     rolling_volatility,
     latent_risk,
+    atr,
+    kelly_fraction,
 )
 from azr_planner.schemas import TradeProposal
+
+
+# Helper to generate HLC data for ATR tests
+def _generate_hlc_data(num_periods: int, start_price: float = 100.0, daily_change: float = 1.0, spread: float = 0.5) -> List[tuple[float, float, float]]:
+    data = []
+    current_close = start_price
+    for i in range(num_periods):
+        high = current_close + spread + (daily_change if i % 2 == 0 else 0) # Add some variation
+        low = current_close - spread - (daily_change if i % 2 != 0 else 0)
+        close = (high + low) / 2
+        # Ensure H >= L and C is within H-L
+        if low > high: low = high - 0.01
+        if close > high: close = high
+        if close < low: close = low
+        data.append((high, low, close))
+        current_close = close
+    return data
+
+# More direct HLC tuple generation to avoid excessive filtering for st_hlc_data
+@st.composite
+def st_single_hlc_tuple_for_math_tests(draw: DrawFn) -> tuple[float, float, float]:
+    # Draw three initial floats
+    f1 = draw(st.floats(min_value=1.0, max_value=1999.0))
+    f2 = draw(st.floats(min_value=1.0, max_value=1999.0))
+    f3 = draw(st.floats(min_value=1.0, max_value=1999.0))
+
+    s = sorted([f1, f2, f3])
+    low, _, high = s[0], s[1], s[2] # Use _ for c_candidate as close is drawn separately
+
+    if high <= low: # Ensure High > Low
+        high = low + draw(st.floats(min_value=1e-6, max_value=1.0)) # Ensure high is strictly greater
+
+    close = draw(st.floats(min_value=low, max_value=high)) # Close can be anywhere between Low and High
+
+    return round(high, 2), round(low, 2), round(close, 2)
+
+st_hlc_data = st.lists(
+    st_single_hlc_tuple_for_math_tests(),
+    min_size=2,
+    max_size=100
+)
 
 # ──────────────────────────────────────────────────────────────────────────────
 #  Basic helpers (mean, std-dev)
@@ -173,36 +217,255 @@ def test_trade_proposal_bounds() -> None:
     adapter = TypeAdapter(TradeProposal)
 
     # happy path
-    valid = {
+    valid_new = {
         "action": "ENTER",
         "rationale": "stub",
-        "latent_risk": 0.25,
-        "confidence": 0.9,
-        "legs": [{"instrument": "MES", "direction": "LONG", "size": 1}],
+        "confidence": 0.9, # latent_risk is now optional
+        "legs": [{"instrument": "MES", "direction": "LONG", "size": 1.0}], # size must be float
+        "latent_risk": 0.25, # Can still be provided
+        "signal_value": 0.5,
+        "atr_value": 1.2,
+        "kelly_fraction_value": 0.1,
+        "target_position_size": 1.0
     }
-    tp = adapter.validate_python(valid)
-    assert tp.latent_risk == 0.25
+    tp = adapter.validate_python(valid_new)
+    assert tp.latent_risk == 0.25 # Check if it was parsed
 
-    # missing required
-    for field in ("action", "rationale", "latent_risk", "confidence"):
-        bad = {**valid}
+    # missing required (action, rationale, confidence are required)
+    for field in ("action", "rationale", "confidence"):
+        bad = {**valid_new}
         bad.pop(field)
-        with pytest.raises(ValidationError):
+        with pytest.raises(ValidationError, match=field): # Check that the error message mentions the field
             adapter.validate_python(bad)
 
-    # bounds
-    for k in ("latent_risk", "confidence"):
-        low = {**valid, k: -0.1}
-        hi = {**valid, k: 1.1}
-        with pytest.raises(ValidationError):
-            adapter.validate_python(low)
-        with pytest.raises(ValidationError):
-            adapter.validate_python(hi)
+    # bounds for confidence (latent_risk is optional, its bounds are checked by Pydantic if provided)
+    # Check confidence bounds
+    low_conf = {**valid_new, "confidence": -0.1}
+    hi_conf = {**valid_new, "confidence": 1.1}
+    with pytest.raises(ValidationError, match="confidence"):
+        adapter.validate_python(low_conf)
+    with pytest.raises(ValidationError, match="confidence"):
+        adapter.validate_python(hi_conf)
+
+    # Check latent_risk bounds if provided
+    low_lr = {**valid_new, "latent_risk": -0.1}
+    hi_lr = {**valid_new, "latent_risk": 1.1}
+    with pytest.raises(ValidationError, match="latent_risk"): # Pydantic should complain about latent_risk
+        adapter.validate_python(low_lr)
+    with pytest.raises(ValidationError, match="latent_risk"):
+        adapter.validate_python(hi_lr)
+
+    # Check other new optional fields' bounds if provided (e.g. atr_value >= 0)
+    bad_atr = {**valid_new, "atr_value": -0.1}
+    with pytest.raises(ValidationError, match="atr_value"):
+         adapter.validate_python(bad_atr)
+
+    bad_kelly = {**valid_new, "kelly_fraction_value": -0.1}
+    with pytest.raises(ValidationError, match="kelly_fraction_value"):
+        adapter.validate_python(bad_kelly)
+
+    bad_target_size = {**valid_new, "target_position_size": -1.0}
+    with pytest.raises(ValidationError, match="target_position_size"):
+        adapter.validate_python(bad_target_size)
 
     # legs – missing size
-    bad_legs = {**valid, "legs": [{"instrument": "MES", "direction": "LONG"}]}
+    bad_legs = {**valid_new, "legs": [{"instrument": "MES", "direction": "LONG"}]} # Use valid_new
     with pytest.raises(ValidationError, match=r"legs\.0\.size"):
         adapter.validate_python(bad_legs)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  ATR (Average True Range)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def test_atr_known_values() -> None:
+    """Test ATR with a known sequence from online examples (e.g., StockCharts)."""
+    # Data from https://school.stockcharts.com/doku.php?id=technical_indicators:average_true_range_atr
+    # Day H   L   C   TR  ATR_14
+    # 1   23.32 22.78 22.81 -   -
+    # 2   22.94 22.50 22.63 0.44
+    # ...
+    # For simplicity, using pandas_ta to verify a short sequence
+    # Note: pandas_ta might use slightly different smoothing for the first few values.
+    # Our implementation uses ewm(alpha=1/N, adjust=False) which is Wilder's smoothing.
+    hlc = [ # H, L, C
+        (23.32, 22.78, 22.81), (22.94, 22.50, 22.63), (23.13, 22.63, 23.06),
+        (23.00, 22.38, 22.50), (22.81, 22.25, 22.75), (23.06, 22.69, 22.88),
+        (23.38, 22.88, 23.25), (23.50, 23.00, 23.13), (23.38, 22.81, 22.88),
+        (23.25, 22.94, 23.13), (23.56, 23.19, 23.44), (23.50, 23.00, 23.06),
+        (23.19, 22.81, 22.88), (23.13, 22.63, 22.75), (23.00, 22.50, 22.94) # 15 days for 14 TRs + 1 ATR
+    ]
+    # Expected TRs:
+    # TR1 = 0.44 (H[1]-L[1]=0.44, H[1]-C[0]=0.13, L[1]-C[0]=-0.31 -> abs=0.31. max=0.44)
+    # TR2 = 0.50 (H[2]-L[2]=0.50, H[2]-C[1]=0.50, L[2]-C[1]=0.00. max=0.50)
+    # ...
+    # A full 14-period ATR calculation is complex to do by hand here.
+    # Let's use a shorter, verifiable example.
+    # Data for 5 days, window = 3
+    hlc_short = [
+        (10.0, 8.0, 9.0),    # Day 1
+        (11.0, 9.0, 10.0),   # Day 2. Prev C=9. TR = max(11-9, abs(11-9), abs(9-9)) = max(2,2,0) = 2
+        (12.0, 10.0, 11.0),  # Day 3. Prev C=10. TR = max(12-10, abs(12-10), abs(10-10)) = max(2,2,0) = 2
+        (13.0, 11.0, 12.0),  # Day 4. Prev C=11. TR = max(13-11, abs(13-11), abs(11-11)) = max(2,2,0) = 2
+        (14.0, 12.0, 13.0),  # Day 5. Prev C=12. TR = max(14-12, abs(14-12), abs(12-12)) = max(2,2,0) = 2
+    ]
+    # TRs = [2.0, 2.0, 2.0, 2.0]
+    # ATR(3) on these TRs:
+    # First ATR(3) = (2+2+2)/3 = 2. (This is the SMA of first 3 TRs)
+    # Our current EWM method:
+    # TRs: [2, 2, 2, 2]. Window=3. Alpha=1/3.
+    # Val1: 2
+    # Val2: (2 * (1-1/3)) + (2 * 1/3) = 2
+    # Val3: (2 * (1-1/3)) + (2 * 1/3) = 2 (this would be the first output if min_periods=3)
+    # Val4: (2 * (1-1/3)) + (2 * 1/3) = 2
+    # So, for constant TRs, ATR should be that constant.
+    assert math.isclose(atr(hlc_short, window=3), 2.0)
+
+    # Example with varying TRs
+    hlc_var = [
+        (10.0, 8.0, 9.0),    # Day 1
+        (11.0, 9.0, 10.0),   # Day 2. Prev C=9. TR = 2.0
+        (12.5, 10.0, 12.0), # Day 3. Prev C=10. TR = max(2.5, abs(2.5), abs(0)) = 2.5
+        (13.0, 10.5, 11.0), # Day 4. Prev C=12. TR = max(2.5, abs(1), abs(1.5)) = 2.5
+        (15.0, 12.0, 14.5)  # Day 5. Prev C=11. TR = max(3, abs(4), abs(1)) = 4.0
+    ]
+    # TRs = [2.0, 2.5, 2.5, 4.0]. Window = 3. Alpha = 1/3.
+    # ewm(adjust=False):
+    # atr1 = 2
+    # atr2 = 2 * (2/3) + 2.5 * (1/3) = 4/3 + 2.5/3 = 6.5/3 = 2.1666...
+    # atr3 = (6.5/3)*(2/3) + 2.5*(1/3) = 13/9 + 2.5/3 = 13/9 + 7.5/9 = 20.5/9 = 2.2777... (this is output if min_periods=3)
+    # atr4 = (20.5/9)*(2/3) + 4*(1/3) = 41/27 + 4/3 = 41/27 + 36/27 = 77/27 = 2.85185...
+    # Our function uses min_periods=window for ewm. So for window=3, it needs 3 TR values.
+    # TRs = [2, 2.5, 2.5, 4]. window=3.
+    # 1st value is 2.5 (avg of first 3 TRs [2, 2.5, 2.5] / 3 = 7/3 = 2.333 - if using SMA for first)
+    # Pandas ewm(alpha=1/3, adjust=False, min_periods=3) applied to [2, 2.5, 2.5, 4]:
+    # s = pd.Series([2, 2.5, 2.5, 4])
+    # s.ewm(alpha=1/3, adjust=False, min_periods=3).mean()
+    # 0    NaN
+    # 1    NaN
+    # 2    2.277778  <-- (2 * (2/3)^2 + 2.5 * (2/3)*(1/3) + 2.5 * (1/3)) -- this is not how ewm(adjust=False) works iteratively.
+    # Iterative ewm(adjust=False) with seed:
+    # y_0 = x_0
+    # y_t = (1-alpha)*y_{t-1} + alpha*x_t
+    # x = [2, 2.5, 2.5, 4]
+    # y0 = 2
+    # y1 = (2/3)*2 + (1/3)*2.5 = 4/3 + 2.5/3 = 6.5/3 = 2.1666...
+    # y2 = (2/3)*(6.5/3) + (1/3)*2.5 = 13/9 + 2.5/3 = 20.5/9 = 2.2777... (This is the value after 3 TRs)
+    # y3 = (2/3)*(20.5/9) + (1/3)*4 = 41/27 + 4/3 = 77/27 = 2.85185... (This is the value after 4 TRs)
+    # The function returns the last value, so 2.85185...
+    assert math.isclose(atr(hlc_var, window=3), 2.8518518518518517)
+
+
+def test_atr_edge_cases() -> None:
+    with pytest.raises(ValueError, match="Window must be positive"):
+        atr(_generate_hlc_data(5), window=0)
+    with pytest.raises(ValueError, match="Window must be positive"):
+        atr(_generate_hlc_data(5), window=-1)
+    with pytest.raises(ValueError, match="Input data list cannot be empty"):
+        atr([], window=14)
+
+    # Not enough data for window
+    assert math.isnan(atr(_generate_hlc_data(13), window=14)) # Needs 14 TRs, so 15 HLC days. Here 13 HLC -> 12 TRs.
+    assert math.isnan(atr(_generate_hlc_data(14), window=14)) # 14 HLC -> 13 TRs.
+    assert not math.isnan(atr(_generate_hlc_data(15), window=14)) # 15 HLC -> 14 TRs. Should produce a value.
+
+    # Minimal data
+    assert math.isnan(atr([(1.0,1.0,1.0)], window=1)) # Needs 2 HLC for 1 TR.
+    minimal_hlc = [(10.0,8.0,9.0), (11.0,9.0,10.0)] # 1 TR value = 2.0
+    assert math.isclose(atr(minimal_hlc, window=1), 2.0) # ATR(1) of [2.0] is 2.0
+
+    # Data with no price movement (TR=0)
+    flat_hlc = [(10.0,10.0,10.0)] * 20
+    assert math.isclose(atr(flat_hlc, window=14), 0.0)
+
+    # Data with gaps (large TRs)
+    gappy_hlc = [
+        (10.0, 8.0, 9.0), (20.0, 18.0, 19.0) # Prev C=9. High=20, Low=18. H-L=2. H-PC=11. L-PC=9. TR = 11.0
+    ] * 15 # Repeat this pattern, TRs will be [11.0, 11.0, ...]
+    assert math.isclose(atr(gappy_hlc, window=3), 11.0)
+
+
+from hypothesis import HealthCheck # For suppressing health checks
+
+@given(hlc_data=st_hlc_data, window=st_window)
+@settings(deadline=None, suppress_health_check=[HealthCheck.too_slow, HealthCheck.filter_too_much], max_examples=50)
+def test_atr_property(hlc_data: List[tuple[float,float,float]], window: int) -> None:
+    assume(window > 0)
+    assume(len(hlc_data) >= window +1) # Ensure enough data for at least one ATR calculation
+                                      # (window TRs needed, so window+1 HLC points)
+                                      # Our current code returns NaN if len(hlc_data) < window + 1 if window > 1
+                                      # For window=1, len(hlc_data) >= 2
+    assume(len(hlc_data) >= 2) # General minimum for any TR calculation
+
+    # Correct assumption for enough data for our ATR implementation:
+    # We need `window` True Range values.
+    # To get `k` TR values, we need `k+1` HLC data points.
+    # So, for `window` TRs, we need `window+1` HLC data points.
+    # The ewm in pandas with min_periods=window will output NaN if fewer than `window` TRs are fed.
+    num_true_ranges = len(hlc_data) - 1
+    assume(num_true_ranges >= window)
+
+
+    result = atr(hlc_data, window)
+
+    assert isinstance(result, float)
+    if num_true_ranges >= window:
+        assert not math.isnan(result), "ATR should not be NaN with sufficient data"
+        assert result >= 0, "ATR should be non-negative"
+    else:
+        assert math.isnan(result), "ATR should be NaN with insufficient data"
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  Kelly Fraction
+# ──────────────────────────────────────────────────────────────────────────────
+
+def test_kelly_fraction_basic() -> None:
+    assert math.isclose(kelly_fraction(mu=0.10, sigma=0.20), 0.10 / (0.20**2)) # 0.10 / 0.04 = 2.5
+    assert math.isclose(kelly_fraction(mu=0.05, sigma=0.10), 0.05 / (0.10**2)) # 0.05 / 0.01 = 5.0
+    assert math.isclose(kelly_fraction(mu=0.20, sigma=0.50), 0.20 / (0.50**2)) # 0.20 / 0.25 = 0.8
+
+    # mu = 0 -> fraction = 0
+    assert math.isclose(kelly_fraction(mu=0.0, sigma=0.20), 0.0)
+
+    # mu < 0 -> fraction = 0 (as per our implementation choice)
+    assert math.isclose(kelly_fraction(mu=-0.05, sigma=0.20), 0.0)
+
+
+def test_kelly_fraction_edge_cases() -> None:
+    # sigma = 0 -> fraction = 0
+    assert math.isclose(kelly_fraction(mu=0.10, sigma=0.0), 0.0)
+    assert math.isclose(kelly_fraction(mu=0.10, sigma=-0.1), 0.0) # sigma <= 0
+
+    # Large mu, small sigma (large fraction)
+    assert math.isclose(kelly_fraction(mu=0.5, sigma=0.01), 0.5 / (0.01**2)) # 0.5 / 0.0001 = 5000.0
+
+
+@given(
+    mu=st.floats(min_value=-1.0, max_value=1.0, allow_nan=False, allow_infinity=False),
+    # Adjust sigma to avoid extremely small values that square to zero, while still testing positive values.
+    # Also test behavior for sigma <= 0 explicitly.
+    sigma=st.one_of(
+        st.floats(min_value=1e-6, max_value=2.0, allow_nan=False, allow_infinity=False), # Smallest positive sigma
+        st.floats(min_value=-0.5, max_value=0.0, allow_nan=False, allow_infinity=False) # Non-positive sigma
+    )
+)
+@settings(max_examples=100, deadline=None) # Increased examples for one_of
+def test_kelly_fraction_property(mu: float, sigma: float) -> None:
+    result = kelly_fraction(mu, sigma)
+
+    assert isinstance(result, float)
+    assert not math.isnan(result)
+    assert not math.isinf(result)
+    assert result >= 0.0 # Kelly fraction should be non-negative as per implementation
+
+    if sigma <= 0:
+        assert math.isclose(result, 0.0)
+    elif mu <= 0: # mu > 0 is already covered by sigma > 0 and result >= 0
+        assert math.isclose(result, 0.0)
+    else: # mu > 0 and sigma > 0
+        expected = mu / (sigma**2)
+        assert math.isclose(result, expected)
 
 
 # -----------------------------------------------------------------------------#
@@ -214,5 +477,7 @@ for fn in (
     ema,
     rolling_volatility,
     latent_risk,
+    atr,
+    kelly_fraction,
 ):
     assert fn.__doc__, f"{fn.__name__} is missing a docstring"
