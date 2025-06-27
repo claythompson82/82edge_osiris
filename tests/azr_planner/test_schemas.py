@@ -32,10 +32,12 @@ def test_planning_context_valid() -> None:
     data = {
         "timestamp": "2023-01-01T12:00:00Z",
         "equityCurve": [1.0] * 30,
-        "dailyHistoryHLC": valid_hlc, # New required field
+        "dailyHistoryHLC": valid_hlc,
         "volSurface": {"MES": 0.2},
         "riskFreeRate": 0.01,
-        # dailyVolume and currentPositions are optional, so not included here for minimal valid case
+        "nSuccesses": 10, # Added new field
+        "nFailures": 2    # Added new field
+        # dailyVolume and currentPositions are optional
     }
     adapter: TypeAdapter[PlanningContext] = TypeAdapter(PlanningContext)
     ctx = adapter.validate_python(data)
@@ -46,10 +48,12 @@ def test_planning_context_valid() -> None:
         "timestamp": dt_utc(2023, 1, 1, 12),
         "equity_curve": [1.0] * 30,
         "daily_history_hlc": valid_hlc,
-        "daily_volume": None, # Default for optional
-        "current_positions": None, # Default for optional
+        "daily_volume": None,
+        "current_positions": None,
         "vol_surface": {"MES": 0.2},
         "risk_free_rate": 0.01,
+        "n_successes": 10,
+        "n_failures": 2,
     }
 
     # round-trip (aliases) - check new fields too
@@ -58,25 +62,34 @@ def test_planning_context_valid() -> None:
         "timestamp": dt_utc(2023, 1, 1, 12),
         "equityCurve": [1.0] * 30,
         "dailyHistoryHLC": valid_hlc,
-        "dailyVolume": None, # Default for optional
-        "currentPositions": None, # Default for optional
+        "dailyVolume": None,
+        "currentPositions": None,
         "volSurface": {"MES": 0.2},
         "riskFreeRate": 0.01,
+        "nSuccesses": 10,
+        "nFailures": 2,
     }
 
 
 def test_planning_context_invalid() -> None:
     adapter = TypeAdapter(PlanningContext)
     valid_hlc = [(100.0, 99.0, 99.5)] * 15
+    base_valid_data_for_invalid_tests = { # Base for easily creating invalid variants
+        "timestamp": "2023-01-01T12:00:00Z",
+        "equityCurve": [1.0] * 30,
+        "dailyHistoryHLC": valid_hlc,
+        "volSurface": {"MES": 0.1},
+        "riskFreeRate": 0.01,
+        "nSuccesses": 0, # Default valid
+        "nFailures": 0   # Default valid
+    }
+
 
     # missing timestamp
+    invalid_data_no_ts = base_valid_data_for_invalid_tests.copy()
+    del invalid_data_no_ts["timestamp"]
     with pytest.raises(ValidationError, match="timestamp"):
-        adapter.validate_python({
-            "equityCurve": [1.0] * 30,
-            "dailyHistoryHLC": valid_hlc,
-            "volSurface": {"MES": 0.1},
-            "riskFreeRate": 0.01
-        })
+        adapter.validate_python(invalid_data_no_ts)
 
     # equity curve too short
     # Pydantic v2 error message for too_short is "List should have at least {min_length} items after validation, not {actual_length}"
@@ -145,6 +158,17 @@ def test_planning_context_invalid() -> None:
     }
     with pytest.raises(ValidationError, match=r"dailyVolume\W*List should have at least 15 items after validation, not 10"):
         adapter.validate_python(data_with_short_volume)
+
+    # Test n_successes / n_failures constraints (ge=0)
+    invalid_data_neg_success = base_valid_data_for_invalid_tests.copy()
+    invalid_data_neg_success["nSuccesses"] = -1
+    with pytest.raises(ValidationError, match="nSuccesses"):
+        adapter.validate_python(invalid_data_neg_success)
+
+    invalid_data_neg_failure = base_valid_data_for_invalid_tests.copy()
+    invalid_data_neg_failure["nFailures"] = -1
+    with pytest.raises(ValidationError, match="nFailures"):
+        adapter.validate_python(invalid_data_neg_failure)
 
 
 # ----------------------------------------------------------------------------- #

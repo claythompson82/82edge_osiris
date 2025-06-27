@@ -77,6 +77,10 @@ class PlanningContext(BaseModel):
         float,
         Field(alias="riskFreeRate", ge=0.0, le=0.2, description="Current risk-free rate.")
     ]
+    # New fields for Bayesian confidence input
+    n_successes: int = Field(0, alias="nSuccesses", ge=0, description="Number of historical successes for confidence calibration.")
+    n_failures: int = Field(0, alias="nFailures", ge=0, description="Number of historical failures for confidence calibration.")
+
 
     model_config = ConfigDict(
         populate_by_name=True, # Allows using either field name or alias

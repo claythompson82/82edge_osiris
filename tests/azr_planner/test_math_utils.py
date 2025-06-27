@@ -21,6 +21,8 @@ from azr_planner.math_utils import (
     latent_risk,
     atr,
     kelly_fraction,
+    bayesian_confidence,
+    latent_risk_v2, # Added latent_risk_v2 to imports
 )
 from azr_planner.schemas import TradeProposal
 
@@ -479,5 +481,148 @@ for fn in (
     latent_risk,
     atr,
     kelly_fraction,
+    bayesian_confidence,
+    latent_risk_v2,
 ):
     assert fn.__doc__, f"{fn.__name__} is missing a docstring"
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Latent Risk v2
+# ──────────────────────────────────────────────────────────────────────────────
+from azr_planner.math_utils import latent_risk_v2, LR_V2_MIN_POINTS
+from unittest.mock import patch
+
+# Strategy for equity curve for latent_risk_v2 tests
+st_equity_curve_lr_v2_valid = st.lists(
+    st.floats(min_value=90.0, max_value=110.0, allow_nan=False, allow_infinity=False), # More stable prices
+    min_size=LR_V2_MIN_POINTS, # Ensure enough points for default calculation
+    max_size=LR_V2_MIN_POINTS + 30
+)
+st_equity_curve_lr_v2_short = st.lists(
+    st.floats(min_value=90.0, max_value=110.0, allow_nan=False, allow_infinity=False),
+    min_size=1,
+    max_size=LR_V2_MIN_POINTS - 1
+)
+
+
+def test_latent_risk_v2_edge_cases() -> None:
+    # Test with insufficient data
+    assert latent_risk_v2([100.0] * (LR_V2_MIN_POINTS - 1)) == 1.0
+    assert latent_risk_v2([]) == 1.0
+    assert latent_risk_v2([100.0, 101.0]) == 1.0
+
+    # Test with flat curve (expect low risk, exact value depends on component contributions)
+    # Volatility = 0, Drawdown = 0, Entropy of zero returns = 0
+    # So raw_risk = 0.45*(0/SIGMA_TGT) + 0.35*(0/DD_TGT) + 0.2*(0/H_TGT) = 0
+    assert math.isclose(latent_risk_v2([100.0] * (LR_V2_MIN_POINTS + 5)), 0.0)
+
+    # Test with NaN in components - should default to 1.0
+    # Mock internal rolling_volatility to return NaN to test this path
+    with patch('azr_planner.math_utils.rolling_volatility', return_value=float('nan')):
+        equity_data = [100.0 + (i*0.01) for i in range(LR_V2_MIN_POINTS + 5)] # Gently rising to have non-zero returns
+        assert latent_risk_v2(equity_data) == 1.0
+
+    # Mock _calculate_shannon_entropy to return NaN
+    with patch('azr_planner.math_utils._calculate_shannon_entropy', return_value=float('nan')):
+        equity_data = [100.0 + (i*0.01) for i in range(LR_V2_MIN_POINTS + 5)]
+        assert latent_risk_v2(equity_data) == 1.0
+
+    # Test with a curve that would produce a large drawdown
+    dd_curve = [100.0] * LR_V2_MIN_POINTS + [50.0] * 5 # Sustained large drawdown
+    # Max DD here is 0.5. dd_term = 0.5 / 0.333 approx 1.5.
+    # Other terms might be small if vol/entropy of the 100s part is low.
+    # Example, if vol=0, entropy=0 for first part, then risk = 0.35 * (0.5 / 0.333) which is > 0.5
+    # This should not be 1.0 unless other components also max out, or the combined sum > 1 before clamp.
+    # Let's check it's high, e.g. > 0.5 (0.35 * 1.5 = 0.525)
+    assert latent_risk_v2(dd_curve) > 0.5
+
+@given(equity_curve=st.one_of(st_equity_curve_lr_v2_valid, st_equity_curve_lr_v2_short))
+@settings(max_examples=100, deadline=None, suppress_health_check=[HealthCheck.too_slow, HealthCheck.filter_too_much])
+def test_latent_risk_v2_output_range(equity_curve: List[float]):
+    risk = latent_risk_v2(equity_curve)
+    assert 0.0 <= risk <= 1.0, f"Risk {risk} out of bounds [0,1] for curve: {equity_curve}"
+    if len(equity_curve) < LR_V2_MIN_POINTS:
+        assert risk == 1.0, "Risk should be 1.0 for insufficient data"
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  Bayesian Confidence
+# ──────────────────────────────────────────────────────────────────────────────
+
+def test_bayesian_confidence_basic_cases() -> None: # Already has -> None, error was for a different one.
+    # Default prior: alpha=3, beta=4. Prior mean = 3 / (3+4) = 3/7 approx 0.42857
+    # No observations
+    assert math.isclose(bayesian_confidence(wins=0, losses=0), 3.0 / 7.0)
+
+    # Only wins
+    # (10 wins + 3 alpha) / (10 wins + 0 losses + 3 alpha + 4 beta) = 13 / (10 + 7) = 13/17
+    assert math.isclose(bayesian_confidence(wins=10, losses=0), 13.0 / 17.0)
+
+    # Only losses
+    # (0 wins + 3 alpha) / (0 wins + 10 losses + 3 alpha + 4 beta) = 3 / (10 + 7) = 3/17
+    assert math.isclose(bayesian_confidence(wins=0, losses=10), 3.0 / 17.0)
+
+    # Equal wins and losses
+    # (10 wins + 3 alpha) / (10 wins + 10 losses + 3 alpha + 4 beta) = 13 / (20 + 7) = 13/27
+    assert math.isclose(bayesian_confidence(wins=10, losses=10), 13.0 / 27.0)
+
+    # Check confidence approaches 1 with many wins, few losses
+    # (1000 + 3) / (1000 + 0 + 3 + 4) = 1003 / 1007
+    assert math.isclose(bayesian_confidence(wins=1000, losses=0), 1003.0 / 1007.0)
+    assert bayesian_confidence(wins=1000, losses=0) > 0.99
+
+    # Check confidence approaches 0 with many losses, few wins
+    # (0 + 3) / (0 + 1000 + 3 + 4) = 3 / 1007
+    assert math.isclose(bayesian_confidence(wins=0, losses=1000), 3.0 / 1007.0)
+    assert bayesian_confidence(wins=0, losses=1000) < 0.01
+
+
+def test_bayesian_confidence_custom_prior() -> None: # Added -> None
+    # Custom prior: alpha=1, beta=1 (Laplace smoothing / uniform prior)
+    # Prior mean = 1 / (1+1) = 0.5
+    assert math.isclose(bayesian_confidence(wins=0, losses=0, alpha=1.0, beta=1.0), 0.5)
+
+    # (10 wins + 1 alpha) / (10 wins + 0 losses + 1 alpha + 1 beta) = 11 / 12
+    assert math.isclose(bayesian_confidence(wins=10, losses=0, alpha=1.0, beta=1.0), 11.0 / 12.0)
+
+
+def test_bayesian_confidence_edge_cases_inputs() -> None: # Added -> None
+    # Negative wins/losses should raise ValueError
+    with pytest.raises(ValueError, match="Number of wins cannot be negative."):
+        bayesian_confidence(wins=-1, losses=0)
+    with pytest.raises(ValueError, match="Number of losses cannot be negative."):
+        bayesian_confidence(wins=0, losses=-1)
+
+    # Non-positive alpha/beta should raise ValueError
+    with pytest.raises(ValueError, match="Alpha parameter must be positive."):
+        bayesian_confidence(wins=0, losses=0, alpha=0, beta=1)
+    with pytest.raises(ValueError, match="Beta parameter must be positive."):
+        bayesian_confidence(wins=0, losses=0, alpha=1, beta=0)
+    with pytest.raises(ValueError, match="Alpha parameter must be positive."):
+        bayesian_confidence(wins=0, losses=0, alpha=-1, beta=1)
+    with pytest.raises(ValueError, match="Beta parameter must be positive."):
+        bayesian_confidence(wins=0, losses=0, alpha=1, beta=-1)
+
+
+@given(
+    wins=st.integers(min_value=0, max_value=1000),
+    losses=st.integers(min_value=0, max_value=1000),
+    alpha=st.floats(min_value=0.1, max_value=10.0), # Ensure positive alpha
+    beta=st.floats(min_value=0.1, max_value=10.0)   # Ensure positive beta
+)
+@settings(max_examples=100, deadline=None)
+def test_bayesian_confidence_property(wins: int, losses: int, alpha: float, beta: float) -> None:
+    confidence = bayesian_confidence(wins, losses, alpha, beta)
+    assert 0.0 <= confidence <= 1.0
+
+    # If only wins, confidence should be > prior mean (alpha / (alpha+beta))
+    # If only losses, confidence should be < prior mean
+    # If wins/losses are proportional to alpha/beta, confidence should be near prior mean
+    prior_mean = alpha / (alpha + beta)
+    if wins > 0 and losses == 0:
+        assert confidence > prior_mean or math.isclose(confidence, prior_mean) # Can be close if alpha is large
+    if losses > 0 and wins == 0:
+        assert confidence < prior_mean or math.isclose(confidence, prior_mean) # Can be close if beta is large
+    if wins == 0 and losses == 0:
+        assert math.isclose(confidence, prior_mean)

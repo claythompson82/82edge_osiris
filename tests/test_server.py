@@ -101,8 +101,10 @@ SAMPLE_PLANNING_CONTEXT_DATA_AZR_NEW = {
     "dailyHistoryHLC": _generate_hlc_data_for_server_test(MIN_HISTORY_POINTS_SERVER_TEST),
     "dailyVolume": [10000 + i*100 for i in range(MIN_HISTORY_POINTS_SERVER_TEST)],
     "currentPositions": [
-        Leg(instrument=Instrument.MES, direction=Direction.LONG, size=1.0).model_dump() # Use model_dump for FastAPI
+        Leg(instrument=Instrument.MES, direction=Direction.LONG, size=1.0).model_dump()
     ],
+    "nSuccesses": 20, # Added for AZR-06
+    "nFailures": 10,  # Added for AZR-06
     "volSurface": {"MES": 0.15, "M2K": 0.20},
     "riskFreeRate": 0.02,
 }
@@ -177,28 +179,26 @@ def test_azr_planner_new_engine_smoke_test(test_client_azr: TestClient) -> None:
     assert isinstance(data["rationale"], str) and len(data["rationale"]) > 0
     assert isinstance(data["confidence"], float) and 0.0 <= data["confidence"] <= 1.0
 
-    # Check for new optional fields (they can be None)
-    assert "signal_value" in data
-    assert "atr_value" in data
-    assert "kelly_fraction_value" in data
-    assert "target_position_size" in data
+    # AZR-05 specific fields should now be None or not present if removed from TradeProposal by AZR-06 engine
+    assert data.get("signal_value") is None
+    assert data.get("atr_value") is None
+    assert data.get("kelly_fraction_value") is None
+    assert data.get("target_position_size") is None
 
-    if data.get("atr_value") is not None:
-        assert isinstance(data["atr_value"], float) and data["atr_value"] >= 0
-    if data.get("kelly_fraction_value") is not None:
-        assert isinstance(data["kelly_fraction_value"], float) and data["kelly_fraction_value"] >= 0
-    if data.get("target_position_size") is not None:
-        assert isinstance(data["target_position_size"], float) and data["target_position_size"] >= 0
+    # Latent risk is populated by the new engine
+    assert data.get("latent_risk") is not None
+    assert isinstance(data["latent_risk"], float) and 0.0 <= data["latent_risk"] <= 1.0
 
-    # Latent risk is now optional in TradeProposal
-    if data.get("latent_risk") is not None:
-         assert isinstance(data["latent_risk"], float) and 0.0 <= data["latent_risk"] <= 1.0
-
-    if data["action"] in ["ENTER", "EXIT", "ADJUST"]: # These actions usually have legs
-        if data.get("target_position_size", 0.0) > 0 or (data["action"] == "EXIT" and SAMPLE_PLANNING_CONTEXT_DATA_AZR_NEW.get("currentPositions")):
-            assert data["legs"] is not None, f"Action {data['action']} should have legs if target size > 0 or exiting existing position."
-            assert isinstance(data["legs"], list)
-            if data["legs"]: # If list is not empty
+    # Check legs based on action (simplified for smoke test)
+    if data["action"] == "ENTER":
+            assert data["legs"] is not None and len(data["legs"]) == 1
+            leg = data["legs"][0]
+            assert leg["instrument"] == Instrument.MES.value
+            assert leg["direction"] == Direction.LONG.value
+            assert leg["size"] == 1.0
+    elif data["action"] == "EXIT":
+            assert data["legs"] is not None # Legs should exist as per current engine logic for EXIT
+            if data["legs"]:
                 leg = data["legs"][0]
                 assert "instrument" in leg
                 assert "direction" in leg
