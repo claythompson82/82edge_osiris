@@ -1,15 +1,17 @@
 """Tests for AZR Planner engine."""
 
 import pytest
+import math # Added import math
 from unittest.mock import patch
 from hypothesis import given, strategies as st, assume
 from datetime import datetime, timezone
-from typing import Dict, Any # Added Dict, Any
+from typing import Dict, Any, List
 
 from azr_planner.engine import generate_plan
-from azr_planner.schemas import PlanningContext, TradePlan, Instrument, Direction, Leg
+from azr_planner.schemas import PlanningContext, TradeProposal, Instrument, Direction, Leg # Changed TradePlan
 
 # Strategy to generate a dictionary that can be passed to PlanningContext.model_validate
+# Note: volSurface and riskFreeRate are still in PlanningContext but not used by new latent_risk
 st_planning_context_data = st.fixed_dictionaries({
     "timestamp": st.datetimes(
         min_value=datetime(2000, 1, 1),
@@ -40,20 +42,21 @@ from unittest.mock import patch, MagicMock # Added MagicMock
 
 @patch('azr_planner.engine.calculate_latent_risk')
 def test_generate_plan_action_enter(mock_calculate_latent_risk: MagicMock, sample_planning_context_data: Dict[str, Any]) -> None:
-    """Test generate_plan returns 'ENTER' when latent risk <= 0.3."""
-    mock_calculate_latent_risk.return_value = 0.25
+    """Test generate_plan returns 'ENTER' when latent risk < 0.30."""
+    test_risk = 0.15
+    mock_calculate_latent_risk.return_value = test_risk
 
     ctx = PlanningContext.model_validate(sample_planning_context_data)
-    trade_plan = generate_plan(ctx)
+    trade_proposal = generate_plan(ctx) # Renamed variable
 
-    assert isinstance(trade_plan, TradePlan)
-    assert trade_plan.action == "ENTER"
-    assert trade_plan.rationale == "Latent risk within threshold."
-    assert trade_plan.latent_risk == 0.25
-    assert trade_plan.confidence == 1.0
-    assert trade_plan.legs is not None
-    assert len(trade_plan.legs) == 1
-    leg = trade_plan.legs[0]
+    assert isinstance(trade_proposal, TradeProposal) # Check for TradeProposal
+    assert trade_proposal.action == "ENTER"
+    assert trade_proposal.rationale == "Latent risk is low, favorable for new positions."
+    assert trade_proposal.latent_risk == test_risk
+    assert trade_proposal.confidence == round(1.0 - test_risk, 3)
+    assert trade_proposal.legs is not None
+    assert len(trade_proposal.legs) == 1
+    leg = trade_proposal.legs[0]
     assert leg.instrument == Instrument.MES
     assert leg.direction == Direction.LONG
     assert leg.size == 1.0
@@ -61,58 +64,98 @@ def test_generate_plan_action_enter(mock_calculate_latent_risk: MagicMock, sampl
 
 @patch('azr_planner.engine.calculate_latent_risk')
 def test_generate_plan_action_hold(mock_calculate_latent_risk: MagicMock, sample_planning_context_data: Dict[str, Any]) -> None:
-    """Test generate_plan returns 'HOLD' when latent risk > 0.3."""
-    mock_calculate_latent_risk.return_value = 0.35
+    """Test generate_plan returns 'HOLD' when 0.30 <= latent risk <= 0.70."""
+    test_risk = 0.50
+    mock_calculate_latent_risk.return_value = test_risk
 
     ctx = PlanningContext.model_validate(sample_planning_context_data)
-    trade_plan = generate_plan(ctx)
+    trade_proposal = generate_plan(ctx) # Renamed variable
 
-    assert isinstance(trade_plan, TradePlan)
-    assert trade_plan.action == "HOLD"
-    assert trade_plan.rationale == "Latent risk exceeds threshold."
-    assert trade_plan.latent_risk == 0.35
-    assert trade_plan.confidence == 0.5
-    assert trade_plan.legs is None
+    assert isinstance(trade_proposal, TradeProposal) # Check for TradeProposal
+    assert trade_proposal.action == "HOLD"
+    assert trade_proposal.rationale == "Latent risk is moderate, maintaining current positions."
+    assert trade_proposal.latent_risk == test_risk
+    assert trade_proposal.confidence == round(1.0 - test_risk, 3)
+    assert trade_proposal.legs is None
+
+@patch('azr_planner.engine.calculate_latent_risk')
+def test_generate_plan_action_exit(mock_calculate_latent_risk: MagicMock, sample_planning_context_data: Dict[str, Any]) -> None:
+    """Test generate_plan returns 'EXIT' when latent risk > 0.70."""
+    test_risk = 0.85
+    mock_calculate_latent_risk.return_value = test_risk
+
+    ctx = PlanningContext.model_validate(sample_planning_context_data)
+    trade_proposal = generate_plan(ctx) # Renamed variable
+
+    assert isinstance(trade_proposal, TradeProposal) # Check for TradeProposal
+    assert trade_proposal.action == "EXIT"
+    assert trade_proposal.rationale == "Latent risk is high, reducing exposure."
+    assert trade_proposal.latent_risk == test_risk
+    assert trade_proposal.confidence == round(1.0 - test_risk, 3)
+    assert trade_proposal.legs is not None
+    assert len(trade_proposal.legs) == 1
+    leg = trade_proposal.legs[0]
+    assert leg.instrument == Instrument.MES
+    assert leg.direction == Direction.SHORT # Exit is SHORT
+    assert leg.size == 1.0 # Stub size
+    assert leg.limit_price is None
 
 
 @given(data=st_planning_context_data)
-def test_property_generate_plan_structure_and_logic(data: Dict[str, Any]) -> None: # Changed dict to Dict[str, Any]
+def test_property_generate_plan_structure_and_logic(data: Dict[str, Any]) -> None:
     """
     Property test for generate_plan.
     Verifies the output structure and basic logic based on latent risk.
-    Uses the actual placeholder calculate_latent_risk from math_utils.
+    Uses the actual (new) calculate_latent_risk from math_utils.
     """
     try:
+        # The equityCurve from st_planning_context_data has min_size=30, max_size=30.
+        # The new latent_risk function can handle shorter series, but some calculations
+        # (like 30-day vol) are specific to that length.
+        # For this property test, ensuring len >= 30 is good for full calculation path.
+        assume(len(data["equityCurve"]) >= 30)
         ctx_input = PlanningContext.model_validate(data)
     except Exception:
-        assume(False)
+        assume(False) # Skip invalid context data
         return
 
-    trade_plan = generate_plan(ctx_input)
+    trade_proposal = generate_plan(ctx_input)
 
-    assert isinstance(trade_plan, TradePlan)
-    assert trade_plan.action in ["ENTER", "HOLD"]
-    assert isinstance(trade_plan.rationale, str)
-    assert isinstance(trade_plan.latent_risk, float)
-    assert 0.0 <= trade_plan.latent_risk <= 1.0
-    assert isinstance(trade_plan.confidence, float)
-    assert 0.0 <= trade_plan.confidence <= 1.0
+    assert isinstance(trade_proposal, TradeProposal)
+    assert trade_proposal.action in ["ENTER", "HOLD", "EXIT"] # Added EXIT
+    assert isinstance(trade_proposal.rationale, str)
+    assert isinstance(trade_proposal.latent_risk, float)
+    assert 0.0 <= trade_proposal.latent_risk <= 1.0, "Latent risk out of bounds"
 
-    if trade_plan.action == "ENTER":
-        assert trade_plan.rationale == "Latent risk within threshold."
-        assert trade_plan.latent_risk <= 0.3
-        assert trade_plan.confidence == 1.0
-        assert trade_plan.legs is not None
-        assert len(trade_plan.legs) == 1
-        leg = trade_plan.legs[0]
+    expected_confidence = round(1.0 - trade_proposal.latent_risk, 3)
+    assert math.isclose(trade_proposal.confidence, expected_confidence), \
+        f"Confidence {trade_proposal.confidence} not matching 1-risk ({expected_confidence})"
+    assert 0.0 <= trade_proposal.confidence <= 1.0, "Confidence out of bounds"
+
+    current_latent_risk = trade_proposal.latent_risk
+
+    if current_latent_risk < 0.30:
+        assert trade_proposal.action == "ENTER"
+        assert trade_proposal.rationale == "Latent risk is low, favorable for new positions."
+        assert trade_proposal.legs is not None
+        assert len(trade_proposal.legs) == 1
+        leg = trade_proposal.legs[0]
         assert leg.instrument == Instrument.MES
         assert leg.direction == Direction.LONG
         assert leg.size == 1.0
-    elif trade_plan.action == "HOLD":
-        assert trade_plan.rationale == "Latent risk exceeds threshold."
-        assert trade_plan.latent_risk > 0.3
-        assert trade_plan.confidence == 0.5
-        assert trade_plan.legs is None
+    elif current_latent_risk <= 0.70: # 0.30 <= latent_risk <= 0.70
+        assert trade_proposal.action == "HOLD"
+        assert trade_proposal.rationale == "Latent risk is moderate, maintaining current positions."
+        assert trade_proposal.legs is None
+    else: # latent_risk > 0.70
+        assert trade_proposal.action == "EXIT"
+        assert trade_proposal.rationale == "Latent risk is high, reducing exposure."
+        assert trade_proposal.legs is not None
+        assert len(trade_proposal.legs) == 1
+        leg = trade_proposal.legs[0]
+        assert leg.instrument == Instrument.MES
+        assert leg.direction == Direction.SHORT
+        assert leg.size == 1.0
 
 
 def test_planning_context_instantiation_with_aliases() -> None:

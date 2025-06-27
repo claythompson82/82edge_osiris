@@ -134,59 +134,97 @@ def test_azr_planner_smoke_endpoint_exists(test_client_azr: TestClient) -> None:
 
     # Expect TradePlan response. Actual content depends on mocked latent_risk or default placeholder.
     # For a generic smoke test without mocking latent_risk here, we check structure.
-    # The engine's placeholder latent_risk might result in "HOLD" or "ENTER".
+    # The engine's new latent_risk might result in 'ENTER', 'HOLD', or 'EXIT'.
     assert "action" in data
-    assert data["action"] in ["HOLD", "ENTER"] # Check it's one of the valid actions
+    assert data["action"] in ["HOLD", "ENTER", "EXIT"] # Check it's one of the valid actions
     assert "rationale" in data
     assert isinstance(data["rationale"], str)
     assert "latent_risk" in data
     assert isinstance(data["latent_risk"], float)
+    assert 0.0 <= data["latent_risk"] <= 1.0
     assert "confidence" in data
     assert isinstance(data["confidence"], float)
     assert 0.0 <= data["confidence"] <= 1.0
 
+    # Verify confidence calculation consistency
+    import math
+    assert math.isclose(data["confidence"], round(1.0 - data["latent_risk"], 3))
+
     if data["action"] == "ENTER":
         assert "legs" in data
         assert isinstance(data["legs"], list)
-        if data["legs"]: # If legs are present
-            assert len(data["legs"]) == 1 # Current logic adds one leg for ENTER
-            leg = data["legs"][0]
-            assert leg["instrument"] == "MES"
-            assert leg["direction"] == "LONG"
-            assert leg["size"] == 1.0
+        assert len(data["legs"]) == 1
+        leg = data["legs"][0]
+        assert leg["instrument"] == "MES"
+        assert leg["direction"] == "LONG"
+        assert leg["size"] == 1.0
+    elif data["action"] == "EXIT":
+        assert "legs" in data
+        assert isinstance(data["legs"], list)
+        assert len(data["legs"]) == 1
+        leg = data["legs"][0]
+        assert leg["instrument"] == "MES"
+        assert leg["direction"] == "SHORT"
+        assert leg["size"] == 1.0 # Stub size
     elif data["action"] == "HOLD":
-        assert data.get("legs") is None or data.get("legs") == []
+        assert data.get("legs") is None # For HOLD, legs should be None
 
 
 @patch('azr_planner.engine.calculate_latent_risk') # Mock at engine level
 def test_azr_planner_action_enter_on_low_risk(mock_calc_lr: MagicMock, test_client_azr: TestClient) -> None:
-    """Test endpoint returns ENTER action when latent risk is low."""
-    mock_calc_lr.return_value = 0.1 # Low risk
+    """Test endpoint returns ENTER action when latent risk < 0.30."""
+    test_risk = 0.15
+    mock_calc_lr.return_value = test_risk
 
     response = test_client_azr.post("/azr_api/internal/azr/planner/propose_trade", json=SAMPLE_PLANNING_CONTEXT_DATA_AZR)
     assert response.status_code == 200
     data = response.json()
 
     assert data["action"] == "ENTER"
-    assert data["latent_risk"] == 0.1
-    assert data["confidence"] == 1.0
+    assert data["rationale"] == "Latent risk is low, favorable for new positions."
+    assert data["latent_risk"] == test_risk
+    assert data["confidence"] == round(1.0 - test_risk, 3)
     assert len(data["legs"]) == 1
-    assert data["legs"][0]["instrument"] == "MES"
-    assert data["latent_risk"] <= 0.3 # As per ticket requirement
+    leg = data["legs"][0]
+    assert leg["instrument"] == "MES"
+    assert leg["direction"] == "LONG"
+    assert leg["size"] == 1.0
 
 @patch('azr_planner.engine.calculate_latent_risk')
-def test_azr_planner_action_hold_on_high_risk(mock_calc_lr: MagicMock, test_client_azr: TestClient) -> None:
-    """Test endpoint returns HOLD action when latent risk is high."""
-    mock_calc_lr.return_value = 0.5 # High risk
+def test_azr_planner_action_hold_on_moderate_risk(mock_calc_lr: MagicMock, test_client_azr: TestClient) -> None:
+    """Test endpoint returns HOLD action when 0.30 <= latent risk <= 0.70."""
+    test_risk = 0.5
+    mock_calc_lr.return_value = test_risk # This was missing
 
     response = test_client_azr.post("/azr_api/internal/azr/planner/propose_trade", json=SAMPLE_PLANNING_CONTEXT_DATA_AZR)
     assert response.status_code == 200
     data = response.json()
 
     assert data["action"] == "HOLD"
-    assert data["latent_risk"] == 0.5
-    assert data["confidence"] == 0.5
+    assert data["rationale"] == "Latent risk is moderate, maintaining current positions."
+    assert data["latent_risk"] == test_risk
+    assert data["confidence"] == round(1.0 - test_risk, 3)
     assert data.get("legs") is None
+
+@patch('azr_planner.engine.calculate_latent_risk')
+def test_azr_planner_action_exit_on_high_risk(mock_calc_lr: MagicMock, test_client_azr: TestClient) -> None:
+    """Test endpoint returns EXIT action when latent risk > 0.70."""
+    test_risk = 0.85
+    mock_calc_lr.return_value = test_risk
+
+    response = test_client_azr.post("/azr_api/internal/azr/planner/propose_trade", json=SAMPLE_PLANNING_CONTEXT_DATA_AZR)
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["action"] == "EXIT"
+    assert data["rationale"] == "Latent risk is high, reducing exposure."
+    assert data["latent_risk"] == test_risk
+    assert data["confidence"] == round(1.0 - test_risk, 3)
+    assert len(data["legs"]) == 1
+    leg = data["legs"][0]
+    assert leg["instrument"] == "MES"
+    assert leg["direction"] == "SHORT"
+    assert leg["size"] == 1.0 # Stub size
 
 
 def test_azr_planner_invalid_input_equity_curve_too_short(test_client_azr: TestClient) -> None:

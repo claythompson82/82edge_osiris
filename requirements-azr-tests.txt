@@ -6,3 +6,7 @@ hypothesis
 httpx
 pandas==2.2.*
 pandas-stubs
+numpy
+scipy
+scipy-stubs
+pytest-cov
