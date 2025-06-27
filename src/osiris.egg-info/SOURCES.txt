@@ -4,6 +4,10 @@ README.md
 pyproject.toml
 src/advisor/__init__.py
 src/advisor/risk_gate.py
+src/azr_planner/__init__.py
+src/azr_planner/engine.py
+src/azr_planner/math_utils.py
+src/azr_planner/schemas.py
 src/chatterbox/__init__.py
 src/common/__init__.py
 src/common/config.py
@@ -29,7 +33,6 @@ src/osiris/__init__.py
 src/osiris/init.py
 src/osiris/llm_client.py
 src/osiris/schemas.py
-src/osiris/server.py
 src/osiris/tts.py
 src/osiris.egg-info/PKG-INFO
 src/osiris.egg-info/SOURCES.txt
