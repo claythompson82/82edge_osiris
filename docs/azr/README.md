@@ -173,6 +173,43 @@ The endpoint will return a `TradeProposal` JSON object, identical in structure t
 
 ---
 
+## AZR Planner Backtesting
+
+The AZR Planner includes a backtesting harness to evaluate strategy performance on historical data.
+
+### How to run a local back-test
+
+The backtester can be invoked via the Osiris CLI:
+
+```bash
+python -m osiris.scripts.cli_main planner backtest --dataset sp500_sample --out backtest_report.json
+```
+
+**Arguments:**
+*   `--dataset`: Specifies the dataset to use. Currently, `sp500_sample` is supported, which uses data from `src/azr_planner/datasets/sp500_sample.csv`.
+*   `--out`: The file path where the JSON backtest report will be saved. Defaults to `backtest_report.json`.
+
+The output report (`backtest_report.json`) will contain detailed daily results, overall performance metrics, and the equity curve.
+
+### Backtest Metrics Definitions
+
+The backtest report includes the following key performance metrics:
+
+*   **CAGR (Compound Annual Growth Rate)**: The year-over-year growth rate of an investment over a specified period. Calculated as `(End Value / Start Value)^(1 / Num Years) - 1`.
+*   **Maximum Drawdown (MDD)**: The largest peak-to-trough decline during a specific period, expressed as a percentage of the peak. Indicates downside risk.
+*   **Sharpe Ratio**: Measures the risk-adjusted return. Calculated as `(Mean Excess Return) / (Std Dev of Excess Return)`, annualized by multiplying by `sqrt(Num Trading Days Per Year)`. Excess return is typically over the risk-free rate.
+*   **Sortino Ratio**: Similar to Sharpe Ratio, but only penalizes for downside volatility. Calculated as `(Mean Excess Return) / (Downside Deviation)`, annualized. Downside deviation is calculated using returns below a Minimum Acceptable Return (MAR), often the risk-free rate.
+*   **Win Rate**: The percentage of total trades that were profitable. `(Number of Winning Trades / Total Number of Trades)`.
+*   **Total Trades**: The total number of executed trades (entries or exits that resulted in a logged P&L).
+*   **Winning Trades**: Number of trades with P&L > 0.
+*   **Losing Trades**: Number of trades with P&L < 0.
+*   **Average Win P&L**: The average profit from winning trades.
+*   **Average Loss P&L**: The average loss from losing trades (will be a negative value).
+*   **Average Trade P&L**: The average profit or loss across all trades.
+*   **Profit Factor**: Gross Profit (sum of all winning P&Ls) divided by Gross Loss (absolute sum of all losing P&Ls). A value greater than 1 indicates profitability. Can be infinite if there are no losses.
+
+---
+
 ## 💻 Local / Codestral Dev Loop
 
 This section outlines the steps to set up a minimal environment for developing and testing the AZR Planner components within the Codestral sandbox or a similar local, resource-constrained environment.
