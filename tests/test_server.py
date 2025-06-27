@@ -9,7 +9,7 @@ def test_generate_hermes_default_model_id():
     # Tests /generate/ with default model_id (hermes)
     client = TestClient(app)
     with patch("osiris.server._generate_hermes_text", new_callable=AsyncMock, return_value="Hermes mock output"):
-        with patch("osiris.llm_sidecar.loader.get_hermes_model_and_tokenizer", return_value=(MagicMock(), MagicMock())):
+        with patch("osiris.llm_sidecar.loader.get_hermes_model_and_tokenizer", return_value=(MagicMock(), MagicMock())) as mock_get_hermes: # type: MagicMock
             response = client.post("/generate/", json={"prompt": "test prompt for hermes default", "max_length": 256})
     assert response.status_code == 200
     assert response.json() == {"output": "Hermes mock output"}
@@ -19,7 +19,7 @@ def test_generate_phi3_explicit_model_id():
     client = TestClient(app)
     mock_phi3_output = {"phi3_mock_output": "success"}
     with patch("osiris.server._generate_phi3_json", new_callable=AsyncMock, return_value=mock_phi3_output):
-        with patch("osiris.llm_sidecar.loader.get_phi3_model_and_tokenizer", return_value=(MagicMock(), MagicMock())):
+        with patch("osiris.llm_sidecar.loader.get_phi3_model_and_tokenizer", return_value=(MagicMock(), MagicMock())) as mock_get_phi3: # type: MagicMock
             response = client.post("/generate/", json={"prompt": "test prompt for phi3", "model_id": "phi3", "max_length": 256})
     assert response.status_code == 200
     assert response.json() == mock_phi3_output
@@ -28,9 +28,9 @@ def test_score_proposal_with_hermes_success():
     # Tests /score/hermes/ endpoint successful scoring
     client = TestClient(app)
     with (
-        patch("osiris.llm_sidecar.hermes_plugin.score_with_hermes", return_value=0.75),
-        patch("osiris.llm_sidecar.db.log_hermes_score", return_value=None),
-        patch("osiris.llm_sidecar.loader.get_hermes_model_and_tokenizer", return_value=(MagicMock(), MagicMock()))
+        patch("osiris.llm_sidecar.hermes_plugin.score_with_hermes", return_value=0.75) as mock_score_hermes, # type: MagicMock
+        patch("osiris.llm_sidecar.db.log_hermes_score", return_value=None) as mock_log_score, # type: MagicMock
+        patch("osiris.llm_sidecar.loader.get_hermes_model_and_tokenizer", return_value=(MagicMock(), MagicMock())) as mock_get_hermes # type: MagicMock
     ):
         response = client.post("/score/hermes/", json={"proposal": {"foo": "bar"}, "context": "ctx"})
     assert response.status_code == 200
@@ -45,9 +45,9 @@ def test_health_endpoint_with_adapter_date(monkeypatch, tmp_path):
         "osiris.llm_sidecar.loader.ADAPTER_ROOT", tmp_path, raising=False
     )
     with (
-        patch("osiris.llm_sidecar.loader.get_hermes_model_and_tokenizer", return_value=(MagicMock(), MagicMock())),
-        patch("osiris.llm_sidecar.loader.get_phi3_model_and_tokenizer", return_value=(MagicMock(), MagicMock())),
-        patch("osiris.llm_sidecar.db.get_mean_hermes_score_last_24h", return_value=0.95),
+        patch("osiris.llm_sidecar.loader.get_hermes_model_and_tokenizer", return_value=(MagicMock(), MagicMock())) as mock_get_hermes, # type: MagicMock
+        patch("osiris.llm_sidecar.loader.get_phi3_model_and_tokenizer", return_value=(MagicMock(), MagicMock())) as mock_get_phi3, # type: MagicMock
+        patch("osiris.llm_sidecar.db.get_mean_hermes_score_last_24h", return_value=0.95) as mock_get_mean_score, # type: MagicMock
     ):
         response = client.get("/health?adapter_date=true")
         assert response.status_code == 200
@@ -58,9 +58,9 @@ def test_speak_endpoint(monkeypatch):
     # Tests /speak endpoint (dummy test, patching all dependencies)
     client = TestClient(app)
     with (
-        patch("osiris.llm_sidecar.loader.get_hermes_model_and_tokenizer", return_value=(MagicMock(), MagicMock())),
-        patch("osiris.llm_sidecar.loader.get_phi3_model_and_tokenizer", return_value=(MagicMock(), MagicMock())),
-        patch("osiris.server.text_to_speech", return_value=b"dummy_audio") as mock_tts,
+        patch("osiris.llm_sidecar.loader.get_hermes_model_and_tokenizer", return_value=(MagicMock(), MagicMock())) as mock_get_hermes, # type: MagicMock
+        patch("osiris.llm_sidecar.loader.get_phi3_model_and_tokenizer", return_value=(MagicMock(), MagicMock())) as mock_get_phi3, # type: MagicMock
+        patch("osiris.server.text_to_speech", return_value=b"dummy_audio") as mock_tts, # type: MagicMock
     ):
         response = client.post("/speak/", json={"text": "Say something"})
         assert response.status_code == 200
@@ -159,7 +159,7 @@ def test_azr_planner_smoke_endpoint_exists(test_client_azr: TestClient) -> None:
 
 
 @patch('azr_planner.engine.calculate_latent_risk') # Mock at engine level
-def test_azr_planner_action_enter_on_low_risk(mock_calc_lr, test_client_azr: TestClient) -> None:
+def test_azr_planner_action_enter_on_low_risk(mock_calc_lr: MagicMock, test_client_azr: TestClient) -> None:
     """Test endpoint returns ENTER action when latent risk is low."""
     mock_calc_lr.return_value = 0.1 # Low risk
 
@@ -175,7 +175,7 @@ def test_azr_planner_action_enter_on_low_risk(mock_calc_lr, test_client_azr: Tes
     assert data["latent_risk"] <= 0.3 # As per ticket requirement
 
 @patch('azr_planner.engine.calculate_latent_risk')
-def test_azr_planner_action_hold_on_high_risk(mock_calc_lr, test_client_azr: TestClient) -> None:
+def test_azr_planner_action_hold_on_high_risk(mock_calc_lr: MagicMock, test_client_azr: TestClient) -> None:
     """Test endpoint returns HOLD action when latent risk is high."""
     mock_calc_lr.return_value = 0.5 # High risk
 

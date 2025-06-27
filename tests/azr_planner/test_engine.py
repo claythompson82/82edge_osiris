@@ -34,8 +34,12 @@ def sample_planning_context_data() -> Dict[str, Any]: # Changed dict to Dict[str
         "riskFreeRate": 0.02,
     }
 
+from unittest.mock import patch, MagicMock # Added MagicMock
+
+# ... (other imports)
+
 @patch('azr_planner.engine.calculate_latent_risk')
-def test_generate_plan_action_enter(mock_calculate_latent_risk, sample_planning_context_data: Dict[str, Any]) -> None: # Added type hint
+def test_generate_plan_action_enter(mock_calculate_latent_risk: MagicMock, sample_planning_context_data: Dict[str, Any]) -> None:
     """Test generate_plan returns 'ENTER' when latent risk <= 0.3."""
     mock_calculate_latent_risk.return_value = 0.25
 
@@ -56,7 +60,7 @@ def test_generate_plan_action_enter(mock_calculate_latent_risk, sample_planning_
     assert leg.limit_price is None
 
 @patch('azr_planner.engine.calculate_latent_risk')
-def test_generate_plan_action_hold(mock_calculate_latent_risk, sample_planning_context_data: Dict[str, Any]) -> None: # Added type hint
+def test_generate_plan_action_hold(mock_calculate_latent_risk: MagicMock, sample_planning_context_data: Dict[str, Any]) -> None:
     """Test generate_plan returns 'HOLD' when latent risk > 0.3."""
     mock_calculate_latent_risk.return_value = 0.35
 
