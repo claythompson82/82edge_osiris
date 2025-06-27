@@ -6,8 +6,7 @@ from datetime import datetime, timezone
 
 from azr_planner.schemas import (
     PlanningContext,
-    TradeProposal,
-    TradePlan,
+    TradeProposal, # This is the correct, renamed schema
     Leg,
     Instrument,
     Direction,
@@ -107,7 +106,10 @@ def test_planning_context_invalid() -> None:
 def test_trade_proposal_valid() -> None:
     """Test valid TradeProposal."""
     data = {
-        "latentRisk": 0.5,
+        "action": "ENTER",
+        "rationale": "Good signal",
+        "latent_risk": 0.25,
+        "confidence": 0.75,
         "legs": [
             {"instrument": "MES", "direction": "LONG", "size": 10.5, "limit_price": 3000.0,},
             {"instrument": "M2K", "direction": "SHORT", "size": 5.0,},
@@ -115,56 +117,96 @@ def test_trade_proposal_valid() -> None:
     }
     adapter: TypeAdapter[TradeProposal] = TypeAdapter(TradeProposal)
     proposal = adapter.validate_python(data)
-    assert proposal.latent_risk == data["latentRisk"]
-    assert len(proposal.legs) == 2
-    assert proposal.legs[0].instrument == Instrument.MES
-    assert proposal.legs[0].direction == Direction.LONG
-    assert proposal.legs[0].size == 10.5
-    assert proposal.legs[0].limit_price == 3000.0
-    assert proposal.legs[1].instrument == Instrument.M2K
-    assert proposal.legs[1].direction == Direction.SHORT
-    assert proposal.legs[1].size == 5.0
-    assert proposal.legs[1].limit_price is None
+    assert proposal.action == data["action"]
+    assert proposal.rationale == data["rationale"]
+    assert proposal.latent_risk == data["latent_risk"]
+    assert proposal.confidence == data["confidence"]
+    assert proposal.legs is not None
+    legs_list = proposal.legs
+    assert len(legs_list) == 2
+    assert legs_list[0].instrument == Instrument.MES
+    assert legs_list[0].direction == Direction.LONG
+    assert legs_list[0].size == 10.5
+    assert legs_list[0].limit_price == 3000.0
+    assert legs_list[1].instrument == Instrument.M2K
+    assert legs_list[1].direction == Direction.SHORT
+    assert legs_list[1].size == 5.0
+    assert legs_list[1].limit_price is None
 
-    expected_dump_field_names = {
-        "latent_risk": 0.5,
+    # Test dumping (by_alias=False is default for model_dump but explicit for TypeAdapter)
+    # The TradeProposal model does not use aliases for these fields.
+    expected_dump_data = {
+        "action": "ENTER",
+        "rationale": "Good signal",
+        "latent_risk": 0.25,
+        "confidence": 0.75,
         "legs": [
             {"instrument": Instrument.MES, "direction": Direction.LONG, "size": 10.5, "limit_price": 3000.0,},
             {"instrument": Instrument.M2K, "direction": Direction.SHORT, "size": 5.0, "limit_price": None,},
         ],
     }
-    assert adapter.dump_python(proposal, by_alias=False) == expected_dump_field_names
-
-    expected_dump_aliases = {
-        "latentRisk": 0.5,
-        "legs": [
-            {"instrument": Instrument.MES, "direction": Direction.LONG, "size": 10.5, "limit_price": 3000.0,},
-            {"instrument": Instrument.M2K, "direction": Direction.SHORT, "size": 5.0, "limit_price": None,},
-        ],
-    }
-    dumped_by_alias = adapter.dump_python(proposal, by_alias=True)
-    assert dumped_by_alias["latentRisk"] == expected_dump_aliases["latentRisk"]
-    # Comparing legs directly as their structure is expected to be the same here
-    assert dumped_by_alias["legs"] == expected_dump_aliases["legs"]
+    assert adapter.dump_python(proposal, by_alias=False) == expected_dump_data
+    # by_alias=True should produce the same as by_alias=False since no aliases are defined for these fields in TradeProposal
+    assert adapter.dump_python(proposal, by_alias=True) == expected_dump_data
 
 
 def test_trade_proposal_invalid() -> None:
     """Test invalid TradeProposal."""
     adapter: TypeAdapter[TradeProposal] = TypeAdapter(TradeProposal)
+
+    # Test missing required fields
+    required_fields_data = {"action": "E", "rationale": "R", "latent_risk": 0.1, "confidence": 0.9}
+    for field_name_to_remove in required_fields_data: # Corrected indentation
+        invalid_data = required_fields_data.copy()
+        del invalid_data[field_name_to_remove]
+        with pytest.raises(ValidationError) as exc_info:
+             adapter.validate_python(invalid_data)
+        # Check if the specific field is reported as missing
+        assert any(
+            err["type"] == "missing" and err["loc"] == (field_name_to_remove,)
+            for err in exc_info.value.errors()
+        ), f"Expected '{field_name_to_remove}' to be reported as missing"
+
+    # Test latent_risk bounds
+    invalid_lr_low = required_fields_data.copy()
+    invalid_lr_low["latent_risk"] = -0.1
     with pytest.raises(ValidationError, match="Input should be greater than or equal to 0"):
-        adapter.validate_python({"latentRisk": -0.1, "legs": []})
-    with pytest.raises(ValidationError, match="Field required"):
-        adapter.validate_python(
-            {"latentRisk": 0.0, "legs": [{"instrument": "MES", "direction": "LONG"}]}
-        )
-    with pytest.raises(ValidationError, match="Input should be greater than 0"):
-        adapter.validate_python(
-            {"latentRisk": 0.0, "legs": [{"instrument": "MES", "direction": "LONG", "size": 0}]}
-        )
+        adapter.validate_python(invalid_lr_low)
+
+    invalid_lr_high = required_fields_data.copy()
+    invalid_lr_high["latent_risk"] = 1.1
+    with pytest.raises(ValidationError, match="Input should be less than or equal to 1"):
+        adapter.validate_python(invalid_lr_high)
+
+    # Test confidence bounds (similar checks as latent_risk, but for confidence field)
+    invalid_conf_low = required_fields_data.copy()
+    invalid_conf_low["confidence"] = -0.1
     with pytest.raises(ValidationError, match="Input should be greater than or equal to 0"):
-        adapter.validate_python(
-            {"latentRisk": 0.0, "legs": [{"instrument": "MES", "direction": "LONG", "size": 1, "limit_price": -100}]}
-        )
+        adapter.validate_python(invalid_conf_low)
+
+    invalid_conf_high = required_fields_data.copy()
+    invalid_conf_high["confidence"] = 1.1
+    with pytest.raises(ValidationError, match="Input should be less than or equal to 1"):
+        adapter.validate_python(invalid_conf_high)
+
+    # Test invalid leg (e.g., missing size)
+    invalid_leg_data = required_fields_data.copy()
+    invalid_leg_data["legs"] = [{"instrument": "MES", "direction": "LONG"}] # Missing size
+    with pytest.raises(ValidationError, match="Field required.*legs.0.size"):
+        adapter.validate_python(invalid_leg_data)
+
+    # Test invalid leg size
+    invalid_leg_size_data = required_fields_data.copy()
+    invalid_leg_size_data["legs"] = [{"instrument": "MES", "direction": "LONG", "size": 0}]
+    with pytest.raises(ValidationError, match="Input should be greater than 0.*legs.0.size"):
+        adapter.validate_python(invalid_leg_size_data)
+
+    # Test invalid leg limit_price
+    invalid_leg_price_data = required_fields_data.copy()
+    invalid_leg_price_data["legs"] = [{"instrument": "MES", "direction": "LONG", "size": 1, "limit_price": -100}]
+    with pytest.raises(ValidationError, match="Input should be greater than or equal to 0.*legs.0.limit_price"):
+        adapter.validate_python(invalid_leg_price_data)
+
 
 def test_leg_instrument_enum() -> None:
     with pytest.raises(ValidationError, match="Input should be 'MES', 'M2K', 'US_SECTOR_ETF' or 'ETH_OPT'"):
@@ -182,10 +224,13 @@ SAMPLE_PAYLOAD_PLANNING_CONTEXT = {
 }
 
 SAMPLE_PAYLOAD_TRADE_PROPOSAL = {
-    "latentRisk": 0.05,
+    "action": "ENTER", # Added
+    "rationale": "Sample rationale", # Added
+    "latent_risk": 0.05, # Changed from latentRisk
+    "confidence": 0.95, # Added
     "legs": [
-        {"instrument": "MES", "direction": "LONG", "size": 10, "limit_price": 4500.0},
-        {"instrument": "M2K", "direction": "SHORT", "size": 5}
+        {"instrument": "MES", "direction": "LONG", "size": 10.0, "limit_price": 4500.0}, # Ensured size is float
+        {"instrument": "M2K", "direction": "SHORT", "size": 5.0} # Ensured size is float
     ]
 }
 
@@ -215,22 +260,19 @@ def test_trade_proposal_roundtrip_sample() -> None:
     proposal = adapter.validate_python(SAMPLE_PAYLOAD_TRADE_PROPOSAL)
 
     expected_dump_field_names = {
-        "latent_risk": SAMPLE_PAYLOAD_TRADE_PROPOSAL["latentRisk"],
+        "action": SAMPLE_PAYLOAD_TRADE_PROPOSAL["action"],
+        "rationale": SAMPLE_PAYLOAD_TRADE_PROPOSAL["rationale"],
+        "latent_risk": SAMPLE_PAYLOAD_TRADE_PROPOSAL["latent_risk"],
+        "confidence": SAMPLE_PAYLOAD_TRADE_PROPOSAL["confidence"],
         "legs": [
             {"instrument": Instrument.MES, "direction": Direction.LONG, "size": 10.0, "limit_price": 4500.0},
             {"instrument": Instrument.M2K, "direction": Direction.SHORT, "size": 5.0, "limit_price": None}
         ]
     }
     assert adapter.dump_python(proposal, by_alias=False) == expected_dump_field_names
-
-    expected_dump_aliases = {
-        "latentRisk": SAMPLE_PAYLOAD_TRADE_PROPOSAL["latentRisk"],
-        "legs": [
-            {"instrument": Instrument.MES, "direction": Direction.LONG, "size": 10.0, "limit_price": 4500.0},
-            {"instrument": Instrument.M2K, "direction": Direction.SHORT, "size": 5.0, "limit_price": None}
-        ]
-    }
-    assert adapter.dump_python(proposal, by_alias=True) == expected_dump_aliases
+    # Since TradeProposal fields do not have aliases different from their names for these core fields,
+    # by_alias=True should yield the same result.
+    assert adapter.dump_python(proposal, by_alias=True) == expected_dump_field_names
 
 
 def test_instrument_us_sector_etf() -> None:
@@ -246,91 +288,81 @@ def test_instrument_us_sector_etf() -> None:
     assert validated_leg.instrument == Instrument.US_SECTOR_ETF
 
 
-# Tests for new TradePlan model
-def test_trade_plan_valid() -> None:
-    """Test valid TradePlan."""
-    # Now includes new fields: latent_risk, confidence, legs
+# Tests for new TradeProposal model (formerly TradePlan)
+def test_trade_proposal_schema_valid() -> None: # Renamed function
+    """Test valid TradeProposal."""
     data = {
         "action": "HOLD",
         "rationale": "Market is neutral.",
         "latent_risk": 0.25,
         "confidence": 0.8,
-        "legs": None # Explicitly None for a HOLD action perhaps
+        "legs": None
     }
-    adapter: TypeAdapter[TradePlan] = TypeAdapter(TradePlan)
-    plan = adapter.validate_python(data)
-    assert plan.action == "HOLD"
-    assert plan.rationale == "Market is neutral."
-    assert plan.latent_risk == 0.25
-    assert plan.confidence == 0.8
-    assert plan.legs is None
+    adapter: TypeAdapter[TradeProposal] = TypeAdapter(TradeProposal) # Renamed Type
+    proposal = adapter.validate_python(data) # Renamed variable
+    assert proposal.action == "HOLD"
+    assert proposal.rationale == "Market is neutral."
+    assert proposal.latent_risk == 0.25
+    assert proposal.confidence == 0.8
+    assert proposal.legs is None
 
-    expected_dump = data.copy() # dump should match input if no complex types/aliases
-    assert adapter.dump_python(plan) == expected_dump
+    expected_dump = data.copy()
+    assert adapter.dump_python(proposal) == expected_dump
 
-    # Test with a leg
-    leg_data_for_plan = {"instrument": "MES", "direction": "LONG", "size": 1.0, "limit_price": 3000.0}
+    leg_data_for_proposal = {"instrument": "MES", "direction": "LONG", "size": 1.0, "limit_price": 3000.0}
     data_with_leg = {
         "action": "ENTER",
         "rationale": "Signal detected.",
         "latent_risk": 0.1,
         "confidence": 0.95,
-        "legs": [leg_data_for_plan]
+        "legs": [leg_data_for_proposal]
     }
-    plan_with_leg = adapter.validate_python(data_with_leg)
-    assert plan_with_leg.action == "ENTER"
-    assert plan_with_leg.legs is not None # Assertion to satisfy mypy before len()
-    assert len(plan_with_leg.legs) == 1
-    assert plan_with_leg.legs[0].instrument == Instrument.MES
+    proposal_with_leg = adapter.validate_python(data_with_leg) # Renamed variable
+    assert proposal_with_leg.action == "ENTER"
+    assert proposal_with_leg.legs is not None
+    # Create a new variable that mypy knows is not None
+    legs_list = proposal_with_leg.legs
+    assert len(legs_list) == 1
+    assert legs_list[0].instrument == Instrument.MES
 
-    # Dump for plan_with_leg
-    # Need to convert Leg in expected_dump to its dumped form (enum members)
     expected_dump_with_leg = data_with_leg.copy()
-    expected_dump_with_leg["legs"] = [Leg.model_validate(leg_data_for_plan).model_dump(by_alias=False)] # Use model_dump for consistent Leg representation
+    expected_dump_with_leg["legs"] = [Leg.model_validate(leg_data_for_proposal).model_dump(by_alias=False)]
 
-    # adapter.dump_python(plan_with_leg) will have Leg object, not dict.
-    # For direct comparison, either dump the leg in expected, or compare field by field.
-    dumped_plan_with_leg = adapter.dump_python(plan_with_leg)
-    assert dumped_plan_with_leg["action"] == expected_dump_with_leg["action"]
-    assert dumped_plan_with_leg["rationale"] == expected_dump_with_leg["rationale"]
-    assert dumped_plan_with_leg["latent_risk"] == expected_dump_with_leg["latent_risk"]
-    assert dumped_plan_with_leg["confidence"] == expected_dump_with_leg["confidence"]
-    assert isinstance(dumped_plan_with_leg["legs"], list)
-    assert len(dumped_plan_with_leg["legs"]) == 1
-    # Compare the dumped leg with the expected dumped leg
-    # This assumes Leg model_dump(by_alias=False) matches what TypeAdapter(TradePlan).dump_python() produces for nested legs.
-    # TypeAdapter.dump_python typically returns dicts for nested models if the parent is dumped to python types.
-    assert dumped_plan_with_leg["legs"][0] == Leg.model_validate(leg_data_for_plan).model_dump(by_alias=False)
+    dumped_proposal_with_leg = adapter.dump_python(proposal_with_leg) # Renamed variable
+    assert dumped_proposal_with_leg["action"] == expected_dump_with_leg["action"]
+    assert dumped_proposal_with_leg["rationale"] == expected_dump_with_leg["rationale"]
+    assert dumped_proposal_with_leg["latent_risk"] == expected_dump_with_leg["latent_risk"]
+    assert dumped_proposal_with_leg["confidence"] == expected_dump_with_leg["confidence"]
+
+    dumped_legs = dumped_proposal_with_leg.get("legs") # Use .get() for safety, though validated above
+    assert isinstance(dumped_legs, list)
+    assert len(dumped_legs) == 1
+    assert dumped_legs[0] == Leg.model_validate(leg_data_for_proposal).model_dump(by_alias=False)
 
 
-def test_trade_plan_invalid() -> None:
-    """Test invalid TradePlan."""
-    adapter: TypeAdapter[TradePlan] = TypeAdapter(TradePlan)
-    # Missing rationale (latent_risk, confidence also missing)
-    with pytest.raises(ValidationError, match="Field required"):
+def test_trade_proposal_schema_invalid() -> None: # Renamed function
+    """Test invalid TradeProposal."""
+    adapter: TypeAdapter[TradeProposal] = TypeAdapter(TradeProposal) # Renamed Type
+    with pytest.raises(ValidationError, match="Field required"): # Rationale missing
         adapter.validate_python({"action": "ENTER", "latent_risk": 0.1, "confidence": 0.9})
-    # Missing action
-    with pytest.raises(ValidationError, match="Field required"):
+    with pytest.raises(ValidationError, match="Field required"): # Action missing
         adapter.validate_python({"rationale": "Some reason", "latent_risk": 0.1, "confidence": 0.9})
-    # Missing latent_risk
-    with pytest.raises(ValidationError, match="Field required"):
+    with pytest.raises(ValidationError, match="Field required"): # latent_risk missing
         adapter.validate_python({"action": "HOLD", "rationale": "Some reason", "confidence": 0.9})
-    # Missing confidence
-    with pytest.raises(ValidationError, match="Field required"):
+    with pytest.raises(ValidationError, match="Field required"): # confidence missing
         adapter.validate_python({"action": "HOLD", "rationale": "Some reason", "latent_risk": 0.1})
-    # Confidence out of bounds
+
     with pytest.raises(ValidationError, match="Input should be less than or equal to 1"):
         adapter.validate_python({"action": "HOLD", "rationale": "reason", "latent_risk": 0.1, "confidence": 1.1})
     with pytest.raises(ValidationError, match="Input should be greater than or equal to 0"):
         adapter.validate_python({"action": "HOLD", "rationale": "reason", "latent_risk": 0.1, "confidence": -0.1})
 
-    # Extra field
     with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
         adapter.validate_python({
             "action": "EXIT", "rationale": "Done", "latent_risk":0.1, "confidence":0.7, "extra": "bad"
         })
 
-def test_trade_plan_examples_in_field() -> None:
+def test_trade_proposal_examples_in_field() -> None: # Renamed function
     """Test that the examples for action are correctly in the schema."""
-    action_field = TradePlan.model_fields["action"]
+    action_field = TradeProposal.model_fields["action"] # Renamed Type
     assert action_field.examples == ["HOLD", "ENTER", "EXIT"]

@@ -58,25 +58,19 @@ class PlanningContext(BaseModel):
         frozen=True,
     )
 
+# The old TradeProposal is removed.
+# TradePlan is renamed to TradeProposal and will serve as the main output schema.
 
 class TradeProposal(BaseModel):
-    """Output trade proposal - to be kept as is."""
-    latent_risk: Annotated[float, Field(ge=0, alias="latentRisk")]
-    legs: List[Leg]
-
-    model_config = ConfigDict(
-        populate_by_name=True,
-        extra="forbid",
-        str_strip_whitespace=True,
-    )
-
-class TradePlan(BaseModel):
-    """Simplified trade plan for current stub engine."""
-    action: str = Field(..., examples=["HOLD", "ENTER", "EXIT"])
-    rationale: str
-    latent_risk: float  # Added: The computed latent risk that led to this plan
-    confidence: Annotated[float, Field(ge=0, le=1)]  # Added: Confidence in this plan
-    legs: Optional[List[Leg]] = Field(default=None)  # Added: Optional list of legs for the plan
+    """
+    Output trade proposal from the AZR Planner engine.
+    Contains the proposed action, risk metrics, and associated trade legs.
+    """
+    action: str = Field(..., examples=["HOLD", "ENTER", "EXIT"], description="The proposed trading action.")
+    rationale: str = Field(..., description="Justification for the proposed action.")
+    latent_risk: float = Field(..., ge=0, le=1, description="The calculated latent risk score (0-1).")
+    confidence: Annotated[float, Field(ge=0, le=1, description="Confidence in this trade proposal (0-1).")]
+    legs: Optional[List[Leg]] = Field(default=None, description="List of trade legs for the proposal. None if action is HOLD.")
 
     model_config = ConfigDict(
         populate_by_name=True, # Allow population by alias if fields get them later

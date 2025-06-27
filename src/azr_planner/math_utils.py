@@ -102,72 +102,132 @@ def rolling_volatility(series: List[float], window: int) -> float:
     return annualized_vol
 
 
-def latent_risk(equity_curve: List[float], vol_surface: Dict[str, float], risk_free_rate: float) -> float:
+import numpy as np
+from scipy.stats import entropy as shannon_entropy
+
+def _clamp(value: float, min_val: float, max_val: float) -> float:
+    """Clamps a value between a minimum and maximum."""
+    return max(min_val, min(value, max_val))
+
+def _calculate_shannon_entropy(data: List[float], base: float = math.e) -> float:
     """
-    Calculates the latent risk score based on the equity curve, volatility surface,
-    and risk-free rate.
-    This is a placeholder implementation. The full formula is per §3.2–3.4 of the PDF.
-    The actual implementation will require more detailed components (drawdowns, time under water, etc.).
+    Calculates Shannon entropy for a list of data.
+    Helper in case scipy.stats.entropy is not available or for specific base.
+    """
+    if not data:
+        return 0.0
+
+    counts = pd.Series(data).value_counts()
+    probabilities = counts / len(data)
+
+    # Filter out zero probabilities to avoid log(0)
+    probabilities = probabilities[probabilities > 0]
+
+    if probabilities.empty:
+        return 0.0
+
+    entropy_val = -np.sum(probabilities * np.log(probabilities) / np.log(base))
+    return float(entropy_val)
+
+
+def latent_risk(equity_curve: List[float]) -> float:
+    """
+    Calculates the latent risk score based on the equity curve.
+    Formula from AZR Planner Design PDF §3.2.
 
     Args:
-        equity_curve: List of equity values.
-        vol_surface: Dictionary of instrument volatilities.
-        risk_free_rate: The risk-free rate.
+        equity_curve: List of equity values. The formula implies at least 30 data points
+                      for some calculations (e.g., rolling vol, drawdown).
+                      The function will handle shorter series by returning max risk or NaN equivalent.
 
     Returns:
         A risk score clamped between 0 and 1.
     """
-    if not equity_curve or len(equity_curve) < 30: # Min length from PlanningContext
-        # Or handle as per full spec for latent risk with insufficient data
-        return 1.0 # Max risk if data is insufficient
+    num_points = len(equity_curve)
 
-    # Placeholder logic:
-    # 1. Calculate some metric from equity_curve (e.g., Sharpe-like ratio or drawdown measure)
-    # 2. Incorporate vol_surface (e.g., average vol, or vol of a reference instrument)
-    # 3. Use risk_free_rate in calculations.
+    # Ensure we only operate on the last 30 bars for relevant calculations as per PDF
+    # or the full curve if shorter than 30.
+    # The PDF implies calculations like dd and vol are over the last 30 bars.
+    # For consistency, we'll use the tail for all components if longer than 30.
+    # If shorter, some metrics might not be meaningful or directly calculable as per spec.
 
-    # Simplified example:
-    # Use rolling volatility of equity curve percentage changes as a risk indicator.
-    # This is NOT the full formula from the PDF.
-    if len(equity_curve) < 2:
-        simple_vol_metric = 1.0 # Max risk
-    else:
-        equity_returns = [
-            (equity_curve[i] - equity_curve[i-1]) / equity_curve[i-1]
-            if equity_curve[i-1] != 0
-            else 0.0
-            for i in range(1, len(equity_curve))
-        ]
-        # Corrected indentation for this block:
-        if not equity_returns or len(equity_returns) < 2:
-            simple_vol_metric = 1.0
-        else:
-            std_dev_returns = calculate_std_dev(equity_returns)
-            simple_vol_metric = min(1.0, max(0.0, (std_dev_returns / 0.05) * 0.8 )) if std_dev_returns > 0 else 0.0
+    # The problem states "rolling 30-period tail of series" for latent_risk call.
+    # This implies the input `equity_curve` to this function might already be the tail.
+    # However, for robustness, let's ensure calculations are on at most 30 points
+    # if the input is longer, or handle shorter series gracefully.
 
-    # Incorporate vol_surface (e.g., average of provided surface vols)
-    avg_surface_vol = 0.0
-    if vol_surface:
-        avg_surface_vol = sum(vol_surface.values()) / len(vol_surface)
-    # Crude combination:
-    # Higher avg_surface_vol means higher risk. Normalize it (e.g. if avg 0.5 is high risk)
-    surface_vol_metric = min(1.0, max(0.0, (avg_surface_vol / 0.5) * 0.5))
+    if num_points == 0:
+        return 1.0 # Max risk for empty curve
 
-    # Combine metrics (very naively)
-    # This is a placeholder. The actual formula from PDF §3.2-3.4 is needed.
-    # For example, one might use Sharpe, Sortino, max drawdown, time under water, etc.
-    # and combine them, possibly with weights.
+    # Use the full equity_curve as provided to this function.
+    # The caller (engine) should provide the relevant segment (e.g., last 30 points).
 
-    # Placeholder risk score: average of the two crude metrics
-    # Adjust based on risk_free_rate: higher rfr might imply lower risk tolerance for some strats
-    # For simplicity, let's say if rfr > 0.05, we are more risk averse (higher score).
-    risk_adjustment = 0.0
-    if risk_free_rate > 0.05:
-        risk_adjustment = 0.1
+    # σ_a: rolling_volatility(equity_curve, window=30)
+    # The existing rolling_volatility annualizes. window=30 is specified.
+    # If num_points < 30, rolling_volatility will return NaN.
+    sigma_a = rolling_volatility(equity_curve, window=30)
+    sigma_a = np.nan_to_num(sigma_a, nan=1.0) # Treat NaN vol as high risk component
 
-    combined_risk = (simple_vol_metric + surface_vol_metric) / 2.0 + risk_adjustment
+    sigma_tgt = 0.25
 
-    # Clamp result between 0 and 1
-    final_risk_score = min(1.0, max(0.0, combined_risk))
+    # dd: max(1 – equity_curve[i] / equity_curve[:i+1].max()) over last 30 bars
+    # If equity_curve has < 30 bars, this calculation is over available bars.
+    max_dd = 0.0
+    if num_points > 0:
+        historical_max = pd.Series(equity_curve).expanding(min_periods=1).max()
+        drawdowns = 1 - (pd.Series(equity_curve) / historical_max)
+        # Ensure we only consider the last 30 data points for this specific dd calculation,
+        # or fewer if the series is shorter than 30.
+        relevant_drawdowns = drawdowns.iloc[-min(num_points, 30):]
+        if not relevant_drawdowns.empty:
+            max_dd = relevant_drawdowns.max()
+        max_dd = np.nan_to_num(float(max_dd), nan=1.0) # Treat NaN DD as high risk
+
+    # H: Shannon entropy of 5-day equity returns (base-e)
+    # This requires at least 6 data points in equity_curve to get one 5-day return.
+    # To get a series of 5-day returns, we need more.
+    # Let's assume if we can't calculate it, H is maximal (contributing to higher risk).
+    H = 0.0 # Default to 0 if not calculable, to avoid undue penalty if data too short
+    if num_points >= 6: # Need at least 1 5-day return (6 points for ec[5]/ec[0] - 1)
+        # Calculate 5-day returns: (price_t / price_{t-5}) - 1
+        # Using pct_change(periods=5) is equivalent to (val / val.shift(5)) - 1
+        returns_5day = pd.Series(equity_curve).pct_change(periods=5).dropna()
+        if not returns_5day.empty:
+            # Discretize returns for entropy calculation if they are continuous.
+            # The PDF doesn't specify bins. Using a reasonable number of bins.
+            # Or, if the returns are already somewhat discrete, can use them directly.
+            # Scipy's entropy handles continuous data by discretizing or via method for continuous vars.
+            # Here, we use value_counts which implies discretization.
+            # Let's try with direct values first, then consider binning if results are off.
+            # Using scipy.stats.entropy which can take pk (probabilities) or vk (values).
+            # If vk, it calculates counts and then probabilities.
+
+            # The problem statement implies equity_curve is a list of floats (prices/values).
+            # returns_5day will be a series of floats.
+            # scipy.stats.entropy(pk=probabilities_of_returns)
+
+            # To get pk, we need to count occurrences of unique return values or bin them.
+            # Let's use the helper _calculate_shannon_entropy which does value_counts.
+            # Limit to the last 30 5-day returns if available
+            relevant_returns_5day = returns_5day.iloc[-min(len(returns_5day), 30):].tolist()
+            if relevant_returns_5day:
+                H = _calculate_shannon_entropy(relevant_returns_5day, base=math.e)
+                # Alternative using scipy directly if data is prepared as counts/probabilities
+                # counts = pd.Series(relevant_returns_5day).value_counts()
+                # H = shannon_entropy(counts, base=math.e)
+
+    H_max = 3.0 # Pre-computed constant
+
+    # raw = 0.5*(σ_a/σ_tgt) + 0.3*dd + 0.2*(H / H_max)
+    # Handle potential division by zero for H_max or sigma_tgt if they could be zero.
+    # sigma_tgt is constant 0.25. H_max is constant 3.0. So no division by zero there.
+
+    term_vol = 0.5 * (sigma_a / sigma_tgt) if sigma_tgt > 0 else 0.5 # Max penalty if sigma_tgt is 0
+    term_dd = 0.3 * max_dd
+    term_entropy = 0.2 * (H / H_max) if H_max > 0 else 0.2 # Max penalty if H_max is 0
+
+    raw_risk = term_vol + term_dd + term_entropy
+
+    final_risk_score = _clamp(raw_risk, 0.0, 1.0)
 
     return final_risk_score

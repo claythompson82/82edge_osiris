@@ -167,7 +167,7 @@ import os
 # Ensure imports are conditional or handled if azr_planner is optional
 if os.getenv("OSIRIS_TEST") == "1": # More specific check for "1"
     # Import specific models needed
-    from azr_planner.schemas import PlanningContext, TradePlan
+    from azr_planner.schemas import PlanningContext, TradeProposal # Changed TradePlan to TradeProposal
     from azr_planner.engine import generate_plan as azr_generate_plan # Alias to avoid name clash
 
     # router_azr name is fine as it's local to this conditional block
@@ -178,10 +178,10 @@ if os.getenv("OSIRIS_TEST") == "1": # More specific check for "1"
 
     @router_azr.post(
         "/propose_trade", # Path is now relative to the router's prefix
-        response_model=TradePlan, # Use the new TradePlan model
+        response_model=TradeProposal, # Changed to TradeProposal
         # Tags are inherited from APIRouter, but can be overridden or extended here
     )
-    async def propose_trade(ctx: PlanningContext) -> TradePlan:
+    async def propose_trade(ctx: PlanningContext) -> TradeProposal: # Changed to TradeProposal
         """
         Thin HTTP wrapper around azr_planner.engine.generate_plan.
         """
