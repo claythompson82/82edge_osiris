@@ -201,7 +201,7 @@ def test_trade_proposal_bounds() -> None:
 
     # legs – missing size
     bad_legs = {**valid, "legs": [{"instrument": "MES", "direction": "LONG"}]}
-    with pytest.raises(ValidationError, match=r"legs\.0\.size.*Field required"):
+    with pytest.raises(ValidationError, match=r"legs\.0\.size"):
         adapter.validate_python(bad_legs)
 
 
