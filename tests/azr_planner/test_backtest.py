@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-import pytest
+import pytest # Ensure pytest is imported for the fixture
 from typing import List, Dict, Any, Optional
 import numpy as np # Added
 from datetime import datetime, timezone, timedelta # Added
@@ -223,9 +223,50 @@ from azr_planner.backtest.core import run_backtest
 # Updated import:
 from azr_planner.backtest.schemas import SingleBacktestReport, SingleBacktestMetrics
 from azr_planner.datasets import load_sp500_sample # Assuming this will be created
-from azr_planner.schemas import PlanningContext
+from azr_planner.schemas import PlanningContext, Instrument, Direction, Leg, TradeProposal # Added TradeProposal
 from azr_planner.math_utils import LR_V2_MIN_POINTS
 from hypothesis import HealthCheck
+from typing import cast # Added for _get_fill_price test
+from unittest.mock import patch # Added for mocking _get_fill_price
+
+# --- Helper function to generate HLC data (copied from test_engine.py) ---
+def _generate_hlc_data(num_periods: int, start_price: float = 100.0, daily_change: float = 0.1, spread: float = 0.5) -> List[tuple[float, float, float]]:
+    data = []
+    current_close = start_price
+    for i in range(num_periods):
+        high = current_close + spread + abs(daily_change * math.sin(i*0.1)) # Add some variation
+        low = current_close - spread - abs(daily_change * math.cos(i*0.1))
+        close = (high + low) / 2 + (math.sin(i*0.5) * spread*0.1) # Add noise
+        # Ensure H >= L and C is within H-L, H > L
+        low = min(low, high - 0.01) # Ensure low is strictly less than high
+        close = max(min(close, high), low)
+
+        data.append((round(high,2), round(low,2), round(close,2)))
+        current_close = close
+    return data
+
+MIN_HISTORY_POINTS_FOR_FIXTURE = LR_V2_MIN_POINTS + 5 # Consistent naming with test_engine
+
+@pytest.fixture
+def sample_planning_context_data_new() -> Dict[str, Any]:
+    """Provides a valid sample input dictionary for the new PlanningContext. Copied from test_engine.py"""
+    num_points = MIN_HISTORY_POINTS_FOR_FIXTURE # e.g., 30 + 5 = 35
+    hlc_data = _generate_hlc_data(num_periods=num_points)
+    equity_curve_data = [10000.0 + i*10 for i in range(num_points)] # Match length with hlc_data
+    return {
+        "timestamp": datetime.now(timezone.utc),
+        "equityCurve": equity_curve_data,
+        "dailyHistoryHLC": hlc_data,
+        "dailyVolume": [10000 + i*100 for i in range(num_points)],
+        "currentPositions": [
+            {"instrument": "MES", "direction": "LONG", "size": 2.0, "limit_price": 4500.0}
+        ],
+        "n_successes": 10, # Field name, not alias
+        "n_failures": 5,   # Field name, not alias
+        "volSurface": {"MES": 0.15, "M2K": 0.20},
+        "riskFreeRate": 0.02,
+    }
+
 
 # Helper to generate a list of PlanningContext objects for property test
 @st.composite
@@ -321,6 +362,216 @@ def test_run_backtest_insufficient_contexts() -> None:
     ]
     with pytest.raises(ValueError, match="Context iterator must yield at least two PlanningContexts"):
         run_backtest(single_ctx_manual)
+
+
+def test_run_backtest_missing_fill_price(sample_planning_context_data_new: Dict[str, Any]) -> None:
+    """
+    Tests run_backtest behavior when a next-day context lacks an equity curve,
+    leading to no fill price for trades.
+    """
+    # Create two valid PlanningContexts from sample data
+    ctx_day1_data = sample_planning_context_data_new.copy()
+    ctx_day1_data['timestamp'] = datetime(2023,1,1, tzinfo=timezone.utc)
+    # Ensure equityCurve and dailyHistoryHLC are long enough for internal logic of PlanningContext if it were used directly
+    # For this test, we mainly care that PlanningContext can be created.
+    # The sample_planning_context_data_new already has sufficient length.
+    ctx_day1 = PlanningContext.model_validate(ctx_day1_data)
+
+    ctx_day2_data = sample_planning_context_data_new.copy()
+    ctx_day2_data['timestamp'] = datetime(2023,1,2, tzinfo=timezone.utc)
+    # Crucially, make the equity_curve for day 2 (next_day_context) empty or None
+    ctx_day2_data['equityCurve'] = [] # This will make _get_fill_price return None
+
+    # Pydantic validation for PlanningContext requires equityCurve to have min_length=30.
+    # So, we can't make ctx_day2.equity_curve empty directly if it's a PlanningContext.
+    # Instead, we can mock _get_fill_price or pass a PlanningContext-like dict to run_backtest
+    # if it were more flexible.
+    # For now, let's test the _get_fill_price helper directly if it's accessible,
+    # or accept that this specific path in run_backtest is hard to hit with fully validated contexts.
+
+    # Alternative: Modify a valid PlanningContext to have an empty equity_curve *after* validation
+    # This is hacky and not how it would typically occur.
+    # The path `if fill_price_tomorrow is None:` in `run_backtest` is hit if `_get_fill_price` returns None.
+    # `_get_fill_price` returns None if `next_day_context` is None (not possible if len(contexts) >= 2)
+    # OR if `next_day_context.equity_curve` is empty/None.
+
+    # Let's construct a scenario where the second context is valid but has an empty equity_curve list
+    # This requires temporarily bypassing Pydantic validation for that field for the test instance.
+    # This is tricky. A simpler approach might be to make the *content* of equity_curve such that
+    # it leads to issues, but not an empty list that Pydantic blocks.
+
+    # The most direct way to test the `if fill_price_tomorrow is None:` block is to ensure
+    # the `PlanningContext` for `ctx_tomorrow` has `equity_curve = []`.
+    # We can create a "malformed" (from Pydantic's perspective) context for the test.
+    # `run_backtest` takes `Iterable[PlanningContext]`.
+
+    # For this test, let's assume we can construct such contexts.
+    # The `PlanningContext.model_validate` will prevent equityCurve=[]
+    # So, this path in `run_backtest` might be dead code if contexts always come from validated Pydantic models.
+    # However, `_get_fill_price` itself can be called with `next_day_context` having `equity_curve=[]`.
+
+    # Let's test `_get_fill_price` directly.
+    from azr_planner.backtest.core import _get_fill_price
+
+    # Valid context for day 1
+    valid_ctx_day1_data = sample_planning_context_data_new.copy()
+    valid_ctx_day1 = PlanningContext.model_validate(valid_ctx_day1_data)
+
+    # Context for day 2 (next_day_context) with empty equity_curve
+    malformed_ctx_day2_data = sample_planning_context_data_new.copy()
+    malformed_ctx_day2_data["equityCurve"] = []
+    # We can't validate this with Pydantic. Create a mock/dict that looks like a PlanningContext.
+
+    class MockPlanningContext:
+        def __init__(self, equity_curve: Optional[List[float]], timestamp: datetime):
+            self.equity_curve = equity_curve
+            self.timestamp = timestamp
+            # Add other fields if _get_fill_price or its callers need them, but they don't.
+
+    mock_ctx_tomorrow_no_curve = MockPlanningContext(equity_curve=None, timestamp=datetime.now(timezone.utc))
+    assert _get_fill_price(cast(PlanningContext, mock_ctx_tomorrow_no_curve)) is None
+
+    mock_ctx_tomorrow_empty_curve = MockPlanningContext(equity_curve=[], timestamp=datetime.now(timezone.utc))
+    assert _get_fill_price(cast(PlanningContext, mock_ctx_tomorrow_empty_curve)) is None
+
+    # Now, for run_backtest itself, to hit the `if fill_price_tomorrow is None:`
+    # This requires the iterable to yield such a malformed context.
+    # This is difficult to achieve if the iterable always yields Pydantic-validated PlanningContexts.
+    # The `ValueError` for `<2 contexts` is already tested.
+    # The only way `fill_price_tomorrow` would be None is if `contexts[i+1]` (which is `ctx_tomorrow`)
+    # somehow has `equity_curve = None` or `equity_curve = []` *despite* Pydantic validation.
+    # This implies that either the Pydantic model for PlanningContext needs to allow Optional/empty equity_curve
+    # (which it doesn't: `min_length=30`), or this branch in `run_backtest` is indeed unreachable
+    # with correctly formed `PlanningContext` objects.
+
+    # Given current strict Pydantic models, the `if fill_price_tomorrow is None:` branch in `run_backtest`
+    # appears to be dead code if the input `contexts` iterable only ever contains
+    # successfully validated `PlanningContext` instances.
+    # The `_get_fill_price` function itself can handle it, but `run_backtest` might not see it.
+    # No change to this test for now, as it confirms _get_fill_price behavior.
+    # The coverage for that specific line in run_backtest might remain missed.
+    # pass # Test for _get_fill_price is above.
+
+    # Now, test the run_backtest path where fill_price_tomorrow is None
+    # We need at least two valid contexts for run_backtest to proceed to the point of calling _get_fill_price.
+    ctx_d1_data = sample_planning_context_data_new.copy()
+    ctx_d1_data['timestamp'] = datetime(2023,1,1, tzinfo=timezone.utc)
+    ctx_d1 = PlanningContext.model_validate(ctx_d1_data)
+
+    ctx_d2_data = sample_planning_context_data_new.copy()
+    ctx_d2_data['timestamp'] = datetime(2023,1,2, tzinfo=timezone.utc)
+    # Ensure equity curve is valid for Pydantic, _get_fill_price will be mocked
+    ctx_d2 = PlanningContext.model_validate(ctx_d2_data)
+
+    contexts_for_run = [ctx_d1, ctx_d2]
+
+    with patch('azr_planner.backtest.core._get_fill_price', return_value=None) as mock_get_fill:
+        report = run_backtest(contexts_for_run)
+        mock_get_fill.assert_called_once_with(ctx_d2) # Check it was called with the next day context
+        assert len(report.daily_results) == 1 # One decision step
+        # When fill_price_tomorrow is None, equity should remain unchanged, daily_pnl = 0
+        assert report.equity_curve[1] == report.equity_curve[0] # Initial cash
+        assert report.daily_results[0].portfolio_state_after_trades.daily_pnl == 0.0
+        # Trades executed might be empty or contain trades with pnl=None if planner proposed something
+        # For this test, primarily care that it ran and handled the None fill price.
+
+
+def test_run_backtest_trade_logic_cover_short(
+    sample_planning_context_data_new: Dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch # Added fixture
+) -> None:
+    """
+    Tests trade execution logic in run_backtest, specifically covering a short position.
+    - Start with an existing short MES position.
+    - Planner proposes to go LONG MES (ENTER signal).
+    - run_backtest should execute a buy-to-cover trade.
+    """
+    # Mock generate_plan to always propose ENTER LONG MES
+    # This ensures the planner's decision is fixed for testing core execution.
+    mocked_lr = 0.10
+    mocked_conf = 0.80 # Favorable for ENTER
+
+    # Constants from engine.py for expected size calculation
+    from azr_planner.engine import DEFAULT_MAX_LEVERAGE, MES_CONTRACT_MULTIPLIER, MIN_CONTRACT_SIZE
+
+    initial_short_size = 2.0
+
+    # Context for Day 1 decision
+    ctx_d1_data = sample_planning_context_data_new.copy()
+    ctx_d1_data['timestamp'] = datetime(2023, 1, 1, tzinfo=timezone.utc)
+    # Ensure currentPositions is a list of dicts for Pydantic validation, then it becomes List[Leg]
+    ctx_d1_data['currentPositions'] = [
+        Leg(instrument=Instrument.MES, direction=Direction.SHORT, size=initial_short_size).model_dump()
+    ]
+    ctx_d1 = PlanningContext.model_validate(ctx_d1_data)
+
+    current_equity_d1 = ctx_d1.equity_curve[-1]
+    mes_price_d1 = ctx_d1.daily_history_hlc[-1][2] # Price at decision time for short
+
+    # This is the size the planner will propose based on its internal call to position_size
+    from azr_planner.position import position_size as actual_pos_sizer
+    expected_dollar_exposure_for_proposal = actual_pos_sizer(
+        latent_risk=mocked_lr,
+        equity=current_equity_d1,
+        max_leverage=DEFAULT_MAX_LEVERAGE
+    )
+    proposed_contracts_to_buy = 0.0
+    if mes_price_d1 > 0 and (mes_price_d1 * MES_CONTRACT_MULTIPLIER) > 0:
+        proposed_contracts_to_buy = expected_dollar_exposure_for_proposal / (mes_price_d1 * MES_CONTRACT_MULTIPLIER)
+
+    def mock_generate_plan_fixed_enter(ctx: PlanningContext):
+        # This mock should return the dynamically calculated size
+        if proposed_contracts_to_buy >= MIN_CONTRACT_SIZE:
+            return TradeProposal(
+                action="ENTER",
+                rationale="Mock ENTER LONG",
+                latent_risk=mocked_lr,
+                confidence=mocked_conf,
+                legs=[Leg(instrument=Instrument.MES, direction=Direction.LONG, size=proposed_contracts_to_buy)]
+            )
+        else:
+            return TradeProposal(action="HOLD", rationale="Mock size too small", latent_risk=mocked_lr, confidence=mocked_conf, legs=None)
+
+    monkeypatch.setattr('azr_planner.backtest.core.generate_plan', mock_generate_plan_fixed_enter)
+
+    # Context for Day 2 (for fill prices)
+    ctx_d2_data = sample_planning_context_data_new.copy()
+    ctx_d2_data['timestamp'] = datetime(2023, 1, 2, tzinfo=timezone.utc)
+    # Fill price for buy-to-cover
+    fill_price_day2 = ctx_d2_data['dailyHistoryHLC'][-1][2]
+    # Ensure the _get_fill_price uses a predictable value from ctx_d2's equity curve
+    # For simplicity, let equity_curve[-1] be this fill_price.
+    temp_equity_curve_d2 = list(ctx_d2_data['equityCurve']) # Make mutable
+    temp_equity_curve_d2[-1] = fill_price_day2
+    ctx_d2_data['equityCurve'] = temp_equity_curve_d2
+    ctx_d2 = PlanningContext.model_validate(ctx_d2_data)
+
+    contexts = [ctx_d1, ctx_d2]
+    report = run_backtest(contexts)
+
+    assert len(report.daily_results) == 1
+    daily_result = report.daily_results[0]
+
+    total_size_bought_by_trades = 0
+    for trade in daily_result.trades_executed:
+        if trade.instrument == Instrument.MES and trade.direction == Direction.LONG:
+            total_size_bought_by_trades += trade.size
+
+    if proposed_contracts_to_buy >= MIN_CONTRACT_SIZE:
+        assert len(daily_result.trades_executed) > 0 # Should have at least one trade
+        assert math.isclose(total_size_bought_by_trades, proposed_contracts_to_buy, rel_tol=1e-5)
+        # Check final position state
+        final_pos_size = daily_result.portfolio_state_after_trades.positions.get(Instrument.MES, 0.0)
+        expected_final_pos_size = -initial_short_size + proposed_contracts_to_buy
+        assert math.isclose(final_pos_size, expected_final_pos_size, rel_tol=1e-5)
+
+        # Check if PNL was logged for the covered portion
+        size_covered = min(initial_short_size, proposed_contracts_to_buy)
+        if size_covered > 0:
+             assert any(t.pnl is not None for t in daily_result.trades_executed if t.size == size_covered and t.direction == Direction.LONG), "Covering part of trade should have PNL"
+    else: # Plan was HOLD due to small size
+        assert not daily_result.trades_executed
+        assert daily_result.portfolio_state_after_trades.positions.get(Instrument.MES, 0.0) == -initial_short_size
 
 
 def test_run_backtest_smoke_sp500_sample() -> None:

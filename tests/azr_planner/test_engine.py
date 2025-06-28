@@ -97,11 +97,12 @@ st_planning_context_data_new = st.fixed_dictionaries({
 @pytest.fixture
 def sample_planning_context_data_new() -> Dict[str, Any]:
     """Provides a valid sample input dictionary for the new PlanningContext."""
-    num_points = MIN_HISTORY_POINTS + 5
+    num_points = MIN_HISTORY_POINTS + 5 # e.g., 30 + 5 + 5 = 40
     hlc_data = _generate_hlc_data(num_periods=num_points)
+    equity_curve_data = [10000.0 + i*10 for i in range(num_points)] # Match length with hlc_data
     return {
         "timestamp": datetime.now(timezone.utc),
-        "equityCurve": [10000.0 + i*10 for i in range(35)],
+        "equityCurve": equity_curve_data,
         "dailyHistoryHLC": hlc_data,
         "dailyVolume": [10000 + i*100 for i in range(num_points)],
         "currentPositions": [
@@ -140,7 +141,20 @@ def test_generate_plan_action_enter_azr06(
     leg = trade_proposal.legs[0]
     assert leg.instrument == Instrument.MES
     assert leg.direction == Direction.LONG
-    assert leg.size == 1.0
+
+    # AZR-11: Verify position sizing
+    # Reconstruct expected size based on inputs to position_size and mocked values
+    mocked_lr = 0.10
+    current_equity = ctx.equity_curve[-1]
+    mes_price = ctx.daily_history_hlc[-1][2] # Last close price
+
+    # Expected exposure from position_size(latent_risk=0.10, equity=current_equity, max_leverage=DEFAULT_MAX_LEVERAGE)
+    # Since risk 0.10 <= 0.3, expected_exposure = current_equity * DEFAULT_MAX_LEVERAGE
+    # Constants from engine.py: DEFAULT_MAX_LEVERAGE = 2.0, MES_CONTRACT_MULTIPLIER = 5.0
+    expected_dollar_exposure = current_equity * 2.0
+    expected_contract_size = expected_dollar_exposure / (mes_price * 5.0)
+
+    assert math.isclose(leg.size, expected_contract_size, rel_tol=1e-5) # Use relative tolerance for float comparison
 
 @patch('azr_planner.engine.latent_risk_v2')
 @patch('azr_planner.engine.bayesian_confidence')
@@ -294,7 +308,11 @@ def test_property_generate_plan_new_engine_basic_structure(data: Dict[str, Any])
         leg = trade_proposal.legs[0]
         assert leg.instrument == Instrument.MES
         assert leg.direction == Direction.LONG
-        assert leg.size == 1.0
+        # AZR-11: Size is now dynamic.
+        # generate_plan reverts to HOLD if size would be too small ( < MIN_CONTRACT_SIZE (0.001) )
+        # So if action is still ENTER, size must be >= MIN_CONTRACT_SIZE
+        from azr_planner.engine import MIN_CONTRACT_SIZE # Import for the check
+        assert leg.size >= MIN_CONTRACT_SIZE
     elif trade_proposal.action == "EXIT":
         # Legs for EXIT can be more complex (sell existing or new short)
         # For this property test, just ensure legs are present if action is EXIT,
@@ -358,3 +376,51 @@ def test_planning_context_instantiation_with_new_fields(sample_planning_context_
 # Was at the end of the file previously.
 # The new test `test_planning_context_instantiation_with_new_fields` replaces its intent
 # for the updated schema.
+
+
+@patch('azr_planner.engine.latent_risk_v2', return_value=0.10) # Favorable risk
+@patch('azr_planner.engine.bayesian_confidence', return_value=0.80) # Favorable confidence
+def test_generate_plan_enter_sizing_edge_cases(
+    mock_bayesian_confidence: MagicMock, # Order matters for patch decorators
+    mock_latent_risk_v2: MagicMock,
+    sample_planning_context_data_new: Dict[str, Any]
+) -> None:
+    """
+    Tests sizing edge cases in generate_plan when an ENTER signal occurs.
+    - No HLC data.
+    - Invalid (zero/negative) MES price.
+    - Calculated size too small.
+    """
+    base_ctx_data = sample_planning_context_data_new.copy()
+    base_ctx_data["currentPositions"] = None # Ensure clean ENTER
+
+    # Case 1 (previously Case 2): Invalid MES price (e.g., zero or negative)
+    # The "No HLC data" case is now covered by Pydantic validation on PlanningContext.
+    ctx_data_bad_price = base_ctx_data.copy()
+    # Ensure dailyHistoryHLC is not empty, but set the last close to 0
+    original_hlc = ctx_data_bad_price["dailyHistoryHLC"]
+    bad_price_hlc = [list(t) for t in original_hlc] # mutable copy
+    if bad_price_hlc:
+        bad_price_hlc[-1][2] = 0.0 # Set last close to 0
+        ctx_data_bad_price["dailyHistoryHLC"] = [tuple(t) for t in bad_price_hlc]
+
+    ctx_bad_price = PlanningContext.model_validate(ctx_data_bad_price)
+    proposal_bad_price = generate_plan(ctx_bad_price)
+    assert proposal_bad_price.action == "HOLD"
+    assert "Invalid MES price (0.00) for sizing" in proposal_bad_price.rationale
+
+    # Case 3: Calculated size too small (e.g., due to very high price or very low equity/exposure)
+    ctx_data_small_size = base_ctx_data.copy()
+    # Make equity very small so target exposure is tiny, leading to a sub-MIN_CONTRACT_SIZE.
+    # Original equity curve values are ~10000. Last value is ~10000 + 39*10 = 10390.
+    # mes_price is last HLC close, from _generate_hlc_data(num_periods=40), starts at 100.
+    # Let's assume mes_price is ~120 for estimation. Contract value ~ 120 * 5 = 600.
+    # If equity = 0.1, exposure = 0.1 * 2 = 0.2. Size = 0.2 / 600 = 0.000333. This is < MIN_CONTRACT_SIZE (0.001).
+    very_small_equity_value = 0.1
+    small_equity_curve = [very_small_equity_value] * len(ctx_data_small_size["equityCurve"])
+    ctx_data_small_size["equityCurve"] = small_equity_curve
+
+    ctx_small_size = PlanningContext.model_validate(ctx_data_small_size)
+    proposal_small_size = generate_plan(ctx_small_size)
+    assert proposal_small_size.action == "HOLD"
+    assert "Calculated size" in proposal_small_size.rationale and "too small" in proposal_small_size.rationale

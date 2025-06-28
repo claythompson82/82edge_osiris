@@ -3,9 +3,10 @@
 import math
 # import numpy as np # Not directly used in this version of engine
 # import pandas as pd # Not directly used in this version of engine
-from typing import Optional
+from typing import Optional, cast
 
 from .schemas import PlanningContext, TradeProposal, Leg, Instrument, Direction
+from .position import position_size # AZR-11: Import position_size
 from .math_utils import (
     latent_risk_v2,
     bayesian_confidence,
@@ -17,9 +18,16 @@ ENTER_CONF_THRESHOLD = 0.7
 EXIT_LR_THRESHOLD = 0.7
 EXIT_CONF_THRESHOLD = 0.4
 
+# AZR-11: Constants for position sizing
+DEFAULT_MAX_LEVERAGE = 2.0
+MES_CONTRACT_MULTIPLIER = 5.0 # Standard multiplier for MES futures
+MIN_CONTRACT_SIZE = 0.001 # Smallest practical contract size to trade, to avoid dust
+
+
 def generate_plan(ctx: PlanningContext) -> TradeProposal:
     """
     Generates a trade proposal based on Latent Risk v2 and Bayesian Confidence.
+    Includes risk-adjusted position sizing for ENTER actions.
     Uses action thresholds from AZR Planner Design PDF §4.5.
     """
 
@@ -34,13 +42,44 @@ def generate_plan(ctx: PlanningContext) -> TradeProposal:
     if lr < ENTER_LR_THRESHOLD and conf > ENTER_CONF_THRESHOLD:
         action = "ENTER"
         rationale = f"Favorable conditions: Latent Risk ({lr:.2f}) < {ENTER_LR_THRESHOLD} and Confidence ({conf:.2f}) > {ENTER_CONF_THRESHOLD}."
-        legs = [
-            Leg(
-                instrument=Instrument.MES,
-                direction=Direction.LONG,
-                size=1.0
-            )
-        ]
+
+        # AZR-11: Position Sizing Logic for ENTER action
+        current_equity = ctx.equity_curve[-1] # Assuming last point of equity_curve is current equity
+
+        # Pydantic validation ensures daily_history_hlc has min_length=15, so it's never None or empty.
+        mes_price = ctx.daily_history_hlc[-1][2] # Last close price for MES
+
+        if mes_price <= 0:
+            action = "HOLD"
+            rationale += f" Invalid MES price ({mes_price:.2f}) for sizing, holding."
+            legs = None
+        else:
+            target_dollar_exposure = position_size(
+                    latent_risk=lr,
+                    equity=current_equity,
+                    max_leverage=DEFAULT_MAX_LEVERAGE
+                )
+            # This block was previously over-indented. Corrected now.
+            contract_value = mes_price * MES_CONTRACT_MULTIPLIER
+            # Assuming mes_price > 0 (checked before) and MES_CONTRACT_MULTIPLIER > 0,
+            # contract_value will be > 0. So, direct calculation.
+            calculated_size = target_dollar_exposure / contract_value
+
+            if calculated_size >= MIN_CONTRACT_SIZE:
+                legs = [
+                    Leg(
+                        instrument=Instrument.MES,
+                        direction=Direction.LONG, # Assuming ENTER means LONG for MES as per original logic
+                        size=calculated_size
+                    )
+                ]
+                rationale += f" Sized to {calculated_size:.2f} contracts for MES."
+            else:
+                # If calculated size is too small, either don't trade or it implies HOLD.
+                action = "HOLD"
+                rationale += f" Calculated size ({calculated_size:.4f}) too small, holding."
+                legs = None
+
     elif lr > EXIT_LR_THRESHOLD or conf < EXIT_CONF_THRESHOLD:
         action = "EXIT"
         rationale = f"Unfavorable conditions: Latent Risk ({lr:.2f}) > {EXIT_LR_THRESHOLD} or Confidence ({conf:.2f}) < {EXIT_CONF_THRESHOLD}."
