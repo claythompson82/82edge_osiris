@@ -2,6 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock, AsyncMock
 import osiris.server as server
+from azr_planner.schemas import TradeProposal, Leg, Instrument, Direction # AZR-13: Added for test_metrics_endpoint
 
 app = server.app
 
@@ -278,6 +279,98 @@ def test_azr_planner_prefix_and_tags_available_when_osiris_test_set(test_client_
     defined_tags = [tag["name"] for tag in openapi_schema.get("tags", [])]
     assert "AZR Planner Internal" in defined_tags, "Tag 'AZR Planner Internal' not defined in OpenAPI schema."
     assert "AZR Planner" in defined_tags, "Tag 'AZR Planner' (for v1 endpoint) not defined in OpenAPI schema."
+
+
+# --- AZR-12: Tests for Risk Gate integration in internal propose_trade endpoint ---
+
+def test_azr_planner_internal_propose_trade_risk_gate_accepts(
+    test_client_azr: TestClient,
+    monkeypatch: pytest.MonkeyPatch # Added monkeypatch
+) -> None:
+    """Test internal propose_trade when risk_gate.accept returns True."""
+    # Mock azr_planner.risk_gate.accept to return (True, None)
+    # The actual path to mock is where it's imported in osiris.server
+    # Mock now needs to accept db_table and cfg keyword arguments
+    monkeypatch.setattr("osiris.server.risk_gate_accept", lambda proposal, *, db_table=None, cfg=None: (True, None))
+
+    response = test_client_azr.post("/azr_api/internal/azr/planner/propose_trade", json=SAMPLE_PLANNING_CONTEXT_DATA_AZR_NEW)
+    assert response.status_code == 200, f"Response content: {response.text}"
+    data = response.json()
+    # Basic check that it's a valid TradeProposal structure
+    assert "action" in data
+    assert "rationale" in data
+
+
+def test_azr_planner_internal_propose_trade_risk_gate_rejects(
+    test_client_azr: TestClient,
+    monkeypatch: pytest.MonkeyPatch # Added monkeypatch
+) -> None:
+    """Test internal propose_trade when risk_gate.accept returns False."""
+    rejection_reason = "position_limit"
+    # Mock azr_planner.risk_gate.accept to return (False, reason)
+    # Mock now needs to accept db_table and cfg keyword arguments
+    monkeypatch.setattr("osiris.server.risk_gate_accept", lambda proposal, *, db_table=None, cfg=None: (False, rejection_reason))
+
+    response = test_client_azr.post("/azr_api/internal/azr/planner/propose_trade", json=SAMPLE_PLANNING_CONTEXT_DATA_AZR_NEW)
+    assert response.status_code == 409, f"Expected 409, got {response.status_code}. Response: {response.text}"
+
+    data = response.json()
+    assert data == {"detail": "risk_gate_reject", "reason": rejection_reason}
+
+
+# AZR-13: Test for /metrics endpoint
+def test_metrics_endpoint(
+    test_client_azr: TestClient,
+    monkeypatch: pytest.MonkeyPatch # To control risk gate outcomes for predictable metrics
+) -> None:
+    """Test that the /metrics endpoint is available and returns Prometheus data."""
+
+    # Ensure some risk gate metrics are populated by making calls that trigger the actual risk gate.
+
+    # Scenario 1: Craft a context that should be accepted by the default risk gate
+    # Default config: max_latent_risk=0.35, min_confidence=0.60, max_position_usd=25_000.0
+    # generate_plan will produce some latent_risk and confidence.
+    # We need generate_plan's output to be accepted.
+    # For this test, let's assume SAMPLE_PLANNING_CONTEXT_DATA_AZR_NEW results in a proposal
+    # that is normally accepted by the default risk gate config.
+    # (If not, this test might be flaky, or we'd need to mock generate_plan to give a known good proposal)
+
+    # To ensure counters are fresh for this test, ideally they would be reset.
+    # For now, we rely on them being incremented from whatever state they were in.
+    # The test checks for *presence* of metrics, not exact values after reset.
+
+    # Call 1 (expected to be accepted by default risk gate if proposal is reasonable)
+    # We need to ensure generate_plan is called, and then risk_gate.accept is called with its output.
+    # The risk_gate.accept is NOT mocked here, so real increments happen.
+    # We might need to mock generate_plan to produce a known "good" proposal.
+    with patch("osiris.server.azr_generate_plan_engine") as mock_gen_plan_accept:
+        good_proposal = TradeProposal(action="ENTER", rationale="Good", latent_risk=0.1, confidence=0.8,
+                                      legs=[Leg(instrument=Instrument.MES, direction=Direction.LONG, size=1.0)])
+        mock_gen_plan_accept.return_value = good_proposal
+        test_client_azr.post("/azr_api/internal/azr/planner/propose_trade", json=SAMPLE_PLANNING_CONTEXT_DATA_AZR_NEW)
+
+    # Scenario 2: Craft a context/mock generate_plan for a rejected proposal
+    with patch("osiris.server.azr_generate_plan_engine") as mock_gen_plan_reject:
+        bad_proposal = TradeProposal(action="ENTER", rationale="Bad", latent_risk=0.9, confidence=0.8, # High risk
+                                     legs=[Leg(instrument=Instrument.MES, direction=Direction.LONG, size=1.0)])
+        mock_gen_plan_reject.return_value = bad_proposal
+        # This call should result in a 409, but we are interested in the counter increment
+        # The actual risk_gate.accept will be called.
+        test_client_azr.post("/azr_api/internal/azr/planner/propose_trade", json=SAMPLE_PLANNING_CONTEXT_DATA_AZR_NEW)
+
+    # Now call /metrics
+    response = test_client_azr.get("/metrics")
+    assert response.status_code == 200
+    # CONTENT_TYPE_LATEST = "text/plain; version=0.0.4; charset=utf-8"
+    from prometheus_client import CONTENT_TYPE_LATEST # Import for direct comparison
+    assert response.headers["content-type"] == CONTENT_TYPE_LATEST
+
+    # Check for presence of our custom metrics in the output
+    content = response.text
+    assert "azr_riskgate_accept_total" in content
+    assert "azr_riskgate_reject_total" in content
+    # The bad_proposal was rejected due to high_risk, as that's the first check it fails
+    assert 'azr_riskgate_reject_total{reason="high_risk"}' in content
 
 
 # --- Tests for AZR Planner V1 Public Endpoint ---

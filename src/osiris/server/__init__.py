@@ -138,6 +138,16 @@ def health(adapter_date: bool = False) -> JSONResponse: # Added return type
         }
     )
 
+# AZR-13: Prometheus Metrics Endpoint
+# These imports are needed globally if /metrics is global
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST # Moved to global for /metrics
+from starlette.responses import Response as StarletteResponse # Moved to global for /metrics
+
+@app.get("/metrics", response_class=StarletteResponse)
+async def metrics() -> StarletteResponse:
+    """Exposes Prometheus metrics."""
+    return StarletteResponse(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
 
 # --------------------------------------------------------------------------- #
 #  Helper used by tests/test_feedback_versioning.py
@@ -202,8 +212,15 @@ import os
 # Ensure imports are conditional or handled if azr_planner is optional
 if os.getenv("OSIRIS_TEST") == "1":
     # Schemas and engine already imported above, but can be re-imported if preferred for clarity
-    # from azr_planner.schemas import PlanningContext, TradeProposal
-    # from azr_planner.engine import generate_plan as azr_generate_plan
+    # from azr_planner.schemas import PlanningContext, TradeProposal # Already imported as AZRPlanningContext etc.
+    # from azr_planner.engine import generate_plan as azr_generate_plan # Already imported as azr_generate_plan_engine
+    from azr_planner.risk_gate import accept as risk_gate_accept, RiskGateConfig # AZR-12 Import
+    # from fastapi import HTTPException # No longer needed as using JSONResponse directly
+    # AZR-13: Prometheus client imports
+    from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+    # Response class from Starlette, also available via fastapi.responses
+    from starlette.responses import Response as StarletteResponse
+
 
     router_azr_internal = fastapi.APIRouter(
         prefix="/azr_api/internal/azr/planner",
@@ -212,12 +229,34 @@ if os.getenv("OSIRIS_TEST") == "1":
 
     @router_azr_internal.post(
         "/propose_trade",
-        response_model=AZRTradeProposal,
+        response_model=AZRTradeProposal, # On success
+        # Add responses for OpenAPI documentation for the 409 case
+        responses={
+            200: {"description": "Trade proposal accepted"},
+            409: {"description": "Trade proposal rejected by Risk Gate",
+                  "content": {"application/json": {"example": {"detail": "risk_gate_reject", "reason": "high_risk"}}}}
+        }
     )
-    async def propose_trade_internal(ctx: AZRPlanningContext) -> AZRTradeProposal:
+    async def propose_trade_internal(ctx: AZRPlanningContext) -> Union[AZRTradeProposal, JSONResponse]: # Return type can be Union
         """
         Internal test wrapper around azr_planner.engine.generate_plan.
+        Includes AZR-12 Risk Gate check.
         """
-        return azr_generate_plan_engine(ctx)
+        trade_proposal = azr_generate_plan_engine(ctx)
+
+        # AZR-12: Call Risk Gate
+        # Using default RiskGateConfig for now
+        accepted, reason = risk_gate_accept(trade_proposal, cfg=None)
+
+        if not accepted:
+            # Respond with HTTP 409 and specified JSON body
+            # To match the exact flat JSON structure {"detail": "risk_gate_reject", "reason": "<string>"}
+            # we should use JSONResponse directly. HTTPException tends to nest details.
+            return JSONResponse(
+                status_code=fastapi.status.HTTP_409_CONFLICT,
+                content={"detail": "risk_gate_reject", "reason": reason or "unknown_reason"}
+            )
+
+        return trade_proposal
 
     app.include_router(router_azr_internal)
