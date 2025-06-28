@@ -18,7 +18,7 @@ import uuid
 import difflib
 import redis  # Changed from 'from redis import Redis'
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, cast
 
 # from redis import Redis # Original import
 from llm_sidecar.reward import proofable_reward
@@ -28,6 +28,7 @@ from dgm_kernel.prover import (
     _get_pylint_score as _prover_pylint_score,
 )
 from dgm_kernel.sandbox import run_patch_in_sandbox
+from dgm_kernel.mutation_strategies import MutationStrategy
 
 log = logging.getLogger(__name__)
 
@@ -54,6 +55,21 @@ if PATCH_HISTORY_FILE.exists():
             _last_patch_time = history[-1].get("timestamp", 0.0)
     except Exception as e:  # pragma: no cover - history shouldn't crash startup
         log.error(f"Failed to read patch history: {e}")
+
+_MUTATION_NAME = os.environ.get("DGM_MUTATION", "ASTInsertComment")
+
+
+def _load_mutation() -> MutationStrategy:
+    mod = importlib.import_module("dgm_kernel.mutation_strategies")
+    cls = cast(type[MutationStrategy], getattr(mod, _MUTATION_NAME))
+    return cls()
+
+
+_mutation_strategy = _load_mutation()
+
+
+def _generate_patch(code: str) -> str:
+    return _mutation_strategy.mutate(code)
 
 # ────────────────────────────────────────────────────────────────────────────
 # ▼ 1.  fetch_recent_traces()  (pull N traces from Redis)
@@ -119,7 +135,11 @@ async def generate_patch(
     TODO(https://github.com/82edge/osiris/issues/99):
         Replace with full patch generation logic.
     """
-    return draft_patch(traces)
+    patch = draft_patch(traces)
+    if patch is None:
+        return None
+    patch["after"] = _generate_patch(patch.get("after", ""))
+    return patch
 
 
 def _get_pylint_score(patch_code: str) -> float:
