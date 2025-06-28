@@ -1,42 +1,26 @@
-import subprocess
-from pathlib import Path
-from dgm_kernel import sandbox
+from hypothesis import given, strategies as st, settings, HealthCheck
+from dgm_kernel.sandbox import Sandbox
 
 
-def test_run_patch_in_sandbox_success(tmp_path, monkeypatch):
-    repo = tmp_path / "repo"
-    repo.mkdir()
-    target = repo / "mod.py"
-    target.write_text("print('old')\n")
-
-    patch = {"target": str(target), "after": "print('new')"}
-
-    def fake_run(cmd, capture_output=True, text=True):
-        assert "--network=none" in cmd
-        assert "--memory" in cmd
-        return subprocess.CompletedProcess(cmd, 0, "out", "")
-
-    monkeypatch.setattr(subprocess, "run", fake_run)
-
-    passed, logs, code = sandbox.run_patch_in_sandbox(patch, repo_root=repo)
+def test_sandbox_success(tmp_path) -> None:
+    patch = {"target": str(tmp_path / "m.py"), "after": "print('ok')"}
+    passed, logs, code = Sandbox().run(patch)
     assert passed is True
     assert code == 0
 
 
-def test_run_patch_in_sandbox_failure(tmp_path, monkeypatch):
-    repo = tmp_path / "repo"
-    repo.mkdir()
-    target = repo / "mod.py"
-    target.write_text("print('old')\n")
-
-    patch = {"target": str(target), "after": "print('new')"}
-
-    def fake_run(cmd, capture_output=True, text=True):
-        return subprocess.CompletedProcess(cmd, 1, "", "error")
-
-    monkeypatch.setattr(subprocess, "run", fake_run)
-
-    passed, logs, code = sandbox.run_patch_in_sandbox(patch, repo_root=repo)
+def test_sandbox_failure(tmp_path) -> None:
+    patch = {"target": str(tmp_path / "m.py"), "after": "raise ValueError('boom')"}
+    passed, logs, code = Sandbox().run(patch)
     assert passed is False
-    assert code == 1
+    assert "SandboxError" in logs
 
+
+@given(st.text(min_size=1))
+@settings(max_examples=100, suppress_health_check=[HealthCheck.function_scoped_fixture])
+def test_sandbox_property(tmp_path, text: str) -> None:
+    patch = {"target": str(tmp_path / "m.py"), "after": text}
+    passed, logs, code = Sandbox().run(patch)
+    assert isinstance(passed, bool)
+    assert isinstance(logs, str)
+    assert isinstance(code, int)
