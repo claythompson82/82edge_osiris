@@ -7,7 +7,50 @@ import time
 import difflib
 
 import pytest
-import fakeredis
+from collections import defaultdict
+import sys
+
+
+class _RedisModule:
+    class Redis:
+        def __init__(self, *_, **__):
+            self._client = SimpleRedis()
+
+        def __getattr__(self, name):
+            return getattr(self._client, name)
+
+    class exceptions:
+        class RedisError(Exception):
+            ...
+
+
+sys.modules.setdefault("redis", _RedisModule())
+
+
+class SimpleRedis:
+    def __init__(self):
+        self.store = defaultdict(list)
+
+    def lpush(self, name, value):
+        self.store[name].insert(0, value)
+
+    def rpop(self, name):
+        lst = self.store[name]
+        if lst:
+            return lst.pop()
+        return None
+
+    def llen(self, name):
+        return len(self.store[name])
+
+    def lrange(self, name, start, end):
+        lst = self.store[name]
+        if end == -1:
+            end = len(lst) - 1
+        return lst[start:end + 1]
+
+    def ping(self):
+        return True
 
 # Modules to be tested
 from dgm_kernel import meta_loop
@@ -22,17 +65,9 @@ log = logging.getLogger(__name__)
 
 
 @pytest.fixture
-def mock_redis_server():
-    """This fixture provides a fakeredis server instance if needed."""
-    server = fakeredis.FakeServer()
-    server.connected = True
-    return server
-
-
-@pytest.fixture
-def fake_redis(mock_redis_server):
-    """Use fakeredis.FakeStrictRedis for type compatibility with redis.Redis."""
-    r = fakeredis.FakeStrictRedis(server=mock_redis_server, decode_responses=True)
+def fake_redis():
+    """Provide a minimal in-memory Redis replacement."""
+    r = SimpleRedis()
     r.ping()
     return r
 

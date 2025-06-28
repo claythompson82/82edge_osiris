@@ -6,6 +6,7 @@ Darwin Gödel Machine – self-improvement meta-loop (async capable)
 from __future__ import annotations
 import asyncio
 import importlib
+import importlib.util
 import logging
 import time
 import json
@@ -17,6 +18,7 @@ import uuid
 import difflib
 import redis  # Changed from 'from redis import Redis'
 from pathlib import Path
+from typing import Any, Dict, List
 
 # from redis import Redis # Original import
 from llm_sidecar.reward import proofable_reward
@@ -61,7 +63,7 @@ if PATCH_HISTORY_FILE.exists():
 # ────────────────────────────────────────────────────────────────────────────
 
 
-async def fetch_recent_traces(n: int = 100) -> list[dict]:
+async def fetch_recent_traces(n: int = 100) -> List[Dict[str, Any]]:
     """Pop the newest N traces for evaluation. Handles JSON decoding errors."""
     traces = []
     try:
@@ -110,8 +112,8 @@ async def fetch_recent_traces(n: int = 100) -> list[dict]:
 
 
 async def generate_patch(
-    traces: list[dict],
-) -> dict | None:  # Return type updated to include None
+    traces: List[Dict[str, Any]],
+) -> Dict[str, Any] | None:
     """
     Emit a JSON patch using an LLM or search routine.
     TODO(https://github.com/82edge/osiris/issues/99):
@@ -171,7 +173,7 @@ async def _run_unit_tests(target: str, code: str) -> bool:
         tgt.write_text(original)
 
 
-async def _verify_patch(traces: list[dict], patch: dict) -> bool:
+async def _verify_patch(traces: List[Dict[str, Any]], patch: Dict[str, Any]) -> bool:
     """Validate the patch for dangerous code, lint errors, and failing tests."""
     patch_code = patch.get("after", "")
     if not patch_code:
@@ -204,7 +206,7 @@ async def _verify_patch(traces: list[dict], patch: dict) -> bool:
     return True
 
 
-def _apply_patch(patch: dict) -> bool:
+def _apply_patch(patch: Dict[str, Any]) -> bool:
     """
     Atomically write patch['after'] into patch['target'] on disk,
     then `importlib.reload()` the module in-memory.
@@ -245,7 +247,7 @@ def _apply_patch(patch: dict) -> bool:
     return True
 
 
-def _record_patch_history(entry: dict) -> None:
+def _record_patch_history(entry: Dict[str, Any]) -> None:
     """Append a patch entry to PATCH_HISTORY_FILE in a JSON list."""
     history = []
     if PATCH_HISTORY_FILE.exists():
@@ -258,7 +260,78 @@ def _record_patch_history(entry: dict) -> None:
     PATCH_HISTORY_FILE.write_text(json.dumps(history, indent=2))
 
 
-async def meta_loop():
+async def loop_once() -> None:
+    """Run a single iteration of the meta-loop."""
+    global _last_patch_time
+    traces = await fetch_recent_traces()
+    if not traces:
+        log.info("No traces found, exiting.")
+        return
+
+    patch = await generate_patch(traces)
+    if not patch:
+        log.info("No patch generated, exiting.")
+        return
+
+    accepted = await _verify_patch(traces, patch)
+    if not accepted:
+        log.warning(
+            f"Patch for {patch.get('target')} was not approved, exiting."
+        )
+        return
+
+    sandbox_ok, sandbox_logs, exit_code = run_patch_in_sandbox(patch)
+    if not sandbox_ok:
+        log.warning("Patch failed sandbox test (exit code %s).", exit_code)
+        log.debug("Sandbox output:\n%s", sandbox_logs)
+        return
+
+    now = time.time()
+    if now - _last_patch_time < PATCH_RATE_LIMIT_SECONDS:
+        log.info("Rate limit active, skipping patch application.")
+        return
+
+    if _apply_patch(patch):
+        new_r = sum(
+            proofable_reward(t, patch.get("after")) for t in traces
+        )
+        if new_r >= 0:
+            patch_id = str(uuid.uuid4())
+            diff = "".join(
+                difflib.unified_diff(
+                    patch.get("before", "").splitlines(),
+                    patch.get("after", "").splitlines(),
+                    fromfile="before",
+                    tofile="after",
+                    lineterm="",
+                )
+            )
+            REDIS.lpush(
+                APPLIED_LOG,
+                json.dumps(patch | {"reward": new_r, "patch_id": patch_id}),
+            )
+            _record_patch_history(
+                {
+                    "patch_id": patch_id,
+                    "timestamp": now,
+                    "diff": diff,
+                    "reward": new_r,
+                    "sandbox_exit_code": exit_code,
+                }
+            )
+            log.info("Patch applied ✔️  reward=%.4f", new_r)
+            _last_patch_time = now
+        else:
+            log.warning("Patch rolled back, reward=%.4f", new_r)
+            _rollback(patch)
+            for t in traces:
+                t["rolled_back"] = True
+                REDIS.lpush(ROLLED_BACK_LOG, json.dumps(t))
+    else:
+        log.error(f"Failed to apply patch for target: {patch.get('target')}")
+
+
+async def meta_loop() -> None:
     """Run the main async supervisor loop (runs forever)."""
     global _last_patch_time
     while True:
@@ -339,7 +412,7 @@ async def meta_loop():
             # _rollback(patch) # Consider if rollback is safe if apply itself failed.
 
 
-def _rollback(patch: dict):
+def _rollback(patch: Dict[str, Any]) -> None:
     """Roll back the patch by writing the 'before' content to the target file and reloading the module."""
     tgt = Path(patch["target"])
     tgt.write_text(patch["before"])
@@ -368,85 +441,7 @@ if __name__ == "__main__":
 
     if args.once:
         log.info("Running DGM meta-loop once.")
-
-        # Define a new async function to run the loop once
-        async def run_once():
-            global _last_patch_time
-            traces = await fetch_recent_traces()
-            if not traces:
-                log.info("No traces found, exiting.")
-                return
-
-            patch = await generate_patch(traces)
-            if not patch:
-                log.info("No patch generated, exiting.")
-                return
-
-            accepted = await _verify_patch(traces, patch)
-            if not accepted:
-                log.warning(
-                    f"Patch for {patch.get('target')} was not approved, exiting."
-                )
-                return
-
-            sandbox_ok, sandbox_logs, exit_code = run_patch_in_sandbox(patch)
-            if not sandbox_ok:
-                log.warning(
-                    "Patch failed sandbox test (exit code %s).", exit_code
-                )
-                log.debug("Sandbox output:\n%s", sandbox_logs)
-                return
-
-            now = time.time()
-            if now - _last_patch_time < PATCH_RATE_LIMIT_SECONDS:
-                log.info("Rate limit active, skipping patch application.")
-                return
-
-            if _apply_patch(patch):
-                new_r = sum(
-                    proofable_reward(t, patch.get("after")) for t in traces
-                )  # Pass patch content to reward
-                if new_r >= 0:
-                    patch_id = str(uuid.uuid4())
-                    diff = "".join(
-                        difflib.unified_diff(
-                            patch.get("before", "").splitlines(),
-                            patch.get("after", "").splitlines(),
-                            fromfile="before",
-                            tofile="after",
-                            lineterm="",
-                        )
-                    )
-                    REDIS.lpush(
-                        APPLIED_LOG,
-                        json.dumps(patch | {"reward": new_r, "patch_id": patch_id}),
-                    )
-                    _record_patch_history(
-                        {
-                            "patch_id": patch_id,
-                            "timestamp": now,
-                            "diff": diff,
-                            "reward": new_r,
-                            "sandbox_exit_code": exit_code,
-                        }
-                    )
-                    log.info(
-                        "Patch applied (once) ✔️  reward=%.4f",
-                        new_r,
-                    )
-                    _last_patch_time = now
-                else:
-                    log.warning("Patch rolled back (once), reward=%.4f", new_r)
-                    _rollback(patch)
-                    for t in traces:
-                        t["rolled_back"] = True
-                        REDIS.lpush(ROLLED_BACK_LOG, json.dumps(t))
-            else:
-                log.error(
-                    f"Failed to apply patch (once) for target: {patch.get('target')}"
-                )
-
-        asyncio.run(run_once())
+        asyncio.run(loop_once())
         log.info("DGM meta-loop (once) finished.")
     else:
         log.info("Starting DGM meta-loop to run continuously.")
