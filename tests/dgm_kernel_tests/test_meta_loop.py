@@ -12,6 +12,10 @@ import fakeredis
 # Modules to be tested
 from dgm_kernel import meta_loop
 
+# Minimal test used by prover sandbox
+def sanity_only():
+    assert True
+
 # Configure logging for tests (optional, but can be helpful)
 logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(__name__)

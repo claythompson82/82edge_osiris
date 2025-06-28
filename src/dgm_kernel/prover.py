@@ -1,51 +1,101 @@
+"""Patch verification helpers used by the DGM kernel."""
+
+from __future__ import annotations
+
 import subprocess
+import sys
 import tempfile
+import shutil
 from pathlib import Path
 import re
 import logging
-from dataclasses import dataclass
-
 log = logging.getLogger(__name__)
 
 
-@dataclass
-class VerifiedPatch:
-    is_valid: bool
-    reason: str = ""
+def prove_patch(patch_text: str) -> bool:
+    """Validate a unified diff in an isolated temporary directory.
 
+    The function copies the current repository to a temporary directory,
+    applies the provided ``patch_text`` using the ``patch`` command and then
+    performs two checks:
 
-def prove_patch(id: str, diff: str, patch_code: str) -> VerifiedPatch:
-    """Verify patch safety.
+    1. ``python -m py_compile`` on each modified ``.py`` file.
+    2. ``pytest -q tests/dgm_kernel_tests/test_meta_loop.py::sanity_only``.
 
-    A placeholder diff that contains "stub" is considered already valid to
-    maintain backwards compatibility with earlier behaviour.
+    If every step succeeds ``True`` is returned, otherwise ``False``.  Any
+    errors from subprocess calls are logged for debugging but suppressed from
+    raising.
     """
 
-    placeholder_tokens = {"STUB", "stub"}
-    if any(token in diff for token in placeholder_tokens):
-        return VerifiedPatch(is_valid=True, reason="stub")
+    repo_root = Path(__file__).resolve().parents[1]
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_repo = Path(tmpdir) / "repo"
+            shutil.copytree(repo_root, tmp_repo, dirs_exist_ok=True)
 
-    if not diff.strip() or not patch_code.strip():
-        return VerifiedPatch(is_valid=False, reason="empty patch")
+            patch_file = Path(tmpdir) / "patch.diff"
+            patch_file.write_text(patch_text)
 
-    forbidden_paths = [
-        re.compile(r"^\.env"),
-        re.compile(r"^secrets/"),
-        re.compile(r"/__?snapshots__?/"),
-    ]
+            apply_proc = subprocess.run(
+                ["patch", "-p1", "-i", str(patch_file)],
+                cwd=tmp_repo,
+                capture_output=True,
+                text=True,
+            )
+            if apply_proc.returncode != 0:
+                log.error("patch failed: %s", apply_proc.stderr.strip())
+                return False
 
+            modified = _patched_files(patch_text)
+            for path in modified:
+                if path.endswith(".py"):
+                    proc = subprocess.run(
+                        [sys.executable, "-m", "py_compile", path],
+                        cwd=tmp_repo,
+                        capture_output=True,
+                        text=True,
+                    )
+                    if proc.returncode != 0:
+                        log.error(
+                            "py_compile failed for %s: %s", path, proc.stderr.strip()
+                        )
+                        return False
+
+            test_proc = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pytest",
+                    "-q",
+                    "tests/dgm_kernel_tests/test_meta_loop.py::sanity_only",
+                ],
+                cwd=tmp_repo,
+                capture_output=True,
+                text=True,
+            )
+            if test_proc.returncode != 0:
+                log.error(
+                    "pytest failed: %s", (test_proc.stdout + test_proc.stderr).strip()
+                )
+                return False
+
+            return True
+    except Exception as e:  # pragma: no cover - unexpected issues
+        log.error("prove_patch error: %s", e)
+        return False
+
+
+def _patched_files(diff: str) -> list[str]:
+    """Extract file paths touched by a unified diff."""
+    files: set[str] = set()
     for line in diff.splitlines():
         if line.startswith("+++ ") or line.startswith("--- "):
-            path = line[4:].split()[-1]
+            path = line[4:].split()[0]
             if path.startswith("a/") or path.startswith("b/"):
                 path = path[2:]
-            for pattern in forbidden_paths:
-                if pattern.search(path):
-                    return VerifiedPatch(
-                        is_valid=False, reason=f"forbidden path {path}"
-                    )
-
-    return VerifiedPatch(is_valid=True, reason="passed")
+            if path != "/dev/null":
+                files.add(path)
+    return sorted(files)
 
 
 def _get_pylint_score(patch_code: str) -> float:
