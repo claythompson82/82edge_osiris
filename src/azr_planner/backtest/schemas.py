@@ -30,6 +30,31 @@ class DailyTrade(BaseModel):
         alias_generator=to_camel
     )
 
+
+# --- Walk-Forward Backtest Report ---
+class WalkForwardBacktestReport(BaseModel):
+    """Aggregated report from a walk-forward backtest execution."""
+    report_generated_at: datetime.datetime = Field(
+        default_factory=lambda: datetime.datetime.now(datetime.timezone.utc)
+    )
+    from_date: datetime.datetime = Field(description="Start date of the entire walk-forward period.")
+    to_date: datetime.datetime = Field(description="End date of the entire walk-forward period.")
+
+    mean_sharpe: Optional[float] = Field(default=None, description="Average Sharpe ratio across all walk-forward windows.")
+    worst_drawdown: Optional[float] = Field(default=None, ge=0, description="Worst maximum drawdown observed in any window (positive value).")
+    total_return: Optional[float] = Field(default=None, description="Total return over the entire period.")
+    trades: int = Field(default=0, ge=0, description="Total number of trades executed across all windows.")
+    win_rate: Optional[float] = Field(default=None, ge=0, le=1, description="Overall win rate calculated from all trades.")
+
+    # Optional: Store individual window reports or key metrics if needed for detailed analysis later
+    # window_reports: Optional[List[SingleBacktestReport]] = None
+
+    model_config = ConfigDict(
+        frozen=True, # Consider if this should be mutable during construction then frozen
+        populate_by_name=True,
+        alias_generator=to_camel
+    )
+
 # --- Daily State Snapshots ---
 class DailyPortfolioState(BaseModel):
     """Represents the state of the portfolio at the end of a backtest day (after trades)."""
@@ -64,8 +89,8 @@ class DailyResult(BaseModel):
     )
 
 # --- Aggregate Backtest Metrics ---
-class BacktestMetrics(BaseModel):
-    """Calculated performance metrics for the entire backtest period."""
+class SingleBacktestMetrics(BaseModel):
+    """Calculated performance metrics for a single backtest period."""
     cagr: Optional[float] = None
     max_drawdown: Optional[float] = Field(default=None, ge=0) # Max drawdown is a positive value representing percentage loss
     sharpe_ratio: Optional[float] = None
@@ -87,15 +112,15 @@ class BacktestMetrics(BaseModel):
     )
 
 # --- Overall Backtest Report ---
-class BacktestReport(BaseModel):
-    """Comprehensive report of a backtest run."""
+class SingleBacktestReport(BaseModel):
+    """Comprehensive report of a single backtest run."""
     report_generated_at: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
     backtest_run_id: Optional[str] = None # Optional ID for the run
     start_timestamp: datetime.datetime
-    end_timestamp: datetime.datetime # Corrected this
+    end_timestamp: datetime.datetime
     initial_cash: float
     final_equity: float
-    metrics: BacktestMetrics
+    metrics: SingleBacktestMetrics
     equity_curve: List[float] # Daily equity values
     daily_results: List[DailyResult]
     # Series data for plotting or further analysis

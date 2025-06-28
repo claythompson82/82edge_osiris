@@ -94,7 +94,8 @@ def calculate_max_drawdown(equity_curve: List[float]) -> float:
         # If all NaNs or unexpected type, means no valid drawdown calculable (e.g. single point curve after ops)
         return 0.0
 
-    max_dd_as_positive_float = abs(float(min_drawdown_value))
+    # Max drawdown is conventionally capped at 1.0 (100%)
+    max_dd_as_positive_float = min(abs(float(min_drawdown_value)), 1.0)
 
     return max_dd_as_positive_float
 

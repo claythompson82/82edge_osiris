@@ -7,7 +7,14 @@ src/advisor/risk_gate.py
 src/azr_planner/__init__.py
 src/azr_planner/engine.py
 src/azr_planner/math_utils.py
+src/azr_planner/py.typed
 src/azr_planner/schemas.py
+src/azr_planner/backtest/__init__.py
+src/azr_planner/backtest/core.py
+src/azr_planner/backtest/metrics.py
+src/azr_planner/backtest/runner.py
+src/azr_planner/backtest/schemas.py
+src/azr_planner/datasets/__init__.py
 src/chatterbox/__init__.py
 src/common/__init__.py
 src/common/config.py
