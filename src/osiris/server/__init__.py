@@ -8,7 +8,7 @@ import datetime as _dt
 import json
 import time
 from pathlib import Path
-from typing import Any, Dict, Union
+from typing import Any, Dict, Union, List # Added List here
 
 import fastapi
 from fastapi.middleware.cors import CORSMiddleware
@@ -182,8 +182,11 @@ async def submit_phi3_feedback(item: Any) -> Dict[str, str]: # Added type hint f
 # --------------------------------------------------------------------------- #
 # These imports should be generally available, not conditional on OSIRIS_TEST
 # as this is a public endpoint.
-from azr_planner.schemas import PlanningContext as AZRPlanningContext, TradeProposal as AZRTradeProposal
+from azr_planner.schemas import PlanningContext as AZRPlanningContext, \
+                                TradeProposal as AZRTradeProposal, \
+                                DailyPNLReport as AZRDailyPNLReport # AZR-14
 from azr_planner.engine import generate_plan as azr_generate_plan_engine
+from fastapi import Query # AZR-14 For last_n parameter
 
 router_azr_v1 = fastapi.APIRouter(
     prefix="/azr_api/v1",
@@ -201,6 +204,54 @@ async def propose_trade_v1(ctx: AZRPlanningContext) -> AZRTradeProposal:
     This is the primary public endpoint for the AZR Planner.
     """
     return azr_generate_plan_engine(ctx)
+
+# AZR-14: P&L Daily Report Endpoint
+@router_azr_v1.get(
+    "/pnl/daily",
+    response_model=List[AZRDailyPNLReport],
+    summary="Fetch the last N daily P&L reports."
+)
+async def get_daily_pnl_reports(last_n: int = Query(7, ge=1, le=100, description="Number of last N days P&L reports to fetch." )) -> List[AZRDailyPNLReport]:
+    """
+    Retrieves a list of the most recent daily P&L reports.
+    Currently uses stubbed data; LanceDB integration is pending.
+    """
+    # TODO: Replace with actual LanceDB query
+    # For now, return dummy data or an empty list
+    # Example of fetching from a conceptual db_shim:
+    # try:
+    #     db = lancedb.connect(DB_PATH) # Assuming DB_PATH is defined
+    #     table = db.open_table("daily_pnl")
+    #     results = table.search().sort_by("date", "desc").limit(last_n).to_pydantic(AZRDailyPNLReport)
+    #     return results
+    # except Exception as e:
+    #     # Log error, return empty or raise HTTPException
+    #     print(f"Error fetching PNL reports from LanceDB: {e}")
+    #     # raise HTTPException(status_code=500, detail="Could not fetch P&L reports")
+    #     return [] # Return empty list for now
+
+    # Placeholder dummy data for now, matching the schema
+    dummy_reports: List[AZRDailyPNLReport] = []
+    if last_n > 0 : # Create some dummy reports if last_n > 0
+        base_date = _dt.date.today()
+        for i in range(min(last_n, 5)): # Max 5 dummy reports
+            dummy_reports.append(
+                AZRDailyPNLReport(
+                    date=base_date - _dt.timedelta(days=i),
+                    realized_pnl=100.0 + i,
+                    unrealized_pnl=50.0 - i,
+                    net_position_value=10000.0 + (100*i),
+                    cash=50000.0 - (50*i),
+                    total_equity=60000.0 + (50*i),
+                    gross_exposure=15000.0 + (100*i),
+                    net_exposure=5000.0 + (50*i),
+                    cumulative_max_equity=60000.0 + (100*i), # Simplified
+                    current_drawdown=0.01 * i,
+                    equity_curve_points=[60000.0 + (j*10) for j in range(10)] # Dummy curve
+                )
+            )
+    return dummy_reports
+
 
 app.include_router(router_azr_v1)
 

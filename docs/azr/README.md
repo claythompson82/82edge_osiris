@@ -299,6 +299,34 @@ The HTML report includes:
 
 ---
 
+## Daily P&L Workflow (AZR-14)
+
+The AZR system includes a daily Profit & Loss (P&L) simulation and reporting workflow. At the end of each UTC trading day (rollover at 21:00 UTC), this process ingests all trade fills for that day, updates the portfolio's positions, and calculates key P&L metrics. These metrics include realized P&L from closed trades, unrealized P&L on open positions based on EOD market prices, net position values, cash balance, total equity, gross and net exposures, and tracking of the portfolio's equity curve and drawdown. The resulting `DailyPNLReport` is persisted to a database (LanceDB) and a Prometheus counter (`azr_pnl_reports_total`) is incremented. A read-only API endpoint (`GET /azr_api/v1/pnl/daily?last_n=<int>`) allows fetching the latest P&L reports.
+
+**Sample `DailyPNLReport` JSON Payload:**
+```json
+{
+  "date": "2024-03-15",
+  "realized_pnl": 150.75,
+  "unrealized_pnl": -35.20,
+  "net_position_value": 12340.50,
+  "cash": 87659.50,
+  "total_equity": 99964.80,
+  "gross_exposure": 12340.50,
+  "net_exposure": 12340.50,
+  "cumulative_max_equity": 100500.00,
+  "current_drawdown": 0.005325373134328358, // (100500 - 99964.80) / 100500
+  "equity_curve_points": [
+    99800.00,
+    100100.25,
+    100500.00,
+    99964.80
+  ]
+}
+```
+
+---
+
 ## 💻 Local / Codestral Dev Loop
 
 This section outlines the steps to set up a minimal environment for developing and testing the AZR Planner components within the Codestral sandbox or a similar local, resource-constrained environment.
