@@ -56,8 +56,16 @@ def _install_dummy_lancedb() -> None:
     • lancedb.pydantic.LanceModel  +  stubs for pydantic_to_schema / arrow
     """
     import types
-    import pandas as pd
-    import pyarrow as pa
+    try:
+        import pyarrow as pa  # type: ignore
+    except Exception:  # pragma: no cover - optional dep
+        class _DummyTableModule:
+            class Table:  # minimal stub
+                @staticmethod
+                def from_pylist(rows):
+                    return list(rows)
+
+        pa = _DummyTableModule()
 
     class _Table(SimpleNamespace):
         _rows: list[dict]
