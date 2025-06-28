@@ -11,3 +11,4 @@ scipy
 scipy-stubs
 pytest-cov
 lancedb # For pyarrow dependency, hoping to fix test collection
+matplotlib

@@ -105,7 +105,7 @@ def rolling_volatility(series: List[float], window: int) -> float:
 import numpy as np
 from scipy.stats import entropy as shannon_entropy
 
-def _clamp(value: float, min_val: float, max_val: float) -> float:
+def clamp(value: float, min_val: float, max_val: float) -> float: # Renamed to public
     """Clamps a value between a minimum and maximum."""
     return max(min_val, min(value, max_val))
 
@@ -228,7 +228,7 @@ def latent_risk(equity_curve: List[float]) -> float:
 
     raw_risk = term_vol + term_dd + term_entropy
 
-    final_risk_score = _clamp(raw_risk, 0.0, 1.0)
+    final_risk_score = clamp(raw_risk, 0.0, 1.0) # Updated to use public clamp
 
     return final_risk_score
 
@@ -417,7 +417,7 @@ def bayesian_confidence(wins: int, losses: int, alpha: float = 3.0, beta: float 
     confidence = numerator / denominator
 
     # Clamp to [0, 1] as an extra safeguard, though theoretically it should be within this range.
-    return _clamp(confidence, 0.0, 1.0)
+    return clamp(confidence, 0.0, 1.0) # Updated to use public clamp
 
 
 # --- Latent Risk v2 Constants ---
@@ -515,4 +515,4 @@ def latent_risk_v2(equity_curve: List[float]) -> float:
     if math.isnan(raw_risk):
         return 1.0
 
-    return _clamp(raw_risk, 0.0, 1.0)
+    return clamp(raw_risk, 0.0, 1.0) # Updated to use public clamp

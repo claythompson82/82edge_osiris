@@ -23,7 +23,8 @@ from azr_planner.math_utils import (
     kelly_fraction,
     bayesian_confidence,
     latent_risk_v2, # New v2 latent risk
-    LR_V2_MIN_POINTS # Constant for latent_risk_v2
+    LR_V2_MIN_POINTS, # Constant for latent_risk_v2
+    clamp # Added clamp for testing
 )
 from azr_planner.schemas import TradeProposal
 from unittest.mock import patch # For mocking in latent_risk_v2 tests
@@ -71,6 +72,20 @@ def test_calculate_std_dev() -> None:
     assert calculate_std_dev([1.0, 2.0, 3.0, 4.0, 5.0]) == pytest.approx(math.sqrt(2.5))
     with pytest.raises(ValueError): calculate_std_dev([1.0])
 
+# --- Tests for clamp ---
+def test_clamp_edges() -> None:
+    from azr_planner.math_utils import clamp # Ensure it's the public one
+    assert clamp(-1.0, 0.0, 1.0) == 0.0
+    assert clamp(2.0, 0.0, 1.0) == 1.0
+    assert clamp(0.5, 0.0, 1.0) == 0.5
+    assert clamp(0.0, 0.0, 1.0) == 0.0
+    assert clamp(1.0, 0.0, 1.0) == 1.0
+    # Test with different min/max
+    assert clamp(5.0, 10.0, 20.0) == 10.0
+    assert clamp(25.0, 10.0, 20.0) == 20.0
+    assert clamp(15.0, 10.0, 20.0) == 15.0
+
+
 st_price_like = st.lists(st.floats(min_value=1.0, max_value=1_000.0, allow_nan=False, allow_infinity=False), min_size=1, max_size=100)
 st_return_like = st.lists(st.floats(min_value=-0.1, max_value=0.1, allow_nan=False, allow_infinity=False), min_size=1, max_size=100)
 st_window = st.integers(min_value=1, max_value=50)
@@ -87,6 +102,19 @@ def test_ema_property(series: List[float], span: int) -> None:
 def test_ema_known() -> None:
     assert math.isclose(ema([2.0, 4.0, 6.0, 8.0], 3), 6.25)
 
+def test_ema_edge_cases() -> None:
+    with pytest.raises(ValueError, match="Series cannot be empty"):
+        ema([], span=5)
+    with pytest.raises(ValueError, match="Span must be positive"):
+        ema([1.0, 2.0], span=0)
+    with pytest.raises(ValueError, match="Span must be positive"):
+        ema([1.0, 2.0], span=-1)
+    # Case where result is NaN due to insufficient data for span (though pandas might produce numbers)
+    # The current ema returns last value, so this is hard to make NaN unless series is very short.
+    # Example: pd.Series([1]).ewm(span=2, adjust=False).mean() is [1.0]
+    # pd.Series([]).ewm(span=2, adjust=False).mean() is empty, iloc[-1] fails. (Covered by empty series)
+    # For now, ValueError cases are most important.
+
 @given(series=st_return_like, window=st_window)
 @settings(max_examples=50, deadline=None)
 def test_rolling_vol_property(series: List[float], window: int) -> None:
@@ -98,12 +126,38 @@ def test_rolling_vol_property(series: List[float], window: int) -> None:
         if math.isnan(expected): assert math.isclose(result, 0.0)
         else: assert math.isclose(result, expected, rel_tol=1e-7)
 
-def test_rolling_vol_edge() -> None:
-    assert math.isnan(rolling_volatility([0.01, 0.02], 5))
+def test_rolling_vol_edge() -> None: # This existing test already covers the case.
+    assert math.isnan(rolling_volatility([0.01, 0.02], 5)) # window > len(series)
 
-def test_latent_risk_scenarios() -> None: # For old latent_risk
-    assert latent_risk([100.0] * (LR_V2_MIN_POINTS -1)) == 1.0
-    assert math.isclose(latent_risk([100.0] * 40), 0.0)
+def test_rolling_vol_too_short_returns_nan() -> None: # Explicitly for window > len(series)
+    from azr_planner.math_utils import rolling_volatility
+    import math # Already imported
+    assert math.isnan(rolling_volatility([0.01, 0.02], window=5))
+    assert math.isnan(rolling_volatility([0.01, 0.02, 0.03, 0.04], window=5)) # len = 4, window = 5
+    assert math.isnan(rolling_volatility([0.01], window=2)) # len = 1, window = 2
+
+# Test for window = 1, which should also lead to NaN as std dev of 1 point is undefined.
+# The function itself has `if window <= 0: raise ValueError`.
+# `pd.Series.rolling(window=1).std()` results in NaNs or 0s.
+# My `rolling_volatility` has: `if len(series) < window or window == 1: assert math.isnan(result)`
+# Let's test window = 1 explicitly.
+    assert math.isnan(rolling_volatility([0.01, 0.02, 0.03], window=1))
+
+
+def test_latent_risk_scenarios() -> None: # For old latent_risk (v1)
+    # Test case where num_points == 0
+    assert latent_risk([]) == 1.0
+    # Test case where num_points < 30 (but not 0), should hit some internal defaults or NaN paths leading to higher risk
+    # The original latent_risk implies calculations over last 30 bars.
+    # If fewer than 30 points, sigma_a might be NaN -> 1.0. max_dd might be calculated on fewer points.
+    # H might be 0.
+    # A short, flat curve should ideally result in low risk if calculable, or high if not.
+    # The original function seems to default to high risk (1.0) if components are NaN.
+    assert latent_risk([100.0] * 10) == 1.0 # Expect max risk due to inability to calculate 30-day components
+
+    # Original tests
+    assert latent_risk([100.0] * (LR_V2_MIN_POINTS -1)) == 1.0 # This is 29 points, should be 1.0
+    assert math.isclose(latent_risk([100.0] * 40), 0.0) # Flat line, 40 points, vol=0, dd=0, H=0 -> risk=0
 
 def test_trade_proposal_bounds() -> None:
     adapter = TypeAdapter(TradeProposal)
@@ -120,8 +174,25 @@ def test_atr_known_values() -> None:
     assert math.isclose(atr(hlc_short, window=3), 2.0)
 
 def test_atr_edge_cases() -> None:
-    with pytest.raises(ValueError): atr(_generate_hlc_data(5), window=0)
-    assert math.isnan(atr(_generate_hlc_data(13), window=14))
+    with pytest.raises(ValueError, match="Window must be positive"):
+        atr(_generate_hlc_data(5), window=0)
+    with pytest.raises(ValueError, match="Window must be positive"):
+        atr(_generate_hlc_data(5), window=-1)
+    with pytest.raises(ValueError, match="Input data list cannot be empty"):
+        atr([], window=14)
+
+    # Test for insufficient data length relative to window
+    assert math.isnan(atr(_generate_hlc_data(13), window=14)) # Needs 14 TRs (15 HLCs) for SMA part of ATR, current ATR returns nan if len(hlc) < window
+    assert math.isnan(atr(_generate_hlc_data(1), window=2)) # Needs 2 HLCs for 1 TR
+    assert math.isnan(atr(_generate_hlc_data(2), window=2)) # Needs 2 TRs (3 HLCs) for window=2 SMA part
+    # The current ATR check is `len(hlc_data) < window` for returning NaN early.
+    # For window=14, if len(hlc_data)=13, it returns NaN. Correct.
+    # If len(hlc_data)=1, window=2. 1 < 2, returns NaN. Correct.
+    # If len(hlc_data)=2, window=2. 2 is not < 2. TRs will be calculated (1 TR).
+    # Then `len(true_ranges) < window` (1 < 2) will return NaN. Correct.
+    # Test case where true_ranges is empty because hlc_data has < 2 items
+    assert math.isnan(atr([ (10,9,9.5) ], window=1)) # len(hlc_data) = 1, so true_ranges will be empty.
+
 
 @given(hlc_data=st_hlc_data, window=st_window)
 @settings(deadline=None, suppress_health_check=[HealthCheck.too_slow, HealthCheck.filter_too_much], max_examples=50)
