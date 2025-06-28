@@ -80,3 +80,15 @@ def generate_plan(ctx: PlanningContext) -> TradeProposal:
         confidence=round(conf, 3),
         legs=legs
     )
+
+from typing import Dict, Any # Added for type hint
+# from .backtest.runner import run_walk_forward # Moved import to local scope
+
+def backtest_strategy(ctx: PlanningContext, window_days: int = 30) -> Dict[str, Any]:
+    """
+    Runs a walk-forward backtest for the strategy defined by the engine
+    and returns the results as a dictionary.
+    """
+    from .backtest.runner import run_walk_forward # Local import to break cycle
+    report = run_walk_forward(full_history_ctx=ctx, window_days=window_days)
+    return report.model_dump()

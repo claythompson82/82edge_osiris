@@ -220,7 +220,8 @@ def test_calculate_win_rate_and_pnl_stats_edge_cases() -> None:
 
 # --- Tests for Backtest Core Logic ---
 from azr_planner.backtest.core import run_backtest
-from azr_planner.backtest.schemas import BacktestReport
+# Updated import:
+from azr_planner.backtest.schemas import SingleBacktestReport, SingleBacktestMetrics
 from azr_planner.datasets import load_sp500_sample # Assuming this will be created
 from azr_planner.schemas import PlanningContext
 from azr_planner.math_utils import LR_V2_MIN_POINTS
@@ -276,8 +277,8 @@ def test_run_backtest_property_basic_execution_and_series_length(contexts_iter: 
     Property test: run_backtest must run without exception for valid sequences of PlanningContexts.
     Checks if latentRiskSeries length matches the number of planning steps.
     """
-    report = run_backtest(contexts_iter)
-    assert isinstance(report, BacktestReport)
+    report: SingleBacktestReport = run_backtest(contexts_iter) # Updated type hint
+    assert isinstance(report, SingleBacktestReport)
 
     # Backtest runs for len(contexts) - 1 steps because the last context has no "next day" for fills
     expected_num_planning_steps = len(contexts_iter) - 1
@@ -290,6 +291,36 @@ def test_run_backtest_property_basic_execution_and_series_length(contexts_iter: 
     assert len(report.latent_risk_series) == expected_num_planning_steps
     assert report.confidence_series is not None
     assert len(report.confidence_series) == expected_num_planning_steps
+
+
+def test_run_backtest_insufficient_contexts() -> None:
+    """
+    Tests run_backtest with fewer than 2 contexts, expecting a ValueError.
+    """
+    # Test with 0 contexts
+    with pytest.raises(ValueError, match="Context iterator must yield at least two PlanningContexts"):
+        run_backtest([])
+
+    # Test with 1 context
+    # Construct a valid PlanningContext manually
+    dummy_equity = [100.0 + i for i in range(LR_V2_MIN_POINTS)] # LR_V2_MIN_POINTS is 30
+    dummy_hlc = [(v,v,v) for v in dummy_equity]
+    dummy_ts = datetime(2023,1,1,tzinfo=timezone.utc) # Ensure datetime is imported
+
+    # Need to ensure nSuccesses and nFailures are passed using aliases due to MyPy behavior observed
+    single_ctx_manual = [
+        PlanningContext( # type: ignore[call-arg] # To handle potential MyPy with alias issue if not yet fully resolved project-wide
+            timestamp=dummy_ts,
+            equity_curve=dummy_equity,
+            daily_history_hlc=dummy_hlc,
+            vol_surface={"MES":0.2},
+            risk_free_rate=0.01,
+            nSuccesses=1, # Using alias
+            nFailures=0   # Using alias
+        )
+    ]
+    with pytest.raises(ValueError, match="Context iterator must yield at least two PlanningContexts"):
+        run_backtest(single_ctx_manual)
 
 
 def test_run_backtest_smoke_sp500_sample() -> None:
@@ -309,8 +340,8 @@ def test_run_backtest_smoke_sp500_sample() -> None:
          pytest.skip(f"Not enough contexts generated from sp500_sample.csv ({len(sample_contexts)} generated, need at least 2 for backtest run). Skipping smoke test.")
          return
 
-    report = run_backtest(sample_contexts)
-    assert isinstance(report, BacktestReport)
+    report: SingleBacktestReport = run_backtest(sample_contexts) # Updated type hint
+    assert isinstance(report, SingleBacktestReport)
 
     # Assert equity curve grows for a rising sample (this is a loose check on P/L logic)
     # The sample data is generally rising. The AZR-06 planner logic is simple (ENTER on low risk/high conf).

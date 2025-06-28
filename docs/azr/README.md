@@ -246,6 +246,64 @@ This section outlines the steps to set up a minimal environment for developing a
     ```
     *(Note: The user provided a very minimal list. The commented lines represent packages that were in the previous iteration of `requirements-azr-tests.txt` and might be needed for full `pytest` and `mypy` runs as per original broader plan. Adjust as necessary for the exact scope of "AZR tests pass".)*
 
+---
+
+## Walk-forward Methodology
+
+Walk-forward analysis is a method of testing a trading strategy that aims to simulate how the strategy would have performed in real-time, thereby reducing the risk of overfitting to historical data.
+
+*   **Concept**: Instead of optimizing a strategy on an entire historical dataset at once, walk-forward analysis divides the data into several contiguous "windows".
+*   **Process**:
+    *   The strategy is optimized (or its parameters are determined) on an initial segment of historical data (the "in-sample" or "training" window).
+    *   It is then tested on the immediately following segment of data (the "out-of-sample" or "testing" window) using the parameters derived from the training window.
+    *   This process is repeated by rolling both windows forward in time. For example, the first training window might be days 1-60, tested on days 61-90. The next could be days 31-90 (training) tested on days 91-120 (if step is 30 days).
+*   **Windowing in AZR-09**: The `run_walk_forward` function implements a rolling window approach. Each "window" (e.g., a 30-day slice as per the task) is effectively a period over which a backtest (`run_backtest`) is performed. The strategy logic within `generate_plan` uses its own lookback (e.g., 30 days of equity curve for `latent_risk_v2`) from the data *within* that window.
+*   **Window Size & Step**:
+    *   `window_days`: Defines the length of each historical data slice passed to an individual backtest run. This is the period the strategy is simulated over in one iteration of the walk-forward process.
+    *   `step_days`: Determines how many days the window is moved forward for the next iteration. A smaller step means more overlapping windows and more tests.
+*   **Purpose**: The primary goal is to assess the strategy's robustness and stability over different market conditions and to see if parameters optimized in one period hold up in a subsequent, unseen period. This helps guard against curve-fitting.
+*   **Aggregated Metrics**: Performance metrics (like Sharpe ratio, max drawdown) are calculated for each out-of-sample window. These are then aggregated (e.g., `mean_sharpe`, `worst_drawdown` over all windows) to give a more realistic expectation of future performance. The `total_return` is calculated over the entire period using a single continuous backtest for a holistic view.
+*   **Benefits**: Provides a more conservative and potentially more reliable estimate of a strategy's future performance compared to a single backtest on all data. Highlights parameter stability.
+*   **Limitations**: Assumes strategy parameters are recalibrated/re-evaluated at the end of each training window. The choice of window lengths and step size can influence results. Past performance, even with walk-forward, is not a guarantee of future results.
+
+---
+
+## 💻 Local / Codestral Dev Loop
+
+This section outlines the steps to set up a minimal environment for developing and testing the AZR Planner components within the Codestral sandbox or a similar local, resource-constrained environment.
+
+**Objective**: Achieve a green run for `pytest` and `mypy` specifically for the `azr_planner` modules, without pulling in heavy dependencies like `torch` or `whisper`.
+
+**Sandbox Setup and Testing Steps:**
+
+1.  **Editable Install of the Project**:
+    This step is crucial for ensuring that Python can find your local `src/azr_planner` modules. It symlinks the project into your Python environment's `site-packages`.
+    ```bash
+    python -m pip install -e .
+    ```
+
+2.  **Install Minimal Test Dependencies**:
+    A specific requirements file, `requirements-azr-tests.txt`, contains only the lightweight dependencies needed for AZR planner tests.
+    ```bash
+    pip install -r requirements-azr-tests.txt
+    ```
+    The contents of `requirements-azr-tests.txt` should be:
+    ```txt
+    fastapi>=0.110
+    pydantic>=2.7
+    pytest
+    pytest-mock
+    hypothesis
+    # Add other minimal dependencies like mypy if you intend to run it here
+    # mypy
+    # pytest-cov
+    # pytest-asyncio
+    # httpx
+    # uvicorn
+    # anyio
+    ```
+    *(Note: The user provided a very minimal list. The commented lines represent packages that were in the previous iteration of `requirements-azr-tests.txt` and might be needed for full `pytest` and `mypy` runs as per original broader plan. Adjust as necessary for the exact scope of "AZR tests pass".)*
+
 
 3.  **Set Environment Variables**:
     The AZR Planner endpoint is conditionally mounted based on `OSIRIS_TEST`.

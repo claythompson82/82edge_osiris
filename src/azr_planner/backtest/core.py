@@ -9,7 +9,7 @@ import numpy as np  # For math operations if needed later
 
 from azr_planner.schemas import PlanningContext, TradeProposal, Instrument, Direction, Leg
 from azr_planner.engine import generate_plan
-from .schemas import DailyTrade, DailyPortfolioState, DailyResult, BacktestMetrics, BacktestReport
+from .schemas import DailyTrade, DailyPortfolioState, DailyResult, SingleBacktestMetrics, SingleBacktestReport
 from .metrics import (
     calculate_cagr,
     calculate_max_drawdown,
@@ -45,7 +45,7 @@ def _get_fill_price(next_day_context: Optional[PlanningContext]) -> Optional[flo
         return next_day_context.equity_curve[-1]
     return None
 
-def run_backtest(ctx_iter: Iterable[PlanningContext]) -> BacktestReport:
+def run_backtest(ctx_iter: Iterable[PlanningContext]) -> SingleBacktestReport:
     """
     Runs a backtest simulation based on an iterator of daily PlanningContexts.
 
@@ -235,7 +235,7 @@ def run_backtest(ctx_iter: Iterable[PlanningContext]) -> BacktestReport:
 
     pnl_stats = calculate_win_rate_and_pnl_stats(all_trades_log)
 
-    metrics = BacktestMetrics(
+    metrics = SingleBacktestMetrics(
         cagr=calculate_cagr(equity_curve_history, TRADING_DAYS_PER_YEAR),
         max_drawdown=calculate_max_drawdown(equity_curve_history),
         sharpe_ratio=calculate_sharpe_ratio(daily_equity_returns, initial_risk_free_rate, TRADING_DAYS_PER_YEAR),
@@ -250,7 +250,7 @@ def run_backtest(ctx_iter: Iterable[PlanningContext]) -> BacktestReport:
         profit_factor=pnl_stats["profitFactor"]
     )
 
-    return BacktestReport(
+    return SingleBacktestReport(
         start_timestamp=start_timestamp,
         end_timestamp=end_timestamp, # This is the timestamp of the last context used for decision
         initial_cash=INITIAL_CASH,
