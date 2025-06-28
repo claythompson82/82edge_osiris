@@ -34,6 +34,36 @@ class Leg(BaseModel):
         str_strip_whitespace=True,
     )
 
+# --- AZR-14: P&L Simulation Schemas ---
+import datetime as dt # For date type hint
+
+class DailyFill(BaseModel):
+    """Represents a single trade fill for a day."""
+    timestamp: dt.datetime = Field(description="Timestamp of the fill execution.")
+    instrument: Instrument = Field(description="Instrument that was filled.")
+    direction: Direction = Field(description="Direction of the fill (BUY/SELL). Note: This should align with trade directions, not position directions like LONG/SHORT.") # BUY or SELL
+    qty: Annotated[float, Field(gt=0, description="Quantity filled (always positive).")]
+    price: Annotated[float, Field(ge=0, description="Execution price of the fill.")]
+
+    model_config = ConfigDict(populate_by_name=True, frozen=True)
+
+
+class DailyPNLReport(BaseModel):
+    """Report detailing daily Profit & Loss and portfolio state."""
+    date: dt.date = Field(description="The date for which this P&L report is generated (typically EOD).")
+    realized_pnl: float = Field(default=0.0, description="Profit and Loss realized on this day from closing trades.")
+    unrealized_pnl: float = Field(default=0.0, description="Unrealized Profit and Loss on open positions at EOD.")
+    net_position_value: float = Field(default=0.0, description="Total market value of all open positions at EOD.")
+    cash: float = Field(description="Cash balance at EOD after all fills and P&L.")
+    total_equity: float = Field(description="Total portfolio equity at EOD (Cash + Net Position Value).")
+    gross_exposure: float = Field(default=0.0, description="Sum of absolute market values of all positions.")
+    net_exposure: float = Field(default=0.0, description="Net market value of all positions (longs - shorts value).")
+    cumulative_max_equity: float = Field(description="Peak total equity observed up to and including this day.")
+    current_drawdown: Annotated[float, Field(ge=0.0, le=1.0)] = Field(description="Current drawdown from peak equity (0.0 to 1.0).")
+    equity_curve_points: List[float] = Field(description="Time series of EOD total_equity values, including the current day's.")
+
+    model_config = ConfigDict(populate_by_name=True, frozen=True)
+
 
 class PlanningContext(BaseModel):
     """Input context for trade planning."""
