@@ -1,0 +1,8 @@
+fastapi>=0.115
+uvicorn>=0.24
+pydantic>=2,<3
+numpy
+pandas
+scipy
+prometheus-client
+python-multipart

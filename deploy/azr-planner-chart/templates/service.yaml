@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "azr-planner.fullname" . }}
+  labels:
+    {{- include "azr-planner.labels" . | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      # If your values.yaml defines service.targetPort as a number, use that.
+      # If your deployment's container port is named 'http', you can use that name here.
+      # Using the numeric value from values.yaml for clarity and directness.
+      targetPort: {{ .Values.service.targetPort }}
+      protocol: TCP
+      name: http # Name of the service port, can be referenced by Ingress or other resources
+  selector:
+    {{- include "azr-planner.selectorLabels" . | nindent 4 }}

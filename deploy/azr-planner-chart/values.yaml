@@ -1,0 +1,138 @@
+# Default values for azr-planner chart.
+replicaCount: 1
+
+image:
+  repository: ghcr.io/your-user/azr-planner # Repository will be updated by CI
+  pullPolicy: IfNotPresent
+  # tag is purposefully omitted here. Helm will default to Chart.appVersion if it's not set.
+  # We expect CI to override this with the specific image SHA or version.
+  # Example: --set image.tag="your-dynamic-tag"
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: "" # Example: azr-planner-dev
+
+serviceAccount:
+  create: false # Not creating a specific service account for this simple deployment
+  name: "" # If create is true, a name is generated.
+
+podAnnotations: {}
+# Example:
+# podAnnotations:
+#   iam.amazonaws.com/role: "arn:aws:iam::123456789012:role/azr-planner-role"
+
+podLabels: {}
+# Example:
+# podLabels:
+#   app.kubernetes.io/part-of: "osiris-platform"
+
+# Security contexts are good practice but depend on specific cluster policies.
+# Leaving them minimal for now.
+podSecurityContext: {}
+  # fsGroup: 1001
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # allowPrivilegeEscalation: false
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1001
+  # runAsGroup: 1001
+
+service:
+  type: ClusterIP
+  port: 8000 # Port the service will expose
+  targetPort: 8000 # Port on the pod/container the service will target (http from our app)
+  # Name for the service port. Important if referenced by probes by name.
+  # portName: http # If you want to name the service port itself
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: "/metrics"
+    prometheus.io/port: "8000" # Prometheus will scrape this port on the pod
+
+# Ingress is disabled by default as it's often environment-specific.
+# Users can enable and configure it if needed.
+ingress:
+  enabled: false
+  # className: "nginx"
+  # annotations:
+  #   nginx.ingress.kubernetes.io/rewrite-target: /
+  # hosts:
+  #   - host: azr-planner.example.com
+  #     paths:
+  #       - path: /
+  #         pathType: Prefix
+  # tls: []
+  #  - secretName: azr-planner-tls
+  #    hosts:
+  #      - azr-planner.example.com
+
+# Resource requests and limits.
+# It's good practice to set these.
+# Values are based on the initial request.
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m # Typically lower than limits
+    memory: 256Mi
+
+# Liveness and readiness probes using the /health endpoint specified.
+livenessProbe:
+  enabled: true
+  httpGet:
+    path: /health
+    port: http # Refers to the named port 'http' in the Deployment container spec (targetPort name)
+  initialDelaySeconds: 15
+  periodSeconds: 20
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+readinessProbe:
+  enabled: true
+  httpGet:
+    path: /health
+    port: http # Refers to the named port 'http' in the Deployment container spec
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+# Autoscaling is disabled by default.
+autoscaling:
+  enabled: false
+  # minReplicas: 1
+  # maxReplicas: 5
+  # targetCPUUtilizationPercentage: 75
+  # targetMemoryUtilizationPercentage: 75
+
+# No specific node selectors, tolerations, or affinity by default.
+# These are highly environment-dependent.
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# ConfigMap for risk-gate defaults (as per original broader plan)
+# This chart currently does not create a ConfigMap directly, but you could
+# mount an existing one or add values here to populate one if the template was added.
+# For now, assuming config is baked into the image or handled differently.
+riskGateDefaults: {}
+  # exampleKey: exampleValue
+  # maxOrderValue: 100000
+  # allowedSymbols: ["BTC", "ETH"]
+
+# ---
+# Custom application-specific configuration can be added below this line.
+# For example:
+# applicationConfig:
+#   logLevel: "INFO"
+#   featureFlags:
+#     newPlannerLogic: true
+# These values would then need to be used in your templates, typically by mounting them as
+# environment variables or as files from a ConfigMap generated from these values.
