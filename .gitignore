@@ -38,3 +38,4 @@ models/
 # ─── Editor / OS cruft ────────────────────────────────────────────────────
 .DS_Store
 *.swp
+/.coverage
