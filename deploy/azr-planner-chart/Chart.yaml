@@ -1,0 +1,23 @@
+apiVersion: v2
+name: azr-planner
+description: A Helm chart for the AZR Planner microservice
+type: application
+version: 0.1.0
+appVersion: "0.0.1" # Placeholder, will be driven by CI/CD or a value in values.yaml
+# Maintainer details (optional but good practice)
+maintainers:
+  - name: Jules AI Agent
+    email: ai.agent@example.com
+# Keywords for discoverability (optional)
+keywords:
+  - azr-planner
+  - trading
+  - financial
+home: https://github.com/<your-repo>/azr-planner # Placeholder
+sources:
+  - https://github.com/<your-repo>/ # Placeholder
+# Dependencies (if any, not for now)
+# dependencies:
+#   - name: common
+#     version: "1.2.3"
+#     repository: "http://example.com/charts"

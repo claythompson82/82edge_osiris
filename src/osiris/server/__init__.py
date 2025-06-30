@@ -109,11 +109,19 @@ async def metrics() -> StarletteResponse:
 # --------------------------------------------------------------------------- #
 async def submit_phi3_feedback(item: Any) -> Dict[str, str]:
     schema_ver: str = getattr(item, "schema_version", None) or "1.0"
-    ts: Union[int, float] = _coerce_ts(getattr(item, "timestamp", None))
+    coerced_ts_val: Union[int, float] = _coerce_ts(getattr(item, "timestamp", None))
+    if coerced_ts_val is None:
+        coerced_ts_val = time.time()
+
     content = getattr(item, "feedback_content", "{}")
     if not isinstance(content, str): content = json.dumps(content)
-    row = _db.Phi3FeedbackSchema(transaction_id=item.transaction_id, feedback_type=item.feedback_type,
-                                 feedback_content=content, schema_version=schema_ver, ts=ts).model_dump()
+
+    # Trying to match Mypy's inferred signature based on its error messages
+    row = _db.Phi3FeedbackSchema(transaction_id=item.transaction_id,
+                                 feedback_type=item.feedback_type,
+                                 feedback_content=content, # Reverted based on Mypy's "did you mean"
+                                 schema_version=schema_ver,
+                                 ts=int(coerced_ts_val)).model_dump() # Reverted to 'ts' and casting to int
     _db.append_feedback(row); return {"status": "OK", "stored_schema_version": schema_ver}
 
 # --------------------------------------------------------------------------- #

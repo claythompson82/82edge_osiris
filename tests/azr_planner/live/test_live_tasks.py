@@ -176,7 +176,7 @@ async def test_start_and_stop_live_trading_task(mock_live_config: LiveConfig) ->
 # --- Added tests for tasks.py coverage ---
 
 @pytest.mark.asyncio
-async def test_live_loop_startup_error_if_not_initialized(monkeypatch, caplog):
+async def test_live_loop_startup_error_if_not_initialized(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
     """Test that live_paper_trading_loop logs an error and exits if globals are not set."""
     import logging
     caplog.set_level(logging.ERROR)
@@ -205,7 +205,7 @@ async def test_live_loop_startup_error_if_not_initialized(monkeypatch, caplog):
 
 
 @pytest.mark.asyncio
-async def test_live_loop_handles_wrong_symbol_bar(setup_live_task_components, caplog):
+async def test_live_loop_handles_wrong_symbol_bar(setup_live_task_components: Tuple[LiveConfig, Blotter, MockWebSocketBarStream, CollectorRegistry], caplog: pytest.LogCaptureFixture) -> None:
     """Test that the loop skips bars with unexpected instrument symbols."""
     import logging
     caplog.set_level(logging.WARNING)
@@ -231,7 +231,7 @@ async def test_live_loop_handles_wrong_symbol_bar(setup_live_task_components, ca
 
 
 @pytest.mark.asyncio
-async def test_live_loop_risk_gate_rejection(setup_live_task_components, monkeypatch, caplog):
+async def test_live_loop_risk_gate_rejection(setup_live_task_components: Tuple[LiveConfig, Blotter, MockWebSocketBarStream, CollectorRegistry], monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
     import logging
     caplog.set_level(logging.INFO)
     config, _, bar_stream_client_instance, _ = setup_live_task_components
@@ -252,7 +252,7 @@ async def test_live_loop_risk_gate_rejection(setup_live_task_components, monkeyp
 
 
 @pytest.mark.asyncio
-async def test_start_live_task_already_running(mock_live_config, monkeypatch, caplog):
+async def test_start_live_task_already_running(mock_live_config: LiveConfig, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
     import logging
     caplog.set_level(logging.WARNING)
 
@@ -273,7 +273,7 @@ async def test_start_live_task_already_running(mock_live_config, monkeypatch, ca
 
 
 @pytest.mark.asyncio
-async def test_stop_live_task_not_running(monkeypatch, caplog):
+async def test_stop_live_task_not_running(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
     import logging
     caplog.set_level(logging.INFO)
 
@@ -283,7 +283,7 @@ async def test_stop_live_task_not_running(monkeypatch, caplog):
 
 # Test for planner_volume = None path
 @pytest.mark.asyncio
-async def test_live_loop_bars_no_volume_data(setup_live_task_components, monkeypatch, caplog):
+async def test_live_loop_bars_no_volume_data(setup_live_task_components: Tuple[LiveConfig, Blotter, MockWebSocketBarStream, CollectorRegistry], monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
     import logging
     caplog.set_level(logging.INFO) # To see planner context if needed
     config, _, bar_stream_client_instance, _ = setup_live_task_components
@@ -324,22 +324,4 @@ async def test_live_loop_bars_no_volume_data(setup_live_task_components, monkeyp
 # Coverage for these might remain lower unless specific sub-functions are mocked to raise.
 # The finally block is covered if the loop exits cleanly or via CancelledError.
 # The generic Exception path is harder.
-# Similarly for stop_live_trading_task's internal exception handling.**MyPy Errors:**
-- The remaining MyPy errors for `tests/azr_planner/live/test_live_tasks.py` (mock planner argument annotations) are likely due to MyPy's handling of `pytest.fixture` combined with `monkeypatch` or the use of global mocks. Since the functions *are* annotated, and the type ignores were flagged as unused previously, this points to a potential MyPy limitation or a very subtle issue with how it perceives the types in that specific testing context. I will leave these as is for now, as they are not breaking tests and the functions themselves are correctly typed.
-
-**Pytest Test Coverage for `src/azr_planner/live/tasks.py`:**
-The new tests should improve coverage significantly.
-
-- `test_live_loop_startup_error_if_not_initialized` covers lines 47-48.
-- `test_live_loop_handles_wrong_symbol_bar` covers lines 70-71.
-- `test_live_loop_risk_gate_rejection` covers lines 146-147.
-- `test_start_live_task_already_running` covers lines 174-175.
-- `test_stop_live_task_not_running` covers line 214.
-- `test_live_loop_bars_no_volume_data` covers lines 92 (by ensuring `any(b.volume is not None for b in bar_window)` is false) and 96 (where `planner_volume` becomes `None`).
-
-Still potentially missed in `tasks.py`:
-- Line 92 `if b_in_window.volume is None: all_volumes_present = False; break` inside the volume loop. This needs a mix of some None, some not None volumes.
-- Error handling in `live_paper_trading_loop` (lines 158-163: `CancelledError`, generic `Exception`, `finally`). `CancelledError` is implicitly tested by `stop_live_trading_task` if timeout occurs, but not explicitly. Generic `Exception` is hard.
-- Error handling in `stop_live_trading_task` (lines 201-209: `TimeoutError`, `CancelledError`, generic `Exception`).
-
-The coverage for `tasks.py` should be much better. Let's run the gates.
+# End of detailed notes.
