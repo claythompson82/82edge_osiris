@@ -4,9 +4,9 @@
 #
 #    pip-compile --output-file=requirements.txt requirements.in
 #
-accelerate==1.7.0
+accelerate==1.8.1
     # via -r requirements.in
-airportsdata==20250523
+airportsdata==20250622
     # via outlines
 annotated-types==0.7.0
     # via pydantic
@@ -18,7 +18,7 @@ attrs==25.3.0
     # via
     #   jsonschema
     #   referencing
-certifi==2025.4.26
+certifi==2025.6.15
     # via requests
 charset-normalizer==3.4.2
     # via requests
@@ -45,12 +45,11 @@ genson==1.3.0
     # via outlines
 h11==0.16.0
     # via uvicorn
-hf-xet==1.1.3
+hf-xet==1.1.5
     # via huggingface-hub
 httptools==0.6.4
-httpx>=0.25          
-# ← NEW: required by TestClient & llm_sidecar    # via uvicorn
-huggingface-hub==0.32.5
+    # via uvicorn
+huggingface-hub==0.33.1
     # via
     #   accelerate
     #   tokenizers
@@ -75,7 +74,7 @@ jsonschema==4.24.0
     #   outlines-core
 jsonschema-specifications==2025.4.1
     # via jsonschema
-lancedb==0.23.0
+lancedb==0.24.0
     # via -r requirements.in
 lark==1.2.2
     # via outlines
@@ -92,7 +91,6 @@ numpy==1.26.4
     #   -r requirements.in
     #   accelerate
     #   lancedb
-    #   outlines
     #   transformers
 nvidia-cublas-cu12==12.6.4.1
     # via
@@ -131,7 +129,7 @@ nvidia-nvjitlink-cu12==12.6.85
     #   torch
 nvidia-nvtx-cu12==12.6.77
     # via torch
-outlines==0.2.3
+outlines==1.0.2
     # via -r requirements.in
 outlines-core==0.1.26
     # via outlines
@@ -145,13 +143,15 @@ packaging==24.2
     #   huggingface-hub
     #   lancedb
     #   transformers
+pillow==11.2.1
+    # via outlines
 psutil==7.0.0
     # via accelerate
 pyarrow==20.0.0
     # via
     #   -r requirements.in
     #   lancedb
-pydantic==2.11.5
+pydantic==2.11.7
     # via
     #   -r requirements.in
     #   fastapi
@@ -159,10 +159,12 @@ pydantic==2.11.5
     #   outlines
 pydantic-core==2.33.2
     # via pydantic
-python-dotenv==1.1.0
+python-dotenv==1.1.1
     # via
     #   -r requirements.in
     #   uvicorn
+python-multipart==0.0.20
+    # via -r requirements.in
 pyyaml==6.0.2
     # via
     #   accelerate
@@ -197,7 +199,7 @@ starlette==0.46.2
     # via fastapi
 sympy==1.14.0
     # via torch
-tokenizers==0.21.1
+tokenizers==0.21.2
     # via transformers
 torch==2.7.1
     # via
@@ -213,7 +215,7 @@ tqdm==4.67.1
     #   lancedb
     #   outlines
     #   transformers
-transformers==4.52.4
+transformers==4.53.0
     # via -r requirements.in
 triton==3.3.1
     # via torch
@@ -230,16 +232,16 @@ typing-extensions==4.14.0
     #   typing-inspection
 typing-inspection==0.4.1
     # via pydantic
-urllib3==2.4.0
+urllib3==2.5.0
     # via requests
-uvicorn[standard]==0.34.3
+uvicorn[standard]==0.35.0
     # via -r requirements.in
 uvloop==0.21.0
     # via uvicorn
-watchfiles==1.0.5
+watchfiles==1.1.0
     # via uvicorn
 websockets==15.0.1
     # via uvicorn
-sounddevice>=0.4.6
+
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools

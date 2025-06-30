@@ -406,3 +406,60 @@ If `pytest` or `mypy` still report `ModuleNotFoundError` after these steps:
 *   **Python invocation**: Ensure `python`, `pip`, `pytest`, `mypy` are all being invoked from the same virtual environment or Python installation where packages are expected to be.
 
 These steps aim to provide a reproducible green run for the AZR Planner's core components in a resource-limited environment. Full repository-wide checks with all dependencies are typically deferred to a more robust CI environment.
+
+---
+
+## Live Paper-Trading Mode (AZR-16)
+
+The AZR system includes a live paper-trading orchestrator that simulates real-time trading based on an incoming bar feed. This mode is activated when the server starts with the `OSIRIS_TEST=1` environment variable.
+
+### Configuration
+
+On startup, the live paper-trading task uses a `LiveConfig` object. Currently, this configuration is hardcoded in `src/osiris/server/__init__.py` for simplicity during development. In a production scenario, this would typically be loaded from a configuration file or environment variables.
+
+**Example `LiveConfig` structure (as used internally):**
+
+```json
+{
+  "symbol": "MES",
+  "initial_equity": 100000.0,
+  "max_risk_per_trade_pct": 0.01,
+  "max_drawdown_pct_account": 0.10
+}
+```
+
+*   `symbol`: The instrument symbol the live trading loop will process (e.g., "MES" for Micro E-mini S&P 500 futures). The current implementation focuses on a single symbol per session.
+*   `initial_equity`: The starting capital for the paper trading session.
+*   `max_risk_per_trade_pct`: Maximum percentage of account equity to risk on a single trade. This is used to configure the risk gate.
+*   `max_drawdown_pct_account`: Maximum allowable percentage drawdown for the entire account before new trades might be inhibited by the risk gate.
+
+### Functionality
+
+*   **Bar Feed**: The system uses a bar stream abstraction (`AbstractBarStream`). For development and testing (`OSIRIS_TEST=1`), it employs `MockWebSocketBarStream` which generates a sequence of mock bars for the configured symbol.
+*   **Trading Logic**: For each incoming bar:
+    1.  The in-memory blotter updates Mark-to-Market (MTM) P&L for open positions.
+    2.  A `PlanningContext` is built from the recent bar history.
+    3.  The `azr_planner.engine.generate_plan` function is called to get a trade proposal.
+    4.  The proposal is evaluated by `azr_planner.risk_gate.accept` using risk parameters derived from `LiveConfig`.
+    5.  If the trade is accepted and is not a "HOLD" action, it's "executed" into the `Blotter` at the current bar's closing price.
+*   **Blotter**: An in-memory `Blotter` tracks current positions, cash, realized P&L for the session, and unrealized P&L for open positions.
+*   **API Endpoints**:
+    *   `GET /azr_api/v1/live/positions`: Returns a list of current open positions (`List[LivePosition]`).
+    *   `GET /azr_api/v1/live/pnl`: Returns the current overall P&L state of the session (`LivePnl`).
+
+### Prometheus Metrics
+
+The live paper-trading mode exposes the following Prometheus metrics:
+
+*   **`azr_live_trades_total` (Counter)**:
+    *   Description: "Total number of live paper trades executed"
+    *   Labels:
+        *   `instrument`: The instrument symbol (e.g., "MES").
+        *   `action`: The type of trade action (e.g., "ENTER_LONG", "EXIT_SHORT").
+*   **`azr_live_open_risk` (Gauge)**:
+    *   Description: "Current estimated open risk in live paper trading, typically value of open positions."
+    *   Labels:
+        *   `instrument`: The instrument symbol (e.g., "MES").
+    *   Note: The "open risk" value is currently a simplified calculation (e.g., absolute value of the position).
+
+These metrics can be scraped from the main `/metrics` endpoint of the Osiris server.

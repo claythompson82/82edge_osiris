@@ -14,3 +14,4 @@ redis
 python-dotenv
 outlines
 numpy<2.0
+python-multipart>=0.0.7
