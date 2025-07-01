@@ -1,4 +1,18 @@
-"""Patch verification helpers used by the DGM kernel."""
+"""Patch verification helpers used by the DGM kernel.
+
+`prove_patch()` now returns a floating point *score* between ``0.0`` and
+``1.0`` representing how confidently a patch is proven safe.  Inside a
+temporary copy of the repository it executes three checks:
+
+1. ``python -m py_compile`` on each patched ``.py`` file (``+0.4``).
+2. ``pytest -q tests/dgm_kernel_tests/test_meta_loop.py::sanity_only``
+   (``+0.4``).
+3. ``pylint`` on only the patched ``.py`` files giving ``+0.2`` when the
+   reported score is at least ``8.0``.
+
+The partial scores are summed and clamped to the ``0–1`` range.  Any
+subprocess errors are logged but result in ``0.0`` being returned.
+"""
 
 from __future__ import annotations
 
@@ -12,19 +26,21 @@ import logging
 log = logging.getLogger(__name__)
 
 
-def prove_patch(patch_text: str) -> bool:
-    """Validate a unified diff in an isolated temporary directory.
+def prove_patch(patch_text: str) -> float:
+    """Validate a unified diff in an isolated temporary directory and
+    return a score between 0.0 and 1.0.
 
     The function copies the current repository to a temporary directory,
     applies the provided ``patch_text`` using the ``patch`` command and then
     performs two checks:
 
-    1. ``python -m py_compile`` on each modified ``.py`` file.
-    2. ``pytest -q tests/dgm_kernel_tests/test_meta_loop.py::sanity_only``.
+    1. ``python -m py_compile`` on each modified ``.py`` file (+0.4).
+    2. ``pytest -q tests/dgm_kernel_tests/test_meta_loop.py::sanity_only``
+       (+0.4).
+    3. ``pylint`` on the patched ``.py`` files with score >= ``8.0`` (+0.2).
 
-    If every step succeeds ``True`` is returned, otherwise ``False``.  Any
-    errors from subprocess calls are logged for debugging but suppressed from
-    raising.
+    The partial points are summed and clamped to the ``0–1`` range.  On any
+    unexpected error ``0.0`` is returned.
     """
 
     repo_root = Path(__file__).resolve().parents[1]
@@ -44,22 +60,29 @@ def prove_patch(patch_text: str) -> bool:
             )
             if apply_proc.returncode != 0:
                 log.error("patch failed: %s", apply_proc.stderr.strip())
-                return False
+                return 0.0
+
+            score = 0.0
 
             modified = _patched_files(patch_text)
-            for path in modified:
-                if path.endswith(".py"):
-                    proc = subprocess.run(
-                        [sys.executable, "-m", "py_compile", path],
-                        cwd=tmp_repo,
-                        capture_output=True,
-                        text=True,
+            py_files = [p for p in modified if p.endswith(".py")]
+            compile_ok = True
+            for path in py_files:
+                proc = subprocess.run(
+                    [sys.executable, "-m", "py_compile", path],
+                    cwd=tmp_repo,
+                    capture_output=True,
+                    text=True,
+                )
+                if proc.returncode != 0:
+                    log.error(
+                        "py_compile failed for %s: %s", path, proc.stderr.strip()
                     )
-                    if proc.returncode != 0:
-                        log.error(
-                            "py_compile failed for %s: %s", path, proc.stderr.strip()
-                        )
-                        return False
+                    compile_ok = False
+                    break
+
+            if compile_ok:
+                score += 0.4
 
             test_proc = subprocess.run(
                 [
@@ -73,16 +96,38 @@ def prove_patch(patch_text: str) -> bool:
                 capture_output=True,
                 text=True,
             )
-            if test_proc.returncode != 0:
+            if test_proc.returncode == 0:
+                score += 0.4
+            else:
                 log.error(
                     "pytest failed: %s", (test_proc.stdout + test_proc.stderr).strip()
                 )
-                return False
 
-            return True
+            if py_files:
+                pylint_proc = subprocess.run(
+                    ["pylint", *py_files],
+                    cwd=tmp_repo,
+                    capture_output=True,
+                    text=True,
+                )
+                m = re.search(r"rated at (-?\d+\.?\d*)/10", pylint_proc.stdout)
+                if m:
+                    pylint_score = float(m.group(1))
+                    log.info("Pylint score %.2f", pylint_score)
+                    if pylint_score >= 8.0:
+                        score += 0.2
+                else:
+                    log.warning(
+                        "Could not parse Pylint score from output. stdout: %s",
+                        pylint_proc.stdout[:500],
+                    )
+            else:
+                score += 0.2
+
+            return max(0.0, min(score, 1.0))
     except Exception as e:  # pragma: no cover - unexpected issues
         log.error("prove_patch error: %s", e)
-        return False
+        return 0.0
 
 
 def _patched_files(diff: str) -> list[str]:
