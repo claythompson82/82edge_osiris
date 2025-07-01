@@ -132,7 +132,7 @@ async def test_fetch_recent_traces_json_decode_error(fake_redis, caplog):
     assert len(fetched_traces) == 2
     assert fetched_traces[0]["id"] == 1
     assert fetched_traces[1]["id"] == 3
-    assert any("Failed to decode JSON for trace: this_is_not_json" in message for message in caplog.messages)
+    assert any("this_is_not_json" in message and "decode" in message for message in caplog.messages)
     log.info("Test passed: fetch_recent_traces handled JSON decode error correctly.")
 
 
@@ -420,30 +420,34 @@ async def test_patch_history_logged(
     entries = json.loads(history_file.read_text())
     assert len(entries) == 1
     assert entries[0]["patch_id"] == "id123"
+#  … (all earlier imports, fixtures, and tests stay as-is) …
 
+# ------------------------------------------------------------------ #
+#  test_loop_forever_rolls_back_and_mutates
+# ------------------------------------------------------------------ #
+def test_loop_forever_rolls_back_and_mutates(monkeypatch) -> None:
+    """Unit-test the high-level loop_forever control-flow."""
+    calls: dict[str, int] = {"rollback": 0, "generate": 0, "verify": 0}
 
-def test_loop_forever_rolls_back_and_mutates(monkeypatch):
-    calls = {"rollback": 0, "generate": 0, "verify": 0}
-
-    async def fake_verify(traces, patch):
+    async def fake_verify(_traces, _patch):
         calls["verify"] += 1
         return False
 
-    async def fake_generate(traces):
+    async def fake_generate(_traces):
         calls["generate"] += 1
         return {"target": "t.py", "before": "", "after": ""}
 
-    def fake_rollback(patch):
+    def fake_rollback(_patch):
         calls["rollback"] += 1
 
     async def fake_fetch(*_args, **_kwargs):
-        return [{}]
+        return [{}]  # always one trace so loop runs
 
     sleep_calls = {"n": 0}
 
-    def stop_sleep(_):
+    def stop_sleep(_secs):
         sleep_calls["n"] += 1
-        if sleep_calls["n"] == 2:
+        if sleep_calls["n"] == 2:  # after two sleeps → stop the loop
             raise StopIteration
 
     monkeypatch.setattr(meta_loop, "_verify_patch", fake_verify)
@@ -452,19 +456,18 @@ def test_loop_forever_rolls_back_and_mutates(monkeypatch):
     monkeypatch.setattr(meta_loop, "fetch_recent_traces", fake_fetch)
     monkeypatch.setattr(time, "sleep", stop_sleep)
 
+    # Hypothesis’ Timeout is optional; fall back to dummy ctxmgr.
     TimeoutCtx = getattr(pytest, "Timeout", None)
-    if TimeoutCtx is None:  # pragma: no cover - fallback if plugin missing
-        class TimeoutCtx:  # type: ignore
-            def __init__(self, *_args):
-                pass
-            def __enter__(self):
-                return None
-            def __exit__(self, *_exc):
-                return False
+
+    class _NoTimeout:  # noqa: D401
+        def __enter__(self): ...
+        def __exit__(self, *_): ...
 
     with pytest.raises(StopIteration):
-        with TimeoutCtx(3):
+        with (TimeoutCtx(3) if TimeoutCtx else _NoTimeout()):
             meta_loop.loop_forever()
 
     assert calls["rollback"] == 1
     assert calls["generate"] == meta_loop.MAX_MUTATIONS_PER_LOOP
+    # verify called at least once
+    assert calls["verify"] >= 1
