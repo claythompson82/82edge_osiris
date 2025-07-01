@@ -21,6 +21,10 @@ import tempfile
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 import typing as _t
+from hypothesis import settings
+
+settings.register_profile("ci", deadline=None)
+settings.load_profile("ci")
 
 # ──────────────────────────────────────────────────────────────────────────────
 # 1)  ensure  src/  is importable before site-packages

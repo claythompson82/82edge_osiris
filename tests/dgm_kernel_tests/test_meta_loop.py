@@ -420,3 +420,51 @@ async def test_patch_history_logged(
     entries = json.loads(history_file.read_text())
     assert len(entries) == 1
     assert entries[0]["patch_id"] == "id123"
+
+
+def test_loop_forever_rolls_back_and_mutates(monkeypatch):
+    calls = {"rollback": 0, "generate": 0, "verify": 0}
+
+    async def fake_verify(traces, patch):
+        calls["verify"] += 1
+        return False
+
+    async def fake_generate(traces):
+        calls["generate"] += 1
+        return {"target": "t.py", "before": "", "after": ""}
+
+    def fake_rollback(patch):
+        calls["rollback"] += 1
+
+    async def fake_fetch(*_args, **_kwargs):
+        return [{}]
+
+    sleep_calls = {"n": 0}
+
+    def stop_sleep(_):
+        sleep_calls["n"] += 1
+        if sleep_calls["n"] == 2:
+            raise StopIteration
+
+    monkeypatch.setattr(meta_loop, "_verify_patch", fake_verify)
+    monkeypatch.setattr(meta_loop, "_generate_patch", fake_generate)
+    monkeypatch.setattr(meta_loop, "_rollback", fake_rollback)
+    monkeypatch.setattr(meta_loop, "fetch_recent_traces", fake_fetch)
+    monkeypatch.setattr(time, "sleep", stop_sleep)
+
+    TimeoutCtx = getattr(pytest, "Timeout", None)
+    if TimeoutCtx is None:  # pragma: no cover - fallback if plugin missing
+        class TimeoutCtx:  # type: ignore
+            def __init__(self, *_args):
+                pass
+            def __enter__(self):
+                return None
+            def __exit__(self, *_exc):
+                return False
+
+    with pytest.raises(StopIteration):
+        with TimeoutCtx(3):
+            meta_loop.loop_forever()
+
+    assert calls["rollback"] == 1
+    assert calls["generate"] == meta_loop.MAX_MUTATIONS_PER_LOOP
