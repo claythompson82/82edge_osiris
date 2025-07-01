@@ -280,6 +280,20 @@ async def loop_once() -> None:
         )
         return
 
+    diff_text = "".join(
+        difflib.unified_diff(
+            patch.get("before", "").splitlines(),
+            patch.get("after", "").splitlines(),
+            fromfile="before",
+            tofile="after",
+            lineterm="",
+        )
+    )
+    score = prove_patch(diff_text)
+    if score < 0.8:
+        log.warning("Prover score %.2f below threshold", score)
+        return
+
     sandbox_ok, sandbox_logs, exit_code = run_patch_in_sandbox(patch)
     if not sandbox_ok:
         log.warning("Patch failed sandbox test (exit code %s).", exit_code)
@@ -352,6 +366,20 @@ async def meta_loop() -> None:
             )
             # Optionally, add to a different Redis log for rejected patches
             # REDIS.lpush("dgm:rejected_patches", json.dumps(patch))
+            continue
+
+        diff_text = "".join(
+            difflib.unified_diff(
+                patch.get("before", "").splitlines(),
+                patch.get("after", "").splitlines(),
+                fromfile="before",
+                tofile="after",
+                lineterm="",
+            )
+        )
+        score = prove_patch(diff_text)
+        if score < 0.8:
+            log.warning("Prover score %.2f below threshold", score)
             continue
 
         sandbox_ok, sandbox_logs, exit_code = run_patch_in_sandbox(patch)

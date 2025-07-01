@@ -18,5 +18,5 @@ def test_bad_patch_does_not_modify_source(tmp_path):
         )
     )
 
-    assert prove_patch(diff) is False
+    assert prove_patch(diff) <= 0.4
     assert target.read_text() == original
