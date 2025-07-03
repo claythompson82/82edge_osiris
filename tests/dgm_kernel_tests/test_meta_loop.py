@@ -172,7 +172,7 @@ async def test_meta_loop_applies_good_patch(
     # This is a simplified simulation of the main loop's logic for one iteration
     traces = await meta_loop.fetch_recent_traces()
     patch_data = await meta_loop.generate_patch(traces)
-    accepted, _ = await meta_loop._verify_patch(traces, patch_data)
+    accepted = await meta_loop._verify_patch(traces, patch_data)
     if accepted:
         sandbox_ok, _, _ = meta_loop.run_patch_in_sandbox(patch_data)
         if sandbox_ok and meta_loop._apply_patch(patch_data):
@@ -232,7 +232,7 @@ async def test_meta_loop_rolls_back_bad_patch(
     # Simplified loop
     traces = await meta_loop.fetch_recent_traces()
     patch_data = await meta_loop.generate_patch(traces)
-    accepted, _ = await meta_loop._verify_patch(traces, patch_data)
+    accepted = await meta_loop._verify_patch(traces, patch_data)
     if accepted:
         if meta_loop._apply_patch(patch_data):
             new_r = sum(meta_loop.proofable_reward(t, patch_data.get("after")) for t in traces)
@@ -267,7 +267,7 @@ async def test_meta_loop_skips_unproven_patch(
     # Simplified loop
     traces = await meta_loop.fetch_recent_traces()
     patch_data = await meta_loop.generate_patch(traces)
-    accepted, _ = await meta_loop._verify_patch(traces, patch_data)
+    accepted = await meta_loop._verify_patch(traces, patch_data)
     if accepted:
         meta_loop._apply_patch(patch_data)
 
@@ -293,7 +293,7 @@ async def test_meta_loop_skips_failed_sandbox(
     # Simplified loop
     traces = await meta_loop.fetch_recent_traces()
     patch_data = await meta_loop.generate_patch(traces)
-    accepted, _ = await meta_loop._verify_patch(traces, patch_data)
+    accepted = await meta_loop._verify_patch(traces, patch_data)
     if accepted:
         sandbox_ok, _, _ = meta_loop.run_patch_in_sandbox(patch_data)
         if sandbox_ok:

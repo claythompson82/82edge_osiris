@@ -71,7 +71,7 @@ class TestProver(unittest.TestCase):
         with self.assertLogs("dgm_kernel.prover", level="ERROR") as cm:
             score = _get_pylint_score(self.DUMMY_CODE)
         self.assertEqual(score, 0.0)
-        self.assertIn("pylint command not found", cm.output[0])
+        self.assertIn("pylint not found – skipping lint score.", cm.output[0])
         mock_path_instance.unlink.assert_called_once()
 
     @patch("dgm_kernel.prover.tempfile.NamedTemporaryFile")
@@ -96,7 +96,7 @@ class TestProver(unittest.TestCase):
         with self.assertLogs("dgm_kernel.prover", level="ERROR") as cm:
             score = _get_pylint_score(self.DUMMY_CODE)
         self.assertEqual(score, 0.0)
-        self.assertIn("Pylint execution timed out", cm.output[0])
+        self.assertIn("pylint timed-out.", cm.output[0])
         mock_path_instance.unlink.assert_called_once()
 
     @patch("dgm_kernel.prover.tempfile.NamedTemporaryFile")
@@ -124,7 +124,7 @@ class TestProver(unittest.TestCase):
         with self.assertLogs("dgm_kernel.prover", level="WARNING") as cm:
             score = _get_pylint_score(self.DUMMY_CODE)
         self.assertEqual(score, 0.0)
-        self.assertIn("Could not parse Pylint score from output", cm.output[0])
+        self.assertIn("Could not parse pylint score from output.", cm.output[0])
         mock_path_instance.unlink.assert_called_once()
 
 
