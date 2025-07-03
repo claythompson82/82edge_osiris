@@ -29,6 +29,7 @@ from dgm_kernel.prover import (
 )
 from dgm_kernel.sandbox import run_patch_in_sandbox
 from dgm_kernel.mutation_strategies import MutationStrategy
+from dgm_kernel import metrics
 
 log = logging.getLogger(__name__)
 
@@ -143,14 +144,13 @@ async def generate_patch(  # pragma: no cover - external LLM
     """
     patch = draft_patch(traces)
     if patch is None:
+        metrics.increment_patch_generation(mutation=_MUTATION_NAME, result="failure")
         return None
+    metrics.increment_patch_generation(mutation=_MUTATION_NAME, result="success")
     patch["after"] = _generate_patch(patch.get("after", ""))
     return patch
 
 
-async def _generate_patch(traces: List[Dict[str, Any]]) -> Dict[str, Any] | None:  # pragma: no cover - thin wrapper
-    """Wrapper for generate_patch so tests can monkey-patch easier."""
-    return await generate_patch(traces)
 
 
 def _get_pylint_score(patch_code: str) -> float:  # pragma: no cover - thin shim
@@ -244,38 +244,31 @@ def _apply_patch(patch: Dict[str, Any]) -> bool:  # pragma: no cover - IO heavy
     Return True on success.
     """
     tgt = Path(patch["target"])
-    # Create parent directories if they don't exist
-    tgt.parent.mkdir(parents=True, exist_ok=True)
-    tgt.write_text(patch["after"])
-    importlib.invalidate_caches()
-    # Ensure the module path is in a format importlib can use
-    # e.g., osiris_policy.strategy if target is osiris_policy/strategy.py
-    module_name = str(tgt.with_suffix("")).replace("/", ".").lstrip(".")
+    success = True
     try:
-        module = importlib.import_module(module_name)
-        importlib.reload(module)
-    except ModuleNotFoundError:
-        # This can happen if the module is being created for the first time
-        # or if it's not in a package.
-        # Attempt to load it based on its path directly if it's a new top-level module
-        # This part can be tricky and might need adjustment based on project structure
-        log.warning(
-            f"Module {module_name} not found directly, attempting to load spec."
-        )
+        tgt.parent.mkdir(parents=True, exist_ok=True)
+        tgt.write_text(patch["after"])
+        importlib.invalidate_caches()
+        module_name = str(tgt.with_suffix("")).replace("/", ".").lstrip(".")
         try:
+            module = importlib.import_module(module_name)
+            importlib.reload(module)
+        except ModuleNotFoundError:
+            log.warning(
+                f"Module {module_name} not found directly, attempting to load spec."
+            )
             spec = importlib.util.spec_from_file_location(module_name, str(tgt))
             if spec and spec.loader:
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
-                # This doesn't reload it into sys.modules in a standard way for subsequent reloads
-                # but makes its code run. For DGM, this might be enough for a first patch.
             else:
                 raise ImportError(f"Could not load spec for {module_name} from {tgt}")
-        except Exception as e:
-            log.error(f"Error loading module {module_name} after writing patch: {e}")
-            return False
+    except Exception as e:
+        log.error(f"Error loading module {module_name} after writing patch: {e}")
+        success = False
 
-    return True
+    metrics.increment_patch_apply(mutation=_MUTATION_NAME, result="success" if success else "failure")
+    return success
 
 
 def _record_patch_history(entry: Dict[str, Any]) -> None:  # pragma: no cover - disk log
