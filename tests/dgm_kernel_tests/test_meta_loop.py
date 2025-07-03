@@ -447,7 +447,7 @@ def test_loop_forever_rolls_back_and_mutates(monkeypatch):
             raise StopIteration
 
     monkeypatch.setattr(meta_loop, "_verify_patch", fake_verify)
-    monkeypatch.setattr(meta_loop, "_generate_patch", fake_generate)
+    monkeypatch.setattr(meta_loop, "_generate_patch_async", fake_generate)
     monkeypatch.setattr(meta_loop, "_rollback", fake_rollback)
     monkeypatch.setattr(meta_loop, "fetch_recent_traces", fake_fetch)
     monkeypatch.setattr(time, "sleep", stop_sleep)
@@ -467,4 +467,4 @@ def test_loop_forever_rolls_back_and_mutates(monkeypatch):
             meta_loop.loop_forever()
 
     assert calls["rollback"] == 1
-    assert calls["generate"] == meta_loop.MAX_MUTATIONS_PER_LOOP
+    assert calls["generate"] == 1

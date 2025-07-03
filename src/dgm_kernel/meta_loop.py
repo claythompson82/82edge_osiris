@@ -49,6 +49,9 @@ LOOP_WAIT_S = 1.0
 # Maximum attempts to mutate when no patch is pending
 MAX_MUTATIONS_PER_LOOP = 3
 
+# Seconds to sleep after repeated rollbacks
+ROLLBACK_SLEEP_S = int(os.environ.get("DGM_ROLLBACK_SLEEP_SECONDS", "300"))
+
 # History file tracking applied patches
 PATCH_HISTORY_FILE = Path(__file__).resolve().parent.parent / "patch_history.json"
 
@@ -74,7 +77,7 @@ def _load_mutation() -> MutationStrategy:
 _mutation_strategy = _load_mutation()
 
 
-def _generate_patch(code: str) -> str:
+def _mutate_code(code: str) -> str:
     return _mutation_strategy.mutate(code)
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -144,13 +147,16 @@ async def generate_patch(  # pragma: no cover - external LLM
     patch = draft_patch(traces)
     if patch is None:
         return None
-    patch["after"] = _generate_patch(patch.get("after", ""))
+    patch["after"] = _mutate_code(patch.get("after", ""))
     return patch
 
 
-async def _generate_patch(traces: List[Dict[str, Any]]) -> Dict[str, Any] | None:  # pragma: no cover - thin wrapper
+async def _generate_patch_async(traces: List[Dict[str, Any]]) -> Dict[str, Any] | None:  # pragma: no cover - thin wrapper
     """Wrapper for generate_patch so tests can monkey-patch easier."""
     return await generate_patch(traces)
+
+# Expose async and sync mutation helpers
+_generate_patch = _mutate_code
 
 
 def _get_pylint_score(patch_code: str) -> float:  # pragma: no cover - thin shim
@@ -489,6 +495,8 @@ def _rollback(patch: Dict[str, Any]) -> None:  # pragma: no cover - simple file 
 def loop_forever() -> None:  # pragma: no cover - background service
     """Self-healing loop running indefinitely."""
     pending_patch: Dict[str, Any] | None = None
+    none_streak = 0
+    rollback_streak = 0
     while True:
         traces = asyncio.run(fetch_recent_traces())
 
@@ -498,12 +506,25 @@ def loop_forever() -> None:  # pragma: no cover - background service
                 log.info("Patch failed verification, rolling back")
                 _rollback(pending_patch)
                 pending_patch = None
+                rollback_streak += 1
+            else:
+                rollback_streak = 0
         else:
             log.info("No patch pending, generating mutation")
             for _ in range(MAX_MUTATIONS_PER_LOOP):
-                pending_patch = asyncio.run(_generate_patch(traces))
+                pending_patch = asyncio.run(_generate_patch_async(traces))
+                if pending_patch is not None:
+                    none_streak = 0
+                    break
+                none_streak += 1
+                if none_streak >= 3:
+                    os.environ["DGM_MUTATION"] = "ASTInsertComment"
 
-        time.sleep(LOOP_WAIT_S)
+        if rollback_streak >= 4:
+            time.sleep(ROLLBACK_SLEEP_S)
+            rollback_streak = 0
+        else:
+            time.sleep(LOOP_WAIT_S)
 
 
 # Entrypoint for standalone container / CLI
