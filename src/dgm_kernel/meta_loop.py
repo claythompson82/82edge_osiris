@@ -84,21 +84,47 @@ _generate_patch = _mutate_code
 
 # ──────────────────────────── trace acquisition ─────────────────────────────
 async def fetch_recent_traces(n: int = 100) -> list[dict[str, Any]]:
-    """Pop ≤ *n* recent traces from Redis, returning decoded list."""
+    """Pop the newest *n* traces, logging decode errors and returning list."""
     traces: list[dict[str, Any]] = []
-    raw: list[str] = []
+    try:
+        raw: list[str] = []
+        for _ in range(n):
+            item = REDIS.rpop(TRACE_QUEUE)
+            if item is None:
+                break
+            raw.append(item)
 
-    for _ in range(n):
-        item = REDIS.rpop(TRACE_QUEUE)
-        if item is None:
-            break
-        raw.append(item)
+        if not raw:
+            return []
 
-    for idx, txt in enumerate(raw):
-        try:
-            traces.append(json.loads(txt))
-        except json.JSONDecodeError as exc:
-            log.error("Bad trace[%s]: %s (%s)", idx, txt[:50], exc)
+        for idx, txt in enumerate(raw):
+            try:
+                traces.append(json.loads(txt))
+            except json.JSONDecodeError as exc:
+                log.error(
+                    "Failed to decode JSON for trace: %s. Error: %s. Trace index: %s",
+                    txt,
+                    exc,
+                    idx,
+                )
+
+        if traces:
+            log.info(
+                "Fetched %s traces successfully, encountered %s decoding errors.",
+                len(traces),
+                len(raw) - len(traces),
+            )
+        elif raw:
+            log.warning(
+                "Fetched %s raw traces, but all failed to decode.",
+                len(raw),
+            )
+    except redis.exceptions.RedisError as exc:
+        log.error("Redis error while fetching traces: %s", exc)
+        return []
+    except Exception as exc:  # pragma: no cover - unexpected edge cases
+        log.error("Unexpected error in fetch_recent_traces: %s", exc)
+        return []
 
     return traces
 
@@ -113,11 +139,11 @@ async def generate_patch(
     """
     patch = draft_patch(traces)
     if patch is None:
-        metrics.increment_patch_generation(_MUTATION_NAME, result="failure")
+        metrics.increment_patch_generation(mutation=_MUTATION_NAME, result="failure")
         return None
 
     patch["after"] = _mutate_code(patch.get("after", ""))
-    metrics.increment_patch_generation(_MUTATION_NAME, result="success")
+    metrics.increment_patch_generation(mutation=_MUTATION_NAME, result="success")
     return patch
 
 
@@ -173,6 +199,7 @@ async def _verify_patch(traces: list[dict[str, Any]], patch: dict[str, Any]) -> 
 
     banned = ("os.system", "eval(", "exec(", "subprocess.Popen", "subprocess.call")
     if any(tok in code for tok in banned):
+        metrics.unsafe_token_found_total.inc()
         return False
 
     if not await _lint_with_ruff(code):
@@ -185,19 +212,31 @@ async def _verify_patch(traces: list[dict[str, Any]], patch: dict[str, Any]) -> 
 # ───────────────────────────── apply / rollback ────────────────────────────
 def _apply_patch(patch: dict[str, Any]) -> bool:
     tgt = Path(patch["target"])
+    success = True
     try:
         tgt.parent.mkdir(parents=True, exist_ok=True)
         tgt.write_text(patch["after"])
         importlib.invalidate_caches()
-        mod = importlib.import_module(str(tgt.with_suffix("")).replace("/", "."))
-        importlib.reload(mod)
-        ok = True
+        module_name = str(tgt.with_suffix("")).replace("/", ".").lstrip(".")
+        try:
+            module = importlib.import_module(module_name)
+            importlib.reload(module)
+        except ModuleNotFoundError:
+            log.warning(
+                "Module %s not found directly, attempting to load spec.", module_name
+            )
+            spec = importlib.util.spec_from_file_location(module_name, str(tgt))
+            if spec and spec.loader:
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+            else:
+                raise ImportError(f"Could not load spec for {module_name} from {tgt}")
     except Exception as exc:
         log.error("apply_patch failed: %s", exc)
-        ok = False
+        success = False
 
-    metrics.increment_patch_apply(_MUTATION_NAME, result="success" if ok else "failure")
-    return ok
+    metrics.increment_patch_apply(mutation=_MUTATION_NAME, result="success" if success else "failure")
+    return success
 
 
 def _rollback(patch: dict[str, Any]) -> None:
@@ -277,17 +316,17 @@ def loop_forever() -> None:
     while True:
         traces = asyncio.run(fetch_recent_traces())
 
-        if pending and not asyncio.run(_verify_patch(traces, pending)):
-            _rollback(pending)
-            pending = None
-            rollback_streak += 1
+        if pending:
+            if not asyncio.run(_verify_patch(traces, pending)):
+                _rollback(pending)
+                pending = None
+                rollback_streak += 1
+            else:
+                rollback_streak = 0
         else:
-            rollback_streak = 0
-
-        if pending is None:
             for _ in range(MAX_MUTATIONS_PER_LOOP):
                 pending = asyncio.run(_generate_patch_async(traces))
-                if pending:
+                if pending is not None:
                     none_streak = 0
                     break
                 none_streak += 1

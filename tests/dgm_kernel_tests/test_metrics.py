@@ -5,7 +5,7 @@ from typing import Dict
 import importlib
 
 import pytest
-from prometheus_client import CollectorRegistry
+from prometheus_client import CollectorRegistry, Counter
 
 from dgm_kernel import meta_loop, metrics
 
@@ -73,3 +73,25 @@ def test_apply_patch_metrics_failure(tmp_path: Path, monkeypatch: pytest.MonkeyP
     before_val = get_metric_value(registry, "dgm_patches_applied_total", {"mutation": meta_loop._MUTATION_NAME, "result": "failure"})
     assert meta_loop._apply_patch(patch) is False
     assert get_metric_value(registry, "dgm_patches_applied_total", {"mutation": meta_loop._MUTATION_NAME, "result": "failure"}) == before_val + 1.0
+
+
+@pytest.mark.asyncio
+async def test_unsafe_token_counter(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    registry = CollectorRegistry(auto_describe=True)
+    counter = Counter(
+        "dgm_unsafe_token_found_total",
+        "Number of patches rejected due to dangerous tokens",
+        registry=registry,
+    )
+    monkeypatch.setattr(metrics, "unsafe_token_found_total", counter)
+    monkeypatch.setattr(meta_loop.metrics, "unsafe_token_found_total", counter)
+
+    patch = {
+        "target": str(tmp_path / "mod.py"),
+        "before": "",
+        "after": 'os.system("rm -rf /")',
+    }
+
+    result = await meta_loop._verify_patch([], patch)
+    assert result is False
+    assert counter._value.get() == 1.0
