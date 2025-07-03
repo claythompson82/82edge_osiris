@@ -1,0 +1,28 @@
+{{- if .Values.monitoring.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "dgm-kernel.fullname" . }}-grafana-dashboard
+  labels:
+    {{- include "dgm-kernel.labels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+  annotations:
+    grafana_dashboard: "1"
+data:
+  dgm.json: |-
+    {
+      "title": "DGM Kernel Metrics",
+      "uid": "dgm-kernel",
+      "schemaVersion": 37,
+      "version": 1,
+      "panels": [
+        {
+          "type": "timeseries",
+          "title": "Patch Apply Rate",
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [{"expr": "rate(dgm_patch_apply_total[5m])", "refId": "A"}],
+          "gridPos": {"h": 6, "w": 12, "x": 0, "y": 0}
+        }
+      ]
+    }
+{{- end }}
