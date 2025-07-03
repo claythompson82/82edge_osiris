@@ -6,6 +6,7 @@ Darwin Gödel Machine — self-improving meta-loop (async capable)
 from __future__ import annotations
 
 import argparse
+from collections import deque
 import asyncio
 import difflib
 import importlib
@@ -26,6 +27,7 @@ from dgm_kernel import metrics
 from dgm_kernel.crypto_sign import sign_patch, verify_patch
 from dgm_kernel.llm_client import draft_patch
 from dgm_kernel.mutation_strategies import MutationStrategy
+from dgm_kernel.mutation_scheduler import MutationScheduler
 from dgm_kernel.prover import _get_pylint_score as _prover_pylint_score
 from dgm_kernel.prover import prove_patch
 from dgm_kernel.sandbox import run_patch_in_sandbox
@@ -57,15 +59,37 @@ if PATCH_HISTORY_FILE.exists():  # pragma: no cover – startup rewind
         log.error("Failed to read patch history: %s", exc)
 
 _MUTATION_NAME = os.getenv("DGM_MUTATION", "ASTInsertComment")
+_scheduler = MutationScheduler()
+_recent_rewards: deque[float] = deque(maxlen=5)
 
 # ───────────────────────────── mutation helpers ──────────────────────────────
 def _load_mutation() -> MutationStrategy:
     mod = importlib.import_module("dgm_kernel.mutation_strategies")
+    if not hasattr(mod, _MUTATION_NAME) and _MUTATION_NAME == "ASTInsertCommentAndRename":
+        from dgm_kernel.mutation_strategies import ASTInsertComment, ASTRenameIdentifier
+
+        class ASTInsertCommentAndRename:
+            def mutate(self, code: str) -> str:
+                code = ASTInsertComment().mutate(code)
+                return ASTRenameIdentifier().mutate(code)
+
+        setattr(mod, "ASTInsertCommentAndRename", ASTInsertCommentAndRename)
+
     cls = cast(type[MutationStrategy], getattr(mod, _MUTATION_NAME))
     return cls()
 
 
 _mutation_strategy = _load_mutation()
+
+
+def _set_mutation_strategy(name: str) -> None:
+    """Update global mutation strategy and mirror env var."""
+    global _MUTATION_NAME, _mutation_strategy
+    _MUTATION_NAME = name
+    os.environ["DGM_MUTATION"] = name
+    _mutation_strategy = _load_mutation()
+    if name == "ASTInsertComment":
+        _scheduler.__init__()
 
 
 def _mutate_code(code: str) -> str:
@@ -336,12 +360,23 @@ def loop_forever() -> None:
     while True:
         traces = asyncio.run(fetch_recent_traces())
 
+        avg_reward = (
+            sum(_recent_rewards) / len(_recent_rewards)
+            if _recent_rewards
+            else 0.0
+        )
+        chosen = _scheduler.next_strategy(avg_reward)
+        if chosen != _MUTATION_NAME:
+            _set_mutation_strategy(chosen)
+
         if pending:
             if not asyncio.run(_verify_patch(traces, pending)):
                 _rollback(pending)
                 pending = None
+                _recent_rewards.append(-1.0)
                 rollback_streak += 1
             else:
+                _recent_rewards.append(1.0)
                 rollback_streak = 0
         else:
             for _ in range(MAX_MUTATIONS_PER_LOOP):
@@ -352,11 +387,11 @@ def loop_forever() -> None:
                 none_streak += 1
 
             if none_streak >= 3:
-                os.environ["DGM_MUTATION"] = "ASTInsertComment"
+                _set_mutation_strategy("ASTInsertComment")
 
         if rollback_streak >= 4:
             metrics.rollback_backoff_total.inc()
-            os.environ["DGM_MUTATION"] = "ASTInsertComment"
+            _set_mutation_strategy("ASTInsertComment")
             rollback_streak = 0
             time.sleep(ROLLBACK_SLEEP_S)
         else:
