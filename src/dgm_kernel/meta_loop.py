@@ -23,6 +23,7 @@ from typing import Any, Dict, List, cast
 import redis
 
 from dgm_kernel import metrics
+from dgm_kernel.crypto_sign import sign_patch, verify_patch
 from dgm_kernel.llm_client import draft_patch
 from dgm_kernel.mutation_strategies import MutationStrategy
 from dgm_kernel.prover import _get_pylint_score as _prover_pylint_score
@@ -202,6 +203,20 @@ async def _verify_patch(traces: list[dict[str, Any]], patch: dict[str, Any]) -> 
         metrics.unsafe_token_found_total.inc()
         return False
 
+    if "sig" in patch:
+        diff = "\n".join(
+            difflib.unified_diff(
+                patch.get("before", "").splitlines(),
+                patch.get("after", "").splitlines(),
+                fromfile="before",
+                tofile="after",
+                lineterm="",
+            )
+        )
+        if not verify_patch(diff, patch["sig"]):
+            metrics.patch_sig_invalid_total.inc()
+            return False
+
     if not await _lint_with_ruff(code):
         return False
 
@@ -255,6 +270,11 @@ def _record_patch_history(entry: dict[str, Any]) -> None:
         history: list[dict[str, Any]] = []
         if PATCH_HISTORY_FILE.exists():
             history = json.loads(PATCH_HISTORY_FILE.read_text())
+        if "diff" in entry and "sig" not in entry:
+            try:
+                entry["sig"] = sign_patch(entry["diff"])
+            except Exception as exc:  # pragma: no cover - signing issues
+                log.error("sign diff failed: %s", exc)
         history.append(entry)
         PATCH_HISTORY_FILE.write_text(json.dumps(history, indent=2))
     except Exception as exc:  # pragma: no cover

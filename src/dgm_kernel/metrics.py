@@ -16,6 +16,12 @@ rollback_backoff_total = Counter(
     "Number of times meta-loop slept due to consecutive rollbacks",
 )
 
+# Counts invalid patch signatures during verification
+patch_sig_invalid_total = Counter(
+    "dgm_patch_sig_invalid_total",
+    "Number of patches rejected due to invalid signature",
+)
+
 _counters: Dict[CollectorRegistry, Dict[str, Counter]] = {}
 
 
