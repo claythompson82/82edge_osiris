@@ -5,6 +5,10 @@ from prometheus_client import Counter, CollectorRegistry, REGISTRY as DEFAULT_RE
 
 _PATCH_APPLIED = "dgm_patches_applied_total"
 _PATCH_GENERATION = "dgm_patch_generation_total"
+unsafe_token_found_total = Counter(
+    "dgm_unsafe_token_found_total",
+    "Number of patches rejected due to dangerous tokens",
+)
 
 _counters: Dict[CollectorRegistry, Dict[str, Counter]] = {}
 

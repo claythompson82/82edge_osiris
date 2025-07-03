@@ -5,3 +5,4 @@ hypothesis
 pydantic>=2,<3
 redis==6.2.0
 fakeredis>=2.19
+prometheus-client
