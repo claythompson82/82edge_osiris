@@ -3,6 +3,7 @@ import os
 import sys
 import time
 from collections import defaultdict
+from prometheus_client import Counter, CollectorRegistry
 from hypothesis import given, strategies as st, settings, HealthCheck
 import pytest
 
@@ -38,7 +39,7 @@ class SimpleRedis:
         return True
 
 
-from dgm_kernel import meta_loop
+from dgm_kernel import meta_loop, metrics
 
 @pytest.fixture
 def fake_redis():
@@ -76,6 +77,18 @@ def test_sleep_after_rollbacks(monkeypatch, num_failures):
         if rollbacks["n"] >= num_failures:
             raise StopIteration
 
+    registry = CollectorRegistry(auto_describe=True)
+    counter = Counter(
+        "dgm_rollback_backoff_total",
+        "Number of times meta-loop slept due to consecutive rollbacks",
+        registry=registry,
+    )
+
+    monkeypatch.setattr(meta_loop.metrics, "rollback_backoff_total", counter)
+    monkeypatch.setattr(metrics, "rollback_backoff_total", counter)
+
+    monkeypatch.setenv("DGM_MUTATION", "OtherMutation")
+
     monkeypatch.setattr(meta_loop, "fetch_recent_traces", fake_fetch)
     monkeypatch.setattr(meta_loop, "_generate_patch_async", gen_patch)
     monkeypatch.setattr(meta_loop, "_verify_patch", verify)
@@ -86,6 +99,8 @@ def test_sleep_after_rollbacks(monkeypatch, num_failures):
         meta_loop.loop_forever()
 
     assert any(sec >= meta_loop.ROLLBACK_SLEEP_S for sec in sleep_calls)
+    assert counter._value.get() >= 1.0
+    assert os.environ["DGM_MUTATION"] == "ASTInsertComment"
 
 
 def test_env_var_reload(monkeypatch):

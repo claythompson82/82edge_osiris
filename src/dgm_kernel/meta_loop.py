@@ -335,6 +335,9 @@ def loop_forever() -> None:
                 os.environ["DGM_MUTATION"] = "ASTInsertComment"
 
         if rollback_streak >= 4:
+            metrics.rollback_backoff_total.inc()
+            os.environ["DGM_MUTATION"] = "ASTInsertComment"
+            rollback_streak = 0
             time.sleep(ROLLBACK_SLEEP_S)
         else:
             time.sleep(LOOP_WAIT_S)
