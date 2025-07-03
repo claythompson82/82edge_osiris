@@ -132,7 +132,7 @@ async def test_fetch_recent_traces_json_decode_error(fake_redis, caplog):
     assert len(fetched_traces) == 2
     assert fetched_traces[0]["id"] == 1
     assert fetched_traces[1]["id"] == 3
-    assert any("Bad trace" in m and "this_is_not_json" in m for m in caplog.messages))
+    assert any("Bad trace" in m and "this_is_not_json" in m for m in caplog.messages)
     log.info("Test passed: fetch_recent_traces handled JSON decode error correctly.")
 
 
