@@ -1,0 +1,16 @@
+{{- if .Values.monitoring.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "dgm-kernel.fullname" . }}
+  labels:
+    {{- include "dgm-kernel.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "dgm-kernel.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - targetPort: 8000
+      path: /metrics
+      interval: {{ .Values.monitoring.interval }}
+{{- end }}
