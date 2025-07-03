@@ -10,6 +10,12 @@ unsafe_token_found_total = Counter(
     "Number of patches rejected due to dangerous tokens",
 )
 
+# Counts how often the meta-loop backed off due to repeated rollbacks
+rollback_backoff_total = Counter(
+    "dgm_rollback_backoff_total",
+    "Number of times meta-loop slept due to consecutive rollbacks",
+)
+
 _counters: Dict[CollectorRegistry, Dict[str, Counter]] = {}
 
 
