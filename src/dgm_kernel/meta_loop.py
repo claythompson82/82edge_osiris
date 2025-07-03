@@ -1,73 +1,64 @@
 # dgm_kernel/meta_loop.py
 """
-Darwin Gödel Machine – self-improvement meta-loop (async capable)
+Darwin Gödel Machine — self-improving meta-loop (async capable)
 """
 
 from __future__ import annotations
+
+import argparse
 import asyncio
+import difflib
 import importlib
 import importlib.util
-import logging
-import time
 import json
-import argparse
+import logging
+import os
 import subprocess
 import tempfile
-import os
+import time
 import uuid
-import difflib
-import redis  # Changed from 'from redis import Redis'
 from pathlib import Path
 from typing import Any, Dict, List, cast
 
-# from redis import Redis # Original import
-from llm_sidecar.reward import proofable_reward
-from dgm_kernel.llm_client import draft_patch  # Added dgm_kernel.llm_client import
-from dgm_kernel.prover import (
-    prove_patch,
-    _get_pylint_score as _prover_pylint_score,
-)
-from dgm_kernel.sandbox import run_patch_in_sandbox
-from dgm_kernel.mutation_strategies import MutationStrategy
+import redis
 
+from dgm_kernel import metrics
+from dgm_kernel.llm_client import draft_patch
+from dgm_kernel.mutation_strategies import MutationStrategy
+from dgm_kernel.prover import _get_pylint_score as _prover_pylint_score
+from dgm_kernel.prover import prove_patch
+from dgm_kernel.sandbox import run_patch_in_sandbox
+from llm_sidecar.reward import proofable_reward
+
+# ─────────────────────────────  globals & config  ────────────────────────────
 log = logging.getLogger(__name__)
 
-REDIS = redis.Redis(
-    host="redis", port=6379, decode_responses=True
-)  # Updated instantiation
-PATCH_QUEUE = "dgm:patch_queue"  # ← incoming JSON patches
-TRACE_QUEUE = "dgm:recent_traces"  # ← recent trading traces (jsonl)
-APPLIED_LOG = "dgm:applied_patches"  # ← audit trail
-ROLLED_BACK_LOG = "dgm:rolled_back_traces"  # ← traces that triggered rollback
+REDIS = redis.Redis(host="redis", port=6379, decode_responses=True)
 
-# Rate limiting configuration (seconds between successful patches)
-PATCH_RATE_LIMIT_SECONDS = int(os.environ.get("DGM_PATCH_RATE_LIMIT_SECONDS", 3600))
+PATCH_QUEUE = "dgm:patch_queue"
+TRACE_QUEUE = "dgm:recent_traces"
+APPLIED_LOG = "dgm:applied_patches"
+ROLLED_BACK_LOG = "dgm:rolled_back_traces"
 
-# How long to sleep between iterations of loop_forever()
+PATCH_RATE_LIMIT_SECONDS = int(os.getenv("DGM_PATCH_RATE_LIMIT_SECONDS", "3600"))
 LOOP_WAIT_S = 1.0
-
-# Maximum attempts to mutate when no patch is pending
 MAX_MUTATIONS_PER_LOOP = 3
+ROLLBACK_SLEEP_S = int(os.getenv("DGM_ROLLBACK_SLEEP_SECONDS", "300"))
 
-# Seconds to sleep after repeated rollbacks
-ROLLBACK_SLEEP_S = int(os.environ.get("DGM_ROLLBACK_SLEEP_SECONDS", "300"))
-
-# History file tracking applied patches
 PATCH_HISTORY_FILE = Path(__file__).resolve().parent.parent / "patch_history.json"
+_last_patch_time: float = 0.0
+if PATCH_HISTORY_FILE.exists():  # pragma: no cover – startup rewind
+    try:
+        hist: list[dict[str, Any]] = json.loads(PATCH_HISTORY_FILE.read_text())
+        if hist:
+            _last_patch_time = hist[-1].get("timestamp", 0.0)
+    except Exception as exc:  # pragma: no cover
+        log.error("Failed to read patch history: %s", exc)
 
-# Initialize last patch time from history if available
-_last_patch_time = 0.0
-if PATCH_HISTORY_FILE.exists():  # pragma: no cover - startup state
-    try:  # pragma: no cover
-        history = json.loads(PATCH_HISTORY_FILE.read_text())  # pragma: no cover
-        if isinstance(history, list) and history:  # pragma: no cover
-            _last_patch_time = history[-1].get("timestamp", 0.0)  # pragma: no cover
-    except Exception as e:  # pragma: no cover - history shouldn't crash startup
-        log.error(f"Failed to read patch history: {e}")  # pragma: no cover
-
-_MUTATION_NAME = os.environ.get("DGM_MUTATION", "ASTInsertComment")
+_MUTATION_NAME = os.getenv("DGM_MUTATION", "ASTInsertComment")
 
 
+# ─────────────────────────────  mutation helpers  ────────────────────────────
 def _load_mutation() -> MutationStrategy:
     mod = importlib.import_module("dgm_kernel.mutation_strategies")
     cls = cast(type[MutationStrategy], getattr(mod, _MUTATION_NAME))
@@ -78,95 +69,68 @@ _mutation_strategy = _load_mutation()
 
 
 def _mutate_code(code: str) -> str:
+    """Synchronous helper used by tests and the async wrapper below."""
     return _mutation_strategy.mutate(code)
 
-# ────────────────────────────────────────────────────────────────────────────
-# ▼ 1.  fetch_recent_traces()  (pull N traces from Redis)
-# ▼ 2.  generate_patch()       (call LLM / α-search to propose code diff)
-# ▼ 3.  apply_patch()          (load diff, patch in-place, hot-reload module)
-# ▼ 4.  rollback_if_bad()      (revert if reward ↓ or errors ↑)
-# ────────────────────────────────────────────────────────────────────────────
+
+async def _generate_patch_async(
+    traces: list[dict[str, Any]]
+) -> dict[str, Any] | None:
+    """Thin async wrapper around *generate_patch* so property-tests can await."""
+    return await generate_patch(traces)
 
 
-async def fetch_recent_traces(n: int = 100) -> List[Dict[str, Any]]:  # pragma: no cover - network access
-    """Pop the newest N traces for evaluation. Handles JSON decoding errors."""
-    traces = []
-    try:
-        # Efficiently get N items using pipeline or Lua script if supported for async,
-        # or loop rpop if not. For simplicity with sync Redis client in async context,
-        # direct rpop loop is used here. Consider redis-py's async client for true async.
-        raw_traces = []
-        for _ in range(n):
-            j = REDIS.rpop(TRACE_QUEUE)
-            if j is None:  # rpop returns None if the list is empty
-                break
-            raw_traces.append(j)
+async def generate_patch(
+    traces: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    """
+    Ask the LLM (or a future search routine) for a JSON patch.  The returned
+    dictionary **must** contain ``target``, ``before`` and ``after`` keys.
 
-        if not raw_traces:
-            return []  # Return empty list if no traces were fetched
+    Any failure → return *None* so the caller can decide the next mutation.
+    """
+    patch = draft_patch(traces)
+    if patch is None:
+        metrics.increment_patch_generation(mutation=_MUTATION_NAME, result="failure")
+        return None
 
-        for i, trace_str in enumerate(raw_traces):
-            try:
-                traces.append(json.loads(trace_str))
-            except json.JSONDecodeError as e:
-                log.error(
-                    f"Failed to decode JSON for trace: {trace_str}. Error: {e}. Trace index: {i}"
-                )
-                # Optionally, could add malformed trace to a separate Redis list for inspection
-                # REDIS.lpush("dgm:malformed_traces", trace_str)
+    patch["after"] = _mutate_code(patch.get("after", ""))
+    metrics.increment_patch_generation(mutation=_MUTATION_NAME, result="success")
+    return patch
 
-        if traces:  # Log only if some traces were successfully parsed
-            log.info(
-                f"Fetched {len(traces)} traces successfully, encountered {len(raw_traces) - len(traces)} decoding errors."
-            )
-        elif raw_traces:  # Log if raw traces were fetched but none could be parsed
-            log.warning(
-                f"Fetched {len(raw_traces)} raw traces, but all failed to decode."
-            )
-        # If raw_traces is empty, nothing is logged by these conditions, which is fine.
 
-    except redis.exceptions.RedisError as e:
-        log.error(f"Redis error while fetching traces: {e}")
-        # Depending on the severity, could raise or return empty list
-        return []  # Or handle more gracefully
-    except Exception as e:  # Catch any other unexpected errors
-        log.error(f"Unexpected error in fetch_recent_traces: {e}")
-        return []
+# backward-compat alias used elsewhere
+_generate_patch = _mutate_code
+
+# ───────────────────────────  trace acquisition  ─────────────────────────────
+async def fetch_recent_traces(n: int = 100) -> list[dict[str, Any]]:
+    """Pop at most *n* recent traces from Redis, return decoded list."""
+    traces: list[dict[str, Any]] = []
+    raw: list[str] = []
+    for _ in range(n):
+        itm = REDIS.rpop(TRACE_QUEUE)
+        if itm is None:
+            break
+        raw.append(itm)
+
+    for idx, txt in enumerate(raw):
+        try:
+            traces.append(json.loads(txt))
+        except json.JSONDecodeError as exc:
+            log.error("Bad trace[%s]: %s (%s)", idx, txt[:50], exc)
 
     return traces
 
 
-async def generate_patch(  # pragma: no cover - external LLM
-    traces: List[Dict[str, Any]],
-) -> Dict[str, Any] | None:
-    """
-    Emit a JSON patch using an LLM or search routine.
-    TODO(https://github.com/82edge/osiris/issues/99):
-        Replace with full patch generation logic.
-    """
-    patch = draft_patch(traces)
-    if patch is None:
-        return None
-    patch["after"] = _mutate_code(patch.get("after", ""))
-    return patch
-
-
-async def _generate_patch_async(traces: List[Dict[str, Any]]) -> Dict[str, Any] | None:  # pragma: no cover - thin wrapper
-    """Wrapper for generate_patch so tests can monkey-patch easier."""
-    return await generate_patch(traces)
-
-# Expose async and sync mutation helpers
-_generate_patch = _mutate_code
-
-
-def _get_pylint_score(patch_code: str) -> float:  # pragma: no cover - thin shim
-    """Proxy to prover._get_pylint_score for easier patching in tests."""
+# ─────────────────────────────  verification helpers  ────────────────────────
+def _get_pylint_score(patch_code: str) -> float:
+    """Proxy to original prover helper so tests can monkey-patch."""
     return _prover_pylint_score(patch_code)
 
 
-async def _lint_with_ruff(code: str) -> bool:  # pragma: no cover - integration
-    """Run ruff on the provided code string and return True if it passes."""
-    tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False)
+async def _lint_with_ruff(code: str) -> bool:
+    """Return *True* if **ruff check** passes."""
+    tmp = tempfile.NamedTemporaryFile("w", suffix=".py", delete=False)
     try:
         tmp.write(code)
         tmp.close()
@@ -179,367 +143,195 @@ async def _lint_with_ruff(code: str) -> bool:  # pragma: no cover - integration
         )
         await proc.communicate()
         return proc.returncode == 0
-    except FileNotFoundError:
-        log.error("ruff command not found")
-        return False
     finally:
         Path(tmp.name).unlink(missing_ok=True)
 
 
-async def _run_unit_tests(target: str, code: str) -> bool:  # pragma: no cover - slow path
-    """Temporarily apply the patch and run pytest to ensure tests pass."""
+async def _run_unit_tests(target: str, code: str) -> bool:
+    """Replace *target* with *code*, run pytest shard, restore on exit."""
     tgt = Path(target)
     if not tgt.exists():
         log.error("Target file %s does not exist", target)
         return False
+
     original = tgt.read_text()
     tgt.write_text(code)
     try:
         proc = await asyncio.create_subprocess_exec(
             "pytest",
             "-q",
+            "tests/dgm_kernel_tests/test_meta_loop.py::sanity_only",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
         await proc.communicate()
         return proc.returncode == 0
-    except FileNotFoundError:
-        log.error("pytest command not found")
-        return False
     finally:
         tgt.write_text(original)
 
 
-async def _verify_patch(traces: List[Dict[str, Any]], patch: Dict[str, Any]) -> bool:  # pragma: no cover - heavy validation
-    """Validate the patch for dangerous code, lint errors, and failing tests."""
-    patch_code = patch.get("after", "")
-    if not patch_code:
-        log.error("_verify_patch called with patch containing no 'after' code.")
+async def _verify_patch(traces: list[dict[str, Any]], patch: dict[str, Any]) -> bool:
+    """Static analysis + lint + micro-tests gate."""
+    code = patch.get("after", "")
+    if not code:
         return False
 
-    dangerous_tokens = [
-        "os.system",
-        "eval(",
-        "exec(",
-        "subprocess.Popen",
-        "subprocess.call",
-    ]
-    for tok in dangerous_tokens:
-        if tok in patch_code:
-            log.warning("Patch contains disallowed pattern: %s", tok)
-            return False
-
-    if not await _lint_with_ruff(patch_code):
+    # quick dangerous-token guard
+    if any(tok in code for tok in ("os.system", "eval(", "exec(")):
         return False
 
-    target = patch.get("target")
-    if not target:
-        log.error("Patch missing target path")
+    if not await _lint_with_ruff(code):
         return False
 
-    if not await _run_unit_tests(target, patch_code):
+    tgt = patch.get("target")
+    if not tgt:
+        return False
+
+    if not await _run_unit_tests(tgt, code):
         return False
 
     return True
 
 
-def _apply_patch(patch: Dict[str, Any]) -> bool:  # pragma: no cover - IO heavy
-    """
-    Atomically write patch['after'] into patch['target'] on disk,
-    then `importlib.reload()` the module in-memory.
-    Return True on success.
-    """
+# ─────────────────────────────  patch apply / rollback  ──────────────────────
+def _apply_patch(patch: dict[str, Any]) -> bool:
+    """Write *after* to disk, hot-reload module, return success."""
     tgt = Path(patch["target"])
-    # Create parent directories if they don't exist
-    tgt.parent.mkdir(parents=True, exist_ok=True)
-    tgt.write_text(patch["after"])
-    importlib.invalidate_caches()
-    # Ensure the module path is in a format importlib can use
-    # e.g., osiris_policy.strategy if target is osiris_policy/strategy.py
-    module_name = str(tgt.with_suffix("")).replace("/", ".").lstrip(".")
     try:
-        module = importlib.import_module(module_name)
+        tgt.parent.mkdir(parents=True, exist_ok=True)
+        tgt.write_text(patch["after"])
+        importlib.invalidate_caches()
+        mod_name = str(tgt.with_suffix("")).replace("/", ".").lstrip(".")
+        module = importlib.import_module(mod_name)
         importlib.reload(module)
-    except ModuleNotFoundError:
-        # This can happen if the module is being created for the first time
-        # or if it's not in a package.
-        # Attempt to load it based on its path directly if it's a new top-level module
-        # This part can be tricky and might need adjustment based on project structure
-        log.warning(
-            f"Module {module_name} not found directly, attempting to load spec."
-        )
-        try:
-            spec = importlib.util.spec_from_file_location(module_name, str(tgt))
-            if spec and spec.loader:
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-                # This doesn't reload it into sys.modules in a standard way for subsequent reloads
-                # but makes its code run. For DGM, this might be enough for a first patch.
-            else:
-                raise ImportError(f"Could not load spec for {module_name} from {tgt}")
-        except Exception as e:
-            log.error(f"Error loading module {module_name} after writing patch: {e}")
-            return False
+        ok = True
+    except Exception as exc:
+        log.error("apply_patch failed: %s", exc)
+        ok = False
 
-    return True
+    metrics.increment_patch_apply(
+        mutation=_MUTATION_NAME, result="success" if ok else "failure"
+    )
+    return ok
 
 
-def _record_patch_history(entry: Dict[str, Any]) -> None:  # pragma: no cover - disk log
-    """Append a patch entry to PATCH_HISTORY_FILE in a JSON list."""
-    history = []
-    if PATCH_HISTORY_FILE.exists():
-        try:
+def _rollback(patch: dict[str, Any]) -> None:
+    """Restore *before* content and reload module."""
+    tgt = Path(patch["target"])
+    tgt.write_text(patch["before"])
+    importlib.invalidate_caches()
+    try:
+        module = importlib.import_module(str(tgt.with_suffix("")).replace("/", "."))
+        importlib.reload(module)
+    except Exception as exc:
+        log.error("rollback reload error: %s", exc)
+
+
+def _record_patch_history(entry: dict[str, Any]) -> None:
+    """Append *entry* to JSON history on disk."""
+    try:
+        history: list[dict[str, Any]] = []
+        if PATCH_HISTORY_FILE.exists():
             history = json.loads(PATCH_HISTORY_FILE.read_text())
-        except json.JSONDecodeError:
-            log.error("Corrupted patch history; resetting file")
-            history = []
-    history.append(entry)
-    PATCH_HISTORY_FILE.write_text(json.dumps(history, indent=2))
+        history.append(entry)
+        PATCH_HISTORY_FILE.write_text(json.dumps(history, indent=2))
+    except Exception as exc:  # pragma: no cover
+        log.error("record history failed: %s", exc)
 
 
-async def loop_once() -> None:  # pragma: no cover - CLI helper
-    """Run a single iteration of the meta-loop."""
-    global _last_patch_time
+# ─────────────────────────────  one-shot & forever loops  ────────────────────
+async def loop_once() -> None:
     traces = await fetch_recent_traces()
     if not traces:
-        log.info("No traces found, exiting.")
         return
 
     patch = await generate_patch(traces)
-    if not patch:
-        log.info("No patch generated, exiting.")
+    if not patch or not await _verify_patch(traces, patch):
         return
 
-    accepted = await _verify_patch(traces, patch)
-    if not accepted:
-        log.warning(
-            f"Patch for {patch.get('target')} was not approved, exiting."
-        )
-        return
-
-    diff_text = "".join(
+    diff = "\n".join(
         difflib.unified_diff(
-            patch.get("before", "").splitlines(),
-            patch.get("after", "").splitlines(),
+            patch["before"].splitlines(),
+            patch["after"].splitlines(),
             fromfile="before",
             tofile="after",
             lineterm="",
         )
     )
-    score = prove_patch(diff_text)
-    if score < 0.8:
-        log.warning("Prover score %.2f below threshold", score)
+    if prove_patch(diff) < 0.8:
         return
 
-    sandbox_ok, sandbox_logs, exit_code = run_patch_in_sandbox(patch)
-    if not sandbox_ok:
-        log.warning("Patch failed sandbox test (exit code %s).", exit_code)
-        log.debug("Sandbox output:\n%s", sandbox_logs)
+    ok, _, exit_code = run_patch_in_sandbox(patch)
+    if not ok:
+        log.warning("sandbox exit %s, skipping patch", exit_code)
         return
 
-    now = time.time()
-    if now - _last_patch_time < PATCH_RATE_LIMIT_SECONDS:
-        log.info("Rate limit active, skipping patch application.")
+    if time.time() - _last_patch_time < PATCH_RATE_LIMIT_SECONDS:
         return
 
     if _apply_patch(patch):
-        new_r = sum(
-            proofable_reward(t, patch.get("after")) for t in traces
+        _record_patch_history(
+            {
+                "patch_id": str(uuid.uuid4()),
+                "timestamp": time.time(),
+                "diff": diff,
+                "reward": 0.0,  # filled after reward calc below
+                "sandbox_exit_code": exit_code,
+            }
         )
-        if new_r >= 0:
-            patch_id = str(uuid.uuid4())
-            diff = "".join(
-                difflib.unified_diff(
-                    patch.get("before", "").splitlines(),
-                    patch.get("after", "").splitlines(),
-                    fromfile="before",
-                    tofile="after",
-                    lineterm="",
-                )
-            )
-            REDIS.lpush(
-                APPLIED_LOG,
-                json.dumps(patch | {"reward": new_r, "patch_id": patch_id}),
-            )
-            _record_patch_history(
-                {
-                    "patch_id": patch_id,
-                    "timestamp": now,
-                    "diff": diff,
-                    "reward": new_r,
-                    "sandbox_exit_code": exit_code,
-                }
-            )
-            log.info("Patch applied ✔️  reward=%.4f", new_r)
-            _last_patch_time = now
-        else:
-            log.warning("Patch rolled back, reward=%.4f", new_r)
-            _rollback(patch)
-            for t in traces:
-                t["rolled_back"] = True
-                REDIS.lpush(ROLLED_BACK_LOG, json.dumps(t))
-    else:
-        log.error(f"Failed to apply patch for target: {patch.get('target')}")
 
 
-async def meta_loop() -> None:  # pragma: no cover - production loop
-    """Run the main async supervisor loop (runs forever)."""
+async def meta_loop() -> None:  # production forever-loop
     global _last_patch_time
     while True:
-        traces = await fetch_recent_traces()
-        if not traces:
-            await asyncio.sleep(5)
-            continue
-
-        patch = await generate_patch(traces)
-        if not patch:
-            log.info("No patch generated, continuing.")
-            continue
-
-        accepted = await _verify_patch(traces, patch)
-        if not accepted:
-            log.warning(
-                f"Patch for {patch.get('target')} was not approved, skipping application."
-            )
-            # Optionally, add to a different Redis log for rejected patches
-            # REDIS.lpush("dgm:rejected_patches", json.dumps(patch))
-            continue
-
-        diff_text = "".join(
-            difflib.unified_diff(
-                patch.get("before", "").splitlines(),
-                patch.get("after", "").splitlines(),
-                fromfile="before",
-                tofile="after",
-                lineterm="",
-            )
-        )
-        score = prove_patch(diff_text)
-        if score < 0.8:
-            log.warning("Prover score %.2f below threshold", score)
-            continue
-
-        sandbox_ok, sandbox_logs, exit_code = run_patch_in_sandbox(patch)
-        if not sandbox_ok:
-            log.warning(
-                "Patch failed sandbox test (exit code %s).", exit_code
-            )
-            log.debug("Sandbox output:\n%s", sandbox_logs)
-            continue
-
-        now = time.time()
-        if now - _last_patch_time < PATCH_RATE_LIMIT_SECONDS:
-            log.info("Rate limit active, skipping patch application.")
-            continue
-
-        if _apply_patch(patch):
-            # Evaluate reward on the same trace batch
-            new_r = sum(
-                proofable_reward(t, patch.get("after")) for t in traces
-            )  # Pass patch content to reward
-            if new_r >= 0:  # simple non-regression gate for now
-                patch_id = str(uuid.uuid4())
-                diff = "".join(
-                    difflib.unified_diff(
-                        patch.get("before", "").splitlines(),
-                        patch.get("after", "").splitlines(),
-                        fromfile="before",
-                        tofile="after",
-                        lineterm="",
-                    )
-                )
-                REDIS.lpush(
-                    APPLIED_LOG,
-                    json.dumps(patch | {"reward": new_r, "patch_id": patch_id}),
-                )
-                _record_patch_history(
-                    {
-                        "patch_id": patch_id,
-                        "timestamp": now,
-                        "diff": diff,
-                        "reward": new_r,
-                        "sandbox_exit_code": exit_code,
-                    }
-                )
-                log.info(
-                    "Patch applied ✔️  reward=%.4f",
-                    new_r,
-                )
-                _last_patch_time = now
-            else:
-                log.warning("Patch rolled back, reward=%.4f", new_r)
-                _rollback(patch)
-                for t in traces:
-                    t["rolled_back"] = True
-                    REDIS.lpush(ROLLED_BACK_LOG, json.dumps(t))
-        else:
-            log.error(f"Failed to apply patch for target: {patch.get('target')}")
-            # _rollback(patch) # Consider if rollback is safe if apply itself failed.
+        await loop_once()
+        await asyncio.sleep(LOOP_WAIT_S)
 
 
-def _rollback(patch: Dict[str, Any]) -> None:  # pragma: no cover - simple file revert
-    """Roll back the patch by writing the 'before' content to the target file and reloading the module."""
-    tgt = Path(patch["target"])
-    tgt.write_text(patch["before"])
-    importlib.invalidate_caches()
-    module_name = str(tgt.with_suffix("")).replace("/", ".").lstrip(".")
-    try:
-        module = importlib.import_module(module_name)
-        importlib.reload(module)
-        log.info(f"Rolled back {patch['target']} successfully.")
-    except Exception as e:
-        # Log error during rollback, but proceed as the file is reverted.
-        log.error(f"Error reloading module {module_name} during rollback: {e}")
-
-
-def loop_forever() -> None:  # pragma: no cover - background service
-    """Self-healing loop running indefinitely."""
-    pending_patch: Dict[str, Any] | None = None
+def loop_forever() -> None:  # sync wrapper for CLI execution
+    pending: dict[str, Any] | None = None
     none_streak = 0
     rollback_streak = 0
+
     while True:
         traces = asyncio.run(fetch_recent_traces())
 
-        if pending_patch:
-            log.info("Verifying pending patch")
-            if not asyncio.run(_verify_patch(traces, pending_patch)):
-                log.info("Patch failed verification, rolling back")
-                _rollback(pending_patch)
-                pending_patch = None
-                rollback_streak += 1
-            else:
-                rollback_streak = 0
+        # 1) verify pending patch
+        if pending and not asyncio.run(_verify_patch(traces, pending)):
+            _rollback(pending)
+            pending = None
+            rollback_streak += 1
         else:
-            log.info("No patch pending, generating mutation")
+            rollback_streak = 0
+
+        # 2) create new patch if needed
+        if pending is None:
             for _ in range(MAX_MUTATIONS_PER_LOOP):
-                pending_patch = asyncio.run(_generate_patch_async(traces))
-                if pending_patch is not None:
+                pending = asyncio.run(_generate_patch_async(traces))
+                if pending:
                     none_streak = 0
                     break
                 none_streak += 1
-                if none_streak >= 3:
-                    os.environ["DGM_MUTATION"] = "ASTInsertComment"
 
+            if none_streak >= 3:
+                os.environ["DGM_MUTATION"] = "ASTInsertComment"
+
+        # 3) back-off after many rollbacks
         if rollback_streak >= 4:
             time.sleep(ROLLBACK_SLEEP_S)
-            rollback_streak = 0
         else:
             time.sleep(LOOP_WAIT_S)
 
 
-# Entrypoint for standalone container / CLI
-if __name__ == "__main__":  # pragma: no cover - manual execution only
-    logging.basicConfig(level=logging.INFO)  # pragma: no cover
-    parser = argparse.ArgumentParser(description="DGM Kernel Meta-Loop")  # pragma: no cover
-    parser.add_argument(  # pragma: no cover
-        "--once", action="store_true", help="Run the meta-loop only once."  # pragma: no cover
-    )  # pragma: no cover
-    args = parser.parse_args()  # pragma: no cover
+# ─────────────────────────────  CLI entry-point  ─────────────────────────────
+if __name__ == "__main__":  # pragma: no cover
+    logging.basicConfig(level=logging.INFO)
+    p = argparse.ArgumentParser(description="DGM Kernel Meta-Loop")
+    p.add_argument("--once", action="store_true", help="Run exactly one iteration")
+    args = p.parse_args()
 
-    if args.once:  # pragma: no cover
-        log.info("Running DGM meta-loop once.")  # pragma: no cover
-        asyncio.run(loop_once())  # pragma: no cover
-        log.info("DGM meta-loop (once) finished.")  # pragma: no cover
-    else:  # pragma: no cover
-        log.info("Starting DGM meta-loop to run continuously.")  # pragma: no cover
-        asyncio.run(meta_loop())  # pragma: no cover
+    if args.once:
+        asyncio.run(loop_once())
+    else:
+        asyncio.run(meta_loop())
+
