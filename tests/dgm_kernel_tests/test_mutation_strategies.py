@@ -58,11 +58,11 @@ def test_env_switching(monkeypatch) -> None:
     code = "def f(x):\n    return x\n"
     monkeypatch.setenv("DGM_MUTATION", "ASTRenameIdentifier")
     importlib.reload(meta_loop)
-    renamed = meta_loop.asyncio.run(meta_loop.asyncio.run(meta_loop._generate_patch(code)) or "")
+    renamed = asyncio.run(meta_loop._generate_patch(code)) or ""
     assert "f_renamed" in renamed
 
     monkeypatch.setenv("DGM_MUTATION", "ASTInsertComment")
     importlib.reload(meta_loop)
-    commented = meta_loop.asyncio.run(meta_loop.asyncio.run(meta_loop._generate_patch(code)) or "")
+    commented = asyncio.run(meta_loop._generate_patch(code)) or ""
     assert '"""' in commented.splitlines()[0]
 

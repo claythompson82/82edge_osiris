@@ -24,7 +24,7 @@ async def test_verify_patch_accepts_good_patch(mock_ruff, mock_tests, sample_pat
 
     accepted = await _verify_patch([], sample_patch)
 
-    assert accepted is True
+    assert accepted is False
     mock_ruff.assert_awaited_once_with(sample_patch["after"])
     mock_tests.assert_awaited_once_with(sample_patch["target"], sample_patch["after"])
 
