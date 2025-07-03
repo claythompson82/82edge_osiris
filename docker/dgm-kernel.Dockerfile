@@ -13,5 +13,7 @@ COPY ./src /app/src
 
 ENV PYTHONPATH=/app/src
 
+EXPOSE 8000
+
 # Default command runs the kernel once
 CMD ["python", "-m", "dgm_kernel", "--once"]

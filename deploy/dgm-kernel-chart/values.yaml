@@ -1,8 +1,10 @@
 replicaCount: 1
 
 image:
-  repository: dgm-kernel
+  repository: ghcr.io/your-user/dgm-kernel # Repository will be updated by CI
   pullPolicy: IfNotPresent
+  # tag is purposefully omitted here. Helm will default to Chart.appVersion if not set.
+  # Example: --set image.tag="your-dynamic-tag"
   tag: ""
 
 service:
