@@ -13,3 +13,9 @@ service:
 monitoring:
   enabled: false
   interval: 30s
+
+servicemonitor:
+  enabled: false
+
+alerts:
+  enabled: false

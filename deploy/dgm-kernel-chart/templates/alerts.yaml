@@ -1,0 +1,25 @@
+{{- if .Values.alerts.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "dgm-kernel.fullname" . }}-alerts
+  labels:
+    {{- include "dgm-kernel.labels" . | nindent 4 }}
+spec:
+  groups:
+    - name: dgm.rules
+      rules:
+        - alert: HighPatchFailureRate
+          expr: |
+            rate(dgm_patches_applied_total{result="failure"}[5m])
+              /
+            rate(dgm_patches_applied_total[5m]) * 100 > 50
+          for: 5m
+          labels:
+            severity: warning
+        - alert: UnsafeTokenSpike
+          expr: rate(dgm_unsafe_token_found_total[5m]) > 0
+          for: 1m
+          labels:
+            severity: warning
+{{- end }}
