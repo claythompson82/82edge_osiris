@@ -1,16 +1,19 @@
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
+from types import ModuleType, SimpleNamespace
 
 
 def test_package_cli_runs_once(tmp_path: Path):
     env = os.environ.copy()
     env["OSIRIS_TEST"] = "1"
     repo_root = Path(__file__).resolve().parents[2]
-    stub = tmp_path / "lancedb"
-    stub.mkdir()
-    (stub / "__init__.py").write_text(
+    module_dir = tmp_path
+    lancedb_stub = module_dir / "lancedb"
+    lancedb_stub.mkdir()
+    (lancedb_stub / "__init__.py").write_text(
         """
 class _Table:
     def __init__(self, rows=None):
@@ -53,8 +56,12 @@ def connect(path, **k):
     return _Conn(str(path))
 """
     )
-    (stub / "pydantic.py").write_text("class LanceModel: pass\n")
-    env["PYTHONPATH"] = os.pathsep.join([str(repo_root / "src"), str(tmp_path)])
+    (lancedb_stub / "pydantic.py").write_text("class LanceModel: pass\n")
+    (module_dir / "redis.py").write_text(
+        "class Redis:\n    def __init__(self, *a, **k): pass\n    def rpop(self, *a, **k): return None\n"
+    )
+    env["PYTHONPATH"] = os.pathsep.join([str(repo_root / "src"), str(module_dir)])
+    start = time.monotonic()
     proc = subprocess.run(
         [sys.executable, "-m", "dgm_kernel", "--once"],
         cwd=repo_root,
@@ -63,12 +70,17 @@ def connect(path, **k):
         stderr=subprocess.PIPE,
         text=True,
     )
+    elapsed = time.monotonic() - start
     assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert elapsed < 2
 
 def test_package_cli_loop(monkeypatch):
     monkeypatch.setattr(sys, "argv", ["dgm_kernel"])
     async def noop():
         return None
+    dummy_mod = ModuleType("redis")
+    dummy_mod.Redis = lambda *a, **k: SimpleNamespace(rpop=lambda *_, **__: None)
+    monkeypatch.setitem(sys.modules, "redis", dummy_mod)
     monkeypatch.setattr("dgm_kernel.meta_loop.meta_loop", noop)
     from dgm_kernel.__main__ import main
     main()

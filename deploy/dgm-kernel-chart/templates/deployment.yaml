@@ -22,6 +22,10 @@ spec:
             - name: http
               containerPort: {{ .Values.service.targetPort }}
               protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: 8000
           env:
             - name: PYTHONUNBUFFERED
               value: "1"
