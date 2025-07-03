@@ -74,8 +74,22 @@ def _load_mutation() -> MutationStrategy:
 _mutation_strategy = _load_mutation()
 
 
-def _generate_patch(code: str) -> str:
+def _mutate_code(code: str) -> str:
     return _mutation_strategy.mutate(code)
+
+
+async def _generate_patch_async(traces: List[Dict[str, Any]]) -> Dict[str, Any] | None:  # pragma: no cover - thin wrapper
+    """Wrapper for generate_patch so tests can monkey-patch easier."""
+    return await generate_patch(traces)
+
+
+def _generate_patch(arg: Any) -> Any:
+    if isinstance(arg, str):
+        return _mutate_code(arg)
+    res = _generate_patch_async(arg)
+    if asyncio.iscoroutine(res):
+        return asyncio.run(res)
+    return res
 
 # ────────────────────────────────────────────────────────────────────────────
 # ▼ 1.  fetch_recent_traces()  (pull N traces from Redis)
@@ -144,13 +158,10 @@ async def generate_patch(  # pragma: no cover - external LLM
     patch = draft_patch(traces)
     if patch is None:
         return None
-    patch["after"] = _generate_patch(patch.get("after", ""))
+    patch["after"] = _mutate_code(patch.get("after", ""))
     return patch
 
 
-async def _generate_patch(traces: List[Dict[str, Any]]) -> Dict[str, Any] | None:  # pragma: no cover - thin wrapper
-    """Wrapper for generate_patch so tests can monkey-patch easier."""
-    return await generate_patch(traces)
 
 
 def _get_pylint_score(patch_code: str) -> float:  # pragma: no cover - thin shim
@@ -501,7 +512,10 @@ def loop_forever() -> None:  # pragma: no cover - background service
         else:
             log.info("No patch pending, generating mutation")
             for _ in range(MAX_MUTATIONS_PER_LOOP):
-                pending_patch = asyncio.run(_generate_patch(traces))
+                pending_patch_candidate = _generate_patch(traces)
+                if asyncio.iscoroutine(pending_patch_candidate):
+                    pending_patch_candidate = asyncio.run(pending_patch_candidate)
+                pending_patch = pending_patch_candidate
 
         time.sleep(LOOP_WAIT_S)
 
