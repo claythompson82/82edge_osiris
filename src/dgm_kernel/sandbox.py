@@ -22,6 +22,8 @@ import tempfile
 from pathlib import Path
 from typing import Dict, Tuple
 
+from dgm_kernel import metrics
+
 log = logging.getLogger(__name__)
 
 
@@ -112,6 +114,24 @@ except Exception as e:
             return False, f"SandboxError: {e}", 1
 
 
-def run_patch_in_sandbox(patch: Dict[str, str]) -> Tuple[bool, str, int]:
-    """Backward compatible helper calling :class:`Sandbox`."""
-    return Sandbox().run(patch)
+def run_patch_in_sandbox(patch: Dict[str, str]) -> Tuple[bool, str, int, float, float]:
+    """Execute patch code and report resource usage.
+
+    Returns ``(ok, logs, exit_code, cpu_ms, ram_mb)``.
+    ``cpu_ms`` is the user+system CPU time consumed by child processes in
+    milliseconds and ``ram_mb`` is the increase in maximum RSS in megabytes.
+    """
+
+    before = resource.getrusage(resource.RUSAGE_CHILDREN)
+    ok, logs, code = Sandbox().run(patch)
+    after = resource.getrusage(resource.RUSAGE_CHILDREN)
+
+    cpu_sec = (after.ru_utime + after.ru_stime) - (before.ru_utime + before.ru_stime)
+    cpu_ms = cpu_sec * 1000.0
+    ram_diff = after.ru_maxrss - before.ru_maxrss
+    ram_mb = ram_diff / 1024.0
+
+    metrics.sandbox_cpu_ms_total.inc(cpu_ms)
+    metrics.sandbox_ram_mb_total.inc(ram_mb)
+
+    return ok, logs, code, cpu_ms, ram_mb

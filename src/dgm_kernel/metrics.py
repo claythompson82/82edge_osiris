@@ -34,6 +34,17 @@ patch_apply_minutes_average = Gauge(
     "Average minutes between patch applications over the last 10 patches",
 )
 
+# Tracks total CPU time and RAM usage consumed by sandbox executions
+sandbox_cpu_ms_total = Counter(
+    "dgm_sandbox_cpu_ms_total",
+    "Total CPU milliseconds consumed by sandboxed patches",
+)
+
+sandbox_ram_mb_total = Counter(
+    "dgm_sandbox_ram_mb_total",
+    "Total RAM megabytes consumed by sandboxed patches",
+)
+
 _counters: Dict[CollectorRegistry, Dict[str, Counter]] = {}
 
 
