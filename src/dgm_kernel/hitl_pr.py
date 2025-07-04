@@ -1,13 +1,26 @@
 from __future__ import annotations
+
+import argparse
+import difflib
 import os
 import time
-import difflib
-import argparse
+from typing import TypedDict
+
 from github import Github
+from github.Repository import Repository
+from github.PullRequest import PullRequest
+
+
+class PatchDict(TypedDict):
+    """Structure for a patch operation."""
+
+    target: str
+    before: str
+    after: str
 
 
 def create_hitl_pr(
-    patch: dict,
+    patch: PatchDict,
     summary: str,
     repo_name: str | None = None,
 ) -> str:
@@ -15,7 +28,7 @@ def create_hitl_pr(
 
     Parameters
     ----------
-    patch : dict
+    patch : PatchDict
         Dictionary with keys ``target``, ``before`` and ``after``.
     summary : str
         Summary text from the verification process.
@@ -37,10 +50,10 @@ def create_hitl_pr(
         raise RuntimeError("Repository name not provided")
 
     gh = Github(token)
-    repo = gh.get_repo(repo_name)
+    repo: Repository = gh.get_repo(repo_name)
 
-    base_branch = repo.default_branch
-    base = repo.get_branch(base_branch)
+    base_branch_name = repo.default_branch
+    base = repo.get_branch(base_branch_name)
     branch_name = f"hitl-{int(time.time())}"
     repo.create_git_ref(ref=f"refs/heads/{branch_name}", sha=base.commit.sha)
 
@@ -48,15 +61,15 @@ def create_hitl_pr(
     after = patch.get("after", "")
 
     try:
-        contents = repo.get_contents(file_path, ref=base_branch)
+        contents = repo.get_contents(file_path, ref=base_branch_name)
         repo.update_file(
             file_path,
-            f"Apply patch via HITL workflow",
+            "Apply patch via HITL workflow",
             after,
             contents.sha,
             branch=branch_name,
         )
-    except Exception:
+    except Exception:  # Should be more specific if possible, e.g., UnknownObjectException
         repo.create_file(
             file_path,
             f"Add {file_path}",
@@ -78,11 +91,11 @@ def create_hitl_pr(
         "### Patch Diff\n\n" f"```diff\n{diff}\n```\n" + "\n### Validation Summary\n" + summary
     )
 
-    pr = repo.create_pull(
+    pr: PullRequest = repo.create_pull(
         title=f"HITL Patch {branch_name}",
         body=body,
         head=branch_name,
-        base=base_branch,
+        base=base_branch_name,
     )
     return pr.html_url
 
@@ -106,8 +119,8 @@ def comment_on_pr(pr_number: int, body: str, repo_name: str | None = None) -> No
         raise RuntimeError("GitHub environment not configured")
 
     gh = Github(token)
-    repo = gh.get_repo(repo_name)
-    pr = repo.get_pull(pr_number)
+    repo: Repository = gh.get_repo(repo_name)
+    pr: PullRequest = repo.get_pull(pr_number)
     pr.create_issue_comment(body)
 
 

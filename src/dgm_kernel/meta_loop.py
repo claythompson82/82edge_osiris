@@ -6,7 +6,6 @@ Darwin Gödel Machine — self-improving meta-loop (async capable)
 from __future__ import annotations
 
 import argparse
-from collections import deque
 import asyncio
 import difflib
 import importlib
@@ -18,22 +17,27 @@ import subprocess
 import tempfile
 import time
 import uuid
+from collections import deque
 from pathlib import Path
-from typing import Any, Dict, List, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import redis
 
 from dgm_kernel import metrics
-from dgm_kernel.trace_schema import Trace, validate_traces
 from dgm_kernel.crypto_sign import sign_patch, verify_patch
-from dgm_kernel.llm_client import draft_patch
-from dgm_kernel.mutation_strategies import MutationStrategy
+from dgm_kernel.llm_client import PatchDict, draft_patch
 from dgm_kernel.mutation_scheduler import MutationScheduler
+from dgm_kernel.mutation_strategies import (
+    ASTInsertComment,
+    ASTRenameIdentifier,
+    MutationStrategy,
+)
+from dgm_kernel.otel import tracer
 from dgm_kernel.prover import _get_pylint_score as _prover_pylint_score
 from dgm_kernel.prover import prove_patch
 from dgm_kernel.sandbox import run_patch_in_sandbox
+from dgm_kernel.trace_schema import HistoryEntry, Trace, validate_traces
 from llm_sidecar.reward import proofable_reward
-from dgm_kernel.otel import tracer
 
 # ─────────────────────────────── globals & config ────────────────────────────
 log = logging.getLogger(__name__)
@@ -54,7 +58,7 @@ PATCH_HISTORY_FILE = Path(__file__).resolve().parent.parent / "patch_history.jso
 _last_patch_time: float = 0.0
 if PATCH_HISTORY_FILE.exists():  # pragma: no cover – startup rewind
     try:
-        hist: list[dict[str, Any]] = json.loads(PATCH_HISTORY_FILE.read_text())
+        hist: list[HistoryEntry] = json.loads(PATCH_HISTORY_FILE.read_text())
         if hist:
             _last_patch_time = hist[-1].get("timestamp", 0.0)
     except Exception as exc:  # pragma: no cover
@@ -63,6 +67,7 @@ if PATCH_HISTORY_FILE.exists():  # pragma: no cover – startup rewind
 _MUTATION_NAME = os.getenv("DGM_MUTATION", "ASTInsertComment")
 _scheduler = MutationScheduler()
 _recent_rewards: deque[float] = deque(maxlen=5)
+
 
 # ───────────────────────────── mutation helpers ──────────────────────────────
 def _load_mutation() -> MutationStrategy:
@@ -83,9 +88,8 @@ def _load_mutation() -> MutationStrategy:
         return chosen
 
     if not hasattr(mod, env_name) and env_name == "ASTInsertCommentAndRename":
-        from dgm_kernel.mutation_strategies import ASTInsertComment, ASTRenameIdentifier
 
-        class ASTInsertCommentAndRename:
+        class ASTInsertCommentAndRename(MutationStrategy):
             name = "ASTInsertCommentAndRename"
 
             def mutate(self, code: str) -> str:
@@ -99,7 +103,7 @@ def _load_mutation() -> MutationStrategy:
     return cls()
 
 
-_mutation_strategy = _load_mutation()
+_mutation_strategy: MutationStrategy = _load_mutation()
 
 
 def _set_mutation_strategy(name: str) -> None:
@@ -108,8 +112,10 @@ def _set_mutation_strategy(name: str) -> None:
     _MUTATION_NAME = name
     os.environ["DGM_MUTATION"] = name
     _mutation_strategy = _load_mutation()
-    if name == "ASTInsertComment":
-        _scheduler.__init__()
+    # Safely re-initialize the scheduler
+    if TYPE_CHECKING:
+        assert isinstance(_scheduler, MutationScheduler)
+    _scheduler.__init__()
 
 
 def _mutate_code(code: str) -> str:
@@ -117,9 +123,7 @@ def _mutate_code(code: str) -> str:
     return _mutation_strategy.mutate(code)
 
 
-async def _generate_patch_async(
-    traces: list[dict[str, Any]]
-) -> dict[str, Any] | None:
+async def _generate_patch_async(traces: list[Trace]) -> PatchDict | None:
     """Async wrapper so property-tests can await patch generation."""
     return await generate_patch(traces)
 
@@ -127,24 +131,25 @@ async def _generate_patch_async(
 # Back-compat alias used by a few tests
 _generate_patch = _mutate_code
 
+
 # ──────────────────────────── trace acquisition ─────────────────────────────
-async def fetch_recent_traces(n: int = 100) -> list[dict[str, Any]]:
+async def fetch_recent_traces(n: int = 100) -> list[Trace]:
     """Pop the newest *n* traces, logging decode errors and returning list."""
-    traces: list[dict[str, Any]] = []
+    traces_raw: list[dict[str, Any]] = []
     try:
-        raw: list[str] = []
+        raw_items: list[str] = []
         for _ in range(n):
             item = REDIS.rpop(TRACE_QUEUE)
             if item is None:
                 break
-            raw.append(item)
+            raw_items.append(item)
 
-        if not raw:
+        if not raw_items:
             return []
 
-        for idx, txt in enumerate(raw):
+        for idx, txt in enumerate(raw_items):
             try:
-                traces.append(json.loads(txt))
+                traces_raw.append(json.loads(txt))
             except json.JSONDecodeError as exc:
                 log.error(
                     "Failed to decode JSON for trace: %s. Error: %s. Trace index: %s",
@@ -152,20 +157,21 @@ async def fetch_recent_traces(n: int = 100) -> list[dict[str, Any]]:
                     exc,
                     idx,
                 )
-        decoded_count = len(traces)
-        traces = [t.model_dump() for t in validate_traces(traces)]
+        decoded_count = len(traces_raw)
+        traces = validate_traces(traces_raw)
 
         if traces:
             log.info(
                 "Fetched %s traces successfully, encountered %s decoding errors.",
                 len(traces),
-                len(raw) - decoded_count,
+                len(raw_items) - decoded_count,
             )
-        elif raw:
+        elif raw_items:
             log.warning(
                 "Fetched %s raw traces, but all failed to decode.",
-                len(raw),
+                len(raw_items),
             )
+        return traces
     except redis.exceptions.RedisError as exc:
         log.error("Redis error while fetching traces: %s", exc)
         return []
@@ -173,13 +179,9 @@ async def fetch_recent_traces(n: int = 100) -> list[dict[str, Any]]:
         log.error("Unexpected error in fetch_recent_traces: %s", exc)
         return []
 
-    return traces
-
 
 # ───────────────────────────── patch generation ─────────────────────────────
-async def generate_patch(
-    traces: list[dict[str, Any]],
-) -> dict[str, Any] | None:
+async def generate_patch(traces: list[Trace]) -> PatchDict | None:
     """
     Produce a JSON patch dict with keys ``target``, ``before``, ``after``.
     Returns *None* on failure so the caller can try another mutation.
@@ -201,19 +203,18 @@ def _get_pylint_score(code: str) -> float:
 
 async def _lint_with_ruff(code: str) -> bool:
     """Return *True* if `ruff check` passes on *code*."""
-    tmp = tempfile.NamedTemporaryFile("w", suffix=".py", delete=False)
-    try:
+    with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False) as tmp:
+        tmp_path = Path(tmp.name)
         tmp.write(code)
-        tmp.close()
+
+    try:
         proc = await asyncio.create_subprocess_exec(
-            "ruff", "check", tmp.name,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+            "ruff", "check", str(tmp_path), stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
         )
         await proc.communicate()
         return proc.returncode == 0
     finally:
-        Path(tmp.name).unlink(missing_ok=True)
+        tmp_path.unlink(missing_ok=True)
 
 
 async def _run_unit_tests(target: str, code: str) -> bool:
@@ -238,7 +239,7 @@ async def _run_unit_tests(target: str, code: str) -> bool:
         tgt.write_text(original)
 
 
-async def _verify_patch(traces: list[dict[str, Any]], patch: dict[str, Any]) -> bool:
+async def _verify_patch(traces: list[Trace], patch: PatchDict) -> bool:
     """Danger-string, ruff, shard-tests; returns *True* if patch passes."""
     code = patch.get("after", "")
     if not code:
@@ -271,7 +272,7 @@ async def _verify_patch(traces: list[dict[str, Any]], patch: dict[str, Any]) -> 
 
 
 # ───────────────────────────── apply / rollback ────────────────────────────
-def _apply_patch(patch: dict[str, Any]) -> bool:
+def _apply_patch(patch: PatchDict) -> bool:
     tgt = Path(patch["target"])
     success = True
     try:
@@ -283,9 +284,7 @@ def _apply_patch(patch: dict[str, Any]) -> bool:
             module = importlib.import_module(module_name)
             importlib.reload(module)
         except ModuleNotFoundError:
-            log.warning(
-                "Module %s not found directly, attempting to load spec.", module_name
-            )
+            log.warning("Module %s not found directly, attempting to load spec.", module_name)
             spec = importlib.util.spec_from_file_location(module_name, str(tgt))
             if spec and spec.loader:
                 module = importlib.util.module_from_spec(spec)
@@ -296,7 +295,9 @@ def _apply_patch(patch: dict[str, Any]) -> bool:
         log.error("apply_patch failed: %s", exc)
         success = False
 
-    metrics.increment_patch_apply(mutation=_MUTATION_NAME, result="success" if success else "failure")
+    metrics.increment_patch_apply(
+        mutation=_MUTATION_NAME, result="success" if success else "failure"
+    )
     if success:
         metrics.increment_mutation_success(strategy=_MUTATION_NAME)
     else:
@@ -304,7 +305,7 @@ def _apply_patch(patch: dict[str, Any]) -> bool:
     return success
 
 
-def _rollback(patch: dict[str, Any]) -> None:
+def _rollback(patch: PatchDict) -> None:
     tgt = Path(patch["target"])
     tgt.write_text(patch["before"])
     importlib.invalidate_caches()
@@ -315,9 +316,9 @@ def _rollback(patch: dict[str, Any]) -> None:
         log.error("rollback reload error: %s", exc)
 
 
-def _record_patch_history(entry: dict[str, Any]) -> None:
+def _record_patch_history(entry: HistoryEntry) -> None:
     try:
-        history: list[dict[str, Any]] = []
+        history: list[HistoryEntry] = []
         if PATCH_HISTORY_FILE.exists():
             history = json.loads(PATCH_HISTORY_FILE.read_text())
         if "diff" in entry and "sig" not in entry:
@@ -366,7 +367,8 @@ async def loop_once() -> None:
             return
 
         with tracer.start_as_current_span("sandbox"):
-            ok, _, exit_code = run_patch_in_sandbox(patch)
+            # Unpack only the values you need
+            ok, _, exit_code, _, _ = run_patch_in_sandbox(patch)
         if not ok:
             return
 
@@ -392,7 +394,7 @@ async def meta_loop() -> None:
 
 
 def loop_forever() -> None:
-    pending: dict[str, Any] | None = None
+    pending: PatchDict | None = None
     none_streak = 0
     rollback_streak = 0
 
@@ -400,9 +402,7 @@ def loop_forever() -> None:
         traces = asyncio.run(fetch_recent_traces())
 
         avg_reward = (
-            sum(_recent_rewards) / len(_recent_rewards)
-            if _recent_rewards
-            else 0.0
+            sum(_recent_rewards) / len(_recent_rewards) if _recent_rewards else 0.0
         )
         chosen = _scheduler.next_strategy(avg_reward)
         if chosen != _MUTATION_NAME:
@@ -441,10 +441,12 @@ def loop_forever() -> None:
 if __name__ == "__main__":  # pragma: no cover
     logging.basicConfig(level=logging.INFO)
     parser = argparse.ArgumentParser(description="DGM Kernel Meta-Loop")
-    parser.add_argument("--once", action="store_true", help="run exactly one iteration")
+    parser.add_argument(
+        "--once", action="store_true", help="run exactly one iteration"
+    )
     args = parser.parse_args()
 
     if args.once:
         asyncio.run(loop_once())
     else:
-        asyncio.run(meta_loop())
+        loop_forever()

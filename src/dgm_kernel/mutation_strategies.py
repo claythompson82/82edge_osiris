@@ -1,7 +1,7 @@
-"""Mutation strategies for Darwin-G\xf6del Machine (DGM).
+"""Mutation strategies for Darwin-Gödel Machine (DGM).
 
 This module implements two simple AST-based transformations from
-DGM design PDF \xa7 2.3:
+DGM design PDF § 2.3:
 
 - ``ASTInsertComment`` inserts a no-op string literal at the start of a
   module, effectively acting as a comment.
@@ -17,25 +17,25 @@ from __future__ import annotations
 
 import ast
 import random
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
-from dgm_kernel import metrics
+if TYPE_CHECKING:
+    from prometheus_client import CollectorRegistry
+
+    from dgm_kernel import metrics
 
 
 class MutationStrategy(Protocol):
     """Strategy interface for code mutation."""
 
-    @property
-    def name(self) -> str:
-        """Human-readable name for the strategy."""
-        raise NotImplementedError
+    name: str
 
     def mutate(self, code: str) -> str:
         """Return a mutated version of ``code``."""
         raise NotImplementedError
 
 
-class ASTInsertComment:
+class ASTInsertComment(MutationStrategy):
     """Insert a string literal at the beginning of the module."""
 
     name = "ASTInsertComment"
@@ -47,7 +47,7 @@ class ASTInsertComment:
         return ast.unparse(module)
 
 
-class ASTRenameIdentifier:
+class ASTRenameIdentifier(MutationStrategy):
     """Rename the first function definition found in the module."""
 
     name = "ASTRenameIdentifier"
@@ -64,20 +64,23 @@ class ASTRenameIdentifier:
 
 def weighted_choice(strategies: list[MutationStrategy]) -> MutationStrategy:
     """Choose a strategy based on past success/failure metrics."""
-
     if not strategies:
         raise ValueError("No strategies provided")
 
+    # This import is deferred to avoid a circular dependency at runtime
+    from dgm_kernel import metrics
+
+    registry: CollectorRegistry = metrics.DEFAULT_REGISTRY
     weights = []
     for strat in strategies:
         succ = (
-            metrics.DEFAULT_REGISTRY.get_sample_value(
+            registry.get_sample_value(
                 "dgm_mutation_success_total", labels={"strategy": strat.name}
             )
             or 0.0
         )
         fail = (
-            metrics.DEFAULT_REGISTRY.get_sample_value(
+            registry.get_sample_value(
                 "dgm_mutation_failure_total", labels={"strategy": strat.name}
             )
             or 0.0

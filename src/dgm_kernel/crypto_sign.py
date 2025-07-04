@@ -17,7 +17,11 @@ def _load_private_key(path: Path | None = None) -> Ed25519PrivateKey:
     if path is None:
         path = SECRET_KEY_PATH
     data = path.read_bytes()
-    return serialization.load_pem_private_key(data, password=None)
+    # The loaded key is a general type; we assert it's the expected Ed25519 type
+    key = serialization.load_pem_private_key(data, password=None)
+    if not isinstance(key, Ed25519PrivateKey):
+        raise TypeError(f"Expected Ed25519PrivateKey, but got {type(key).__name__}")
+    return key
 
 
 def sign_patch(diff_str: str, *, key_path: Path | None = None) -> str:

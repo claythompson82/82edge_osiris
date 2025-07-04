@@ -1,15 +1,27 @@
 from __future__ import annotations
 
 import logging
-from typing import List, Dict, Optional
+from typing import List, Optional, TypedDict
 
 import requests
 
 from .config import CONFIG
+from .trace_schema import Trace
 
 log = logging.getLogger(__name__)
 
-def draft_patch(trace: List[Dict]) -> Optional[Dict]:
+
+class PatchDict(TypedDict):
+    """A dictionary representing a code patch."""
+
+    target: str
+    before: str
+    after: str
+    diff: str
+    sig: str
+
+
+def draft_patch(trace: list[Trace]) -> PatchDict | None:
     """Request a patch from the external LLM service."""
     if not trace:
         log.warning("draft_patch called with no traces, returning None.")
@@ -19,9 +31,10 @@ def draft_patch(trace: List[Dict]) -> Optional[Dict]:
     headers = {"Authorization": f"Bearer {CONFIG.api_key}"} if CONFIG.api_key else {}
 
     try:
+        trace_dicts = [t.model_dump() for t in trace]
         resp = requests.post(
             url,
-            json={"trace": trace},
+            json={"trace": trace_dicts},
             headers=headers,
             timeout=CONFIG.timeout,
         )
