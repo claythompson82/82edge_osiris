@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import datetime as _dt
 import json
+import csv
+import io
 import time
 from pathlib import Path
 from typing import Any, Dict, Union, List, Optional # Added List, Optional
@@ -316,3 +318,58 @@ async def get_live_pnl() -> AZRLivePnl:
 # Include the new router only if OSIRIS_TEST is set, as live trading is a dev/test feature for now
 if os.getenv("OSIRIS_TEST") == "1":
     app.include_router(router_azr_live_v1)
+
+# --------------------------------------------------------------------------- #
+#  DGM Kernel Endpoints
+# --------------------------------------------------------------------------- #
+from dgm_kernel import meta_loop
+
+router_dgm_v1 = fastapi.APIRouter(prefix="/dgm_api/v1", tags=["DGM Kernel"])
+
+
+@router_dgm_v1.get("/traces/export")
+async def export_traces(limit: int = 100, format: str = "jsonl") -> StarletteResponse:
+    fmt = format.lower()
+    if fmt not in {"jsonl", "csv"}:
+        raise fastapi.HTTPException(status_code=400, detail="invalid_format")
+
+    raw: list[str] = []
+    for _ in range(limit):
+        item = meta_loop.REDIS.lpop(meta_loop.TRACE_QUEUE)
+        if item is None:
+            break
+        raw.append(item)
+
+    if fmt == "jsonl":
+        async def jsonl_gen() -> Any:
+            for line in raw:
+                yield line + "\n"
+
+        headers = {"Content-Disposition": "attachment; filename=traces.jsonl"}
+        return fastapi.responses.StreamingResponse(jsonl_gen(), media_type="application/json", headers=headers)
+
+    traces = []
+    for txt in raw:
+        try:
+            traces.append(json.loads(txt))
+        except Exception:
+            traces.append({})
+
+    fieldnames = sorted({k for t in traces for k in t.keys()})
+
+    async def csv_gen() -> Any:
+        buf = io.StringIO()
+        writer = csv.DictWriter(buf, fieldnames=fieldnames)
+        writer.writeheader()
+        yield buf.getvalue()
+        buf.seek(0); buf.truncate(0)
+        for row in traces:
+            writer.writerow(row)
+            yield buf.getvalue()
+            buf.seek(0); buf.truncate(0)
+
+    headers = {"Content-Disposition": "attachment; filename=traces.csv"}
+    return fastapi.responses.StreamingResponse(csv_gen(), media_type="text/csv", headers=headers)
+
+
+app.include_router(router_dgm_v1)
