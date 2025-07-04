@@ -33,6 +33,7 @@ from dgm_kernel.prover import _get_pylint_score as _prover_pylint_score
 from dgm_kernel.prover import prove_patch
 from dgm_kernel.sandbox import run_patch_in_sandbox
 from llm_sidecar.reward import proofable_reward
+from dgm_kernel.otel import tracer
 
 # ─────────────────────────────── globals & config ────────────────────────────
 log = logging.getLogger(__name__)
@@ -340,43 +341,48 @@ def _record_patch_history(entry: dict[str, Any]) -> None:
 
 # ───────────────────────────── one-shot & forever loops ─────────────────────
 async def loop_once() -> None:
-    traces = await fetch_recent_traces()
-    if not traces:
-        return
+    with tracer.start_as_current_span("meta_loop.iteration"):
+        with tracer.start_as_current_span("fetch_traces"):
+            traces = await fetch_recent_traces()
+        if not traces:
+            return
 
-    patch = await generate_patch(traces)
-    if not patch or not await _verify_patch(traces, patch):
-        return
+        with tracer.start_as_current_span("generate_patch"):
+            patch = await generate_patch(traces)
+        with tracer.start_as_current_span("verify_patch"):
+            if not patch or not await _verify_patch(traces, patch):
+                return
 
-    diff = "\n".join(
-        difflib.unified_diff(
-            patch["before"].splitlines(),
-            patch["after"].splitlines(),
-            fromfile="before",
-            tofile="after",
-            lineterm="",
+        diff = "\n".join(
+            difflib.unified_diff(
+                patch["before"].splitlines(),
+                patch["after"].splitlines(),
+                fromfile="before",
+                tofile="after",
+                lineterm="",
+            )
         )
-    )
-    if prove_patch(diff) < 0.8:
-        return
+        if prove_patch(diff) < 0.8:
+            return
 
-    ok, _, exit_code = run_patch_in_sandbox(patch)
-    if not ok:
-        return
+        with tracer.start_as_current_span("sandbox"):
+            ok, _, exit_code = run_patch_in_sandbox(patch)
+        if not ok:
+            return
 
-    if time.time() - _last_patch_time < PATCH_RATE_LIMIT_SECONDS:
-        return
+        if time.time() - _last_patch_time < PATCH_RATE_LIMIT_SECONDS:
+            return
 
-    _apply_patch(patch)
-    _record_patch_history(
-        {
-            "patch_id": str(uuid.uuid4()),
-            "timestamp": time.time(),
-            "diff": diff,
-            "reward": 0.0,
-            "sandbox_exit_code": exit_code,
-        }
-    )
+        _apply_patch(patch)
+        _record_patch_history(
+            {
+                "patch_id": str(uuid.uuid4()),
+                "timestamp": time.time(),
+                "diff": diff,
+                "reward": 0.0,
+                "sandbox_exit_code": exit_code,
+            }
+        )
 
 
 async def meta_loop() -> None:
