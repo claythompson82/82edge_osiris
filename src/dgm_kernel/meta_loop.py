@@ -19,24 +19,31 @@ import time
 import uuid
 from collections import deque
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Callable, cast
 
 import redis
 
 from dgm_kernel import metrics
 from dgm_kernel.crypto_sign import sign_patch, verify_patch
-from dgm_kernel.llm_client import PatchDict, draft_patch
+from dgm_kernel.llm_client import PatchDict, draft_patch as _draft_patch
 from dgm_kernel.mutation_scheduler import MutationScheduler
 from dgm_kernel.mutation_strategies import (
     ASTInsertComment,
     ASTRenameIdentifier,
     MutationStrategy,
+    weighted_choice,
 )
 from dgm_kernel.otel import tracer
 from dgm_kernel.prover import _get_pylint_score as _prover_pylint_score
 from dgm_kernel.prover import prove_patch
 from dgm_kernel.sandbox import run_patch_in_sandbox
 from dgm_kernel.trace_schema import HistoryEntry, validate_traces
+
+# Cast `draft_patch` to accept trace dictionaries for MyPy
+draft_patch: Callable[[list[dict[str, Any]]], PatchDict | None] = cast(
+    Callable[[list[dict[str, Any]]], PatchDict | None],
+    _draft_patch,
+)
 from llm_sidecar.reward import proofable_reward
 
 # ─────────────────────────────── globals & config ────────────────────────────
@@ -70,20 +77,17 @@ _recent_rewards: deque[float] = deque(maxlen=5)
 
 
 # ───────────────────────────── mutation helpers ──────────────────────────────
-def _load_mutation() -> MutationStrategy:
+def _load_mutation() -> type[MutationStrategy]:
     mod = importlib.import_module("dgm_kernel.mutation_strategies")
     env_name = os.getenv("DGM_MUTATION", "ASTInsertComment")
 
     if env_name == "auto":
-        candidates: list[MutationStrategy] = []
+        candidates: list[type[MutationStrategy]] = []
         for attr in dir(mod):
             cls = getattr(mod, attr)
             if isinstance(cls, type) and hasattr(cls, "mutate") and hasattr(cls, "name"):
-                try:
-                    candidates.append(cast(MutationStrategy, cls()))
-                except Exception:
-                    pass
-        chosen = mod.weighted_choice(candidates)
+                candidates.append(cast(type[MutationStrategy], cls))
+        chosen = weighted_choice(candidates)
         globals()["_MUTATION_NAME"] = chosen.name
         return chosen
 
@@ -100,22 +104,22 @@ def _load_mutation() -> MutationStrategy:
 
     cls = cast(type[MutationStrategy], getattr(mod, env_name))
     globals()["_MUTATION_NAME"] = env_name
-    return cls()
+    return cls
 
 
-_mutation_strategy: MutationStrategy = _load_mutation()
+_mutation_strategy: MutationStrategy = _load_mutation()()
 
 
 def _set_mutation_strategy(name: str) -> None:
     """Update global mutation strategy and mirror env var."""
-    global _MUTATION_NAME, _mutation_strategy
+    global _MUTATION_NAME, _mutation_strategy, _scheduler
     _MUTATION_NAME = name
     os.environ["DGM_MUTATION"] = name
-    _mutation_strategy = _load_mutation()
-    # Safely re-initialize the scheduler
+    _mutation_strategy = _load_mutation()()
+    # Re-initialize the scheduler safely
     if TYPE_CHECKING:
         assert isinstance(_scheduler, MutationScheduler)
-    _scheduler.__init__()
+    _scheduler = MutationScheduler()
 
 
 def _mutate_code(code: str) -> str:
@@ -368,8 +372,9 @@ async def loop_once() -> None:
             return
 
         with tracer.start_as_current_span("sandbox"):
-            # Unpack only the values you need
-            ok, _, exit_code = run_patch_in_sandbox(patch)
+            patch_dict = cast(dict[str, str], patch)
+            result = run_patch_in_sandbox(patch_dict)
+            ok, logs, exit_code = result[0], result[1], result[2]
         if not ok:
             return
 
