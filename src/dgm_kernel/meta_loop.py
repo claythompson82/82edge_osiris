@@ -304,6 +304,14 @@ def _record_patch_history(entry: dict[str, Any]) -> None:
                 log.error("sign diff failed: %s", exc)
         history.append(entry)
         PATCH_HISTORY_FILE.write_text(json.dumps(history, indent=2))
+        # Update patch application rate metric
+        try:
+            timestamps = [h.get("timestamp", 0.0) for h in history]
+            if len(timestamps) >= 11:
+                delta = timestamps[-1] - timestamps[-11]
+                metrics.patch_apply_minutes_average.set(delta / 10 / 60)
+        except Exception as exc:  # pragma: no cover - metric update issues
+            log.error("patch rate metric update failed: %s", exc)
     except Exception as exc:  # pragma: no cover
         log.error("record history failed: %s", exc)
 

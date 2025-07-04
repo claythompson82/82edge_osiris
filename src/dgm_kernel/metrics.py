@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import Dict, List, Optional
-from prometheus_client import Counter, CollectorRegistry, REGISTRY as DEFAULT_REGISTRY
+from prometheus_client import Counter, Gauge, CollectorRegistry, REGISTRY as DEFAULT_REGISTRY
 
 _PATCH_APPLIED = "dgm_patches_applied_total"
 _PATCH_GENERATION = "dgm_patch_generation_total"
@@ -26,6 +26,12 @@ patch_sig_invalid_total = Counter(
 trace_validation_fail_total = Counter(
     "dgm_trace_validation_fail_total",
     "Number of traces dropped due to schema validation errors",
+)
+
+# Tracks the minutes-per-patch average for the last 10 patches applied.
+patch_apply_minutes_average = Gauge(
+    "dgm_patch_apply_minutes_average",
+    "Average minutes between patch applications over the last 10 patches",
 )
 
 _counters: Dict[CollectorRegistry, Dict[str, Counter]] = {}
