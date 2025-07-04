@@ -21,3 +21,8 @@ servicemonitor:
 
 alerts:
   enabled: false
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
