@@ -12,6 +12,9 @@ import pyarrow as pa # type: ignore[import-untyped]
 import pyarrow.parquet as pq # type: ignore[import-untyped]
 import gzip
 import io
+import json
+import csv
+from collections import defaultdict
 from pathlib import Path
 import os # For OSIRIS_TEST env var
 import math
@@ -248,3 +251,55 @@ def test_azr_planner_prefix_and_tags_available_when_osiris_test_set(test_client_
     assert operation is not None and "AZR Planner Internal" in operation.get("tags", [])
     defined_tags = [tag["name"] for tag in openapi_schema.get("tags", [])]
     assert "AZR Planner Internal" in defined_tags and "AZR Planner" in defined_tags
+
+
+# --- Tests for DGM trace export endpoint ---
+
+class SimpleRedis:
+    def __init__(self):
+        self.store: Dict[str, List[str]] = defaultdict(list)
+
+    def lpush(self, name: str, value: str) -> None:
+        self.store[name].insert(0, value)
+
+    def lpop(self, name: str):
+        lst = self.store[name]
+        return lst.pop(0) if lst else None
+
+    def llen(self, name: str) -> int:
+        return len(self.store[name])
+
+
+@pytest.fixture
+def fake_redis(monkeypatch: pytest.MonkeyPatch):
+    r = SimpleRedis()
+    monkeypatch.setattr(server.meta_loop, "REDIS", r)
+    from dgm_kernel import meta_loop
+    monkeypatch.setattr(meta_loop, "REDIS", r)
+    return r
+
+
+def _push_traces(r: SimpleRedis) -> List[Dict[str, Any]]:
+    traces = [{"id": i, "pnl": i * 0.1, "timestamp": i} for i in range(3)]
+    for t in traces:
+        r.lpush(server.meta_loop.TRACE_QUEUE, json.dumps(t))
+    return traces
+
+
+def test_trace_export_jsonl(test_client_azr: TestClient, fake_redis: SimpleRedis) -> None:
+    traces = _push_traces(fake_redis)
+    resp = test_client_azr.get("/dgm_api/v1/traces/export?limit=3&format=jsonl")
+    assert resp.status_code == 200
+    lines = resp.text.strip().splitlines()
+    expected = [json.dumps(t) for t in reversed(traces)]
+    assert lines == expected
+    assert fake_redis.llen(server.meta_loop.TRACE_QUEUE) == 0
+
+
+def test_trace_export_csv(test_client_azr: TestClient, fake_redis: SimpleRedis) -> None:
+    traces = _push_traces(fake_redis)
+    resp = test_client_azr.get("/dgm_api/v1/traces/export?limit=3&format=csv")
+    assert resp.status_code == 200
+    rows = list(csv.DictReader(io.StringIO(resp.text)))
+    ids = [int(row["id"]) for row in rows]
+    assert ids == [t["id"] for t in reversed(traces)]
