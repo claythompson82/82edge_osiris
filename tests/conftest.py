@@ -63,13 +63,7 @@ def _install_dummy_lancedb() -> None:
     try:
         import pyarrow as pa  # type: ignore
     except Exception:  # pragma: no cover - optional dep
-        class _DummyTableModule:
-            class Table:  # minimal stub
-                @staticmethod
-                def from_pylist(rows):
-                    return list(rows)
-
-        pa = _DummyTableModule()
+        pa = None
 
     class _Table(SimpleNamespace):
         _rows: list[dict]
@@ -85,8 +79,33 @@ def _install_dummy_lancedb() -> None:
         def search(self, *_, **__) -> "_Table":   # legacy “.search().to_list()”
             return self
 
-        def to_arrow(self, *_, **__) -> pa.Table:
-            return pa.Table.from_pylist(self._rows)
+        def to_arrow(self, *_, **__) -> _t.Any:
+            if pa is None:  # pragma: no cover - optional dep
+                return list(self._rows)
+
+            if not self._rows:
+                return pa.Table.from_pylist([])
+
+            # determine ordered set of all keys across rows
+            keys: list[str] = []
+            seen = set()
+            for row in self._rows:
+                for k in row:
+                    if k not in seen:
+                        seen.add(k)
+                        keys.append(k)
+
+            fields = []
+            for k in keys:
+                arrow_type = pa.null()
+                for row in self._rows:
+                    if k in row and row[k] is not None:
+                        arrow_type = pa.scalar(row[k]).type
+                        break
+                fields.append(pa.field(k, arrow_type))
+
+            schema = pa.schema(fields)
+            return pa.Table.from_pylist(self._rows, schema=schema)
 
         def to_list(self, *_, **__) -> list[dict]:
             return list(self._rows)
