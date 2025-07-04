@@ -24,6 +24,7 @@ from typing import Any, Dict, List, cast
 import redis
 
 from dgm_kernel import metrics
+from dgm_kernel.trace_schema import Trace, validate_traces
 from dgm_kernel.crypto_sign import sign_patch, verify_patch
 from dgm_kernel.llm_client import draft_patch
 from dgm_kernel.mutation_strategies import MutationStrategy
@@ -132,12 +133,14 @@ async def fetch_recent_traces(n: int = 100) -> list[dict[str, Any]]:
                     exc,
                     idx,
                 )
+        decoded_count = len(traces)
+        traces = [t.model_dump() for t in validate_traces(traces)]
 
         if traces:
             log.info(
                 "Fetched %s traces successfully, encountered %s decoding errors.",
                 len(traces),
-                len(raw) - len(traces),
+                len(raw) - decoded_count,
             )
         elif raw:
             log.warning(
