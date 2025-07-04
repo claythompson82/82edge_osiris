@@ -36,7 +36,7 @@ from dgm_kernel.otel import tracer
 from dgm_kernel.prover import _get_pylint_score as _prover_pylint_score
 from dgm_kernel.prover import prove_patch
 from dgm_kernel.sandbox import run_patch_in_sandbox
-from dgm_kernel.trace_schema import HistoryEntry, Trace, validate_traces
+from dgm_kernel.trace_schema import HistoryEntry, validate_traces
 from llm_sidecar.reward import proofable_reward
 
 # ─────────────────────────────── globals & config ────────────────────────────
@@ -123,7 +123,7 @@ def _mutate_code(code: str) -> str:
     return _mutation_strategy.mutate(code)
 
 
-async def _generate_patch_async(traces: list[Trace]) -> PatchDict | None:
+async def _generate_patch_async(traces: list[dict[str, Any]]) -> PatchDict | None:
     """Async wrapper so property-tests can await patch generation."""
     return await generate_patch(traces)
 
@@ -133,8 +133,8 @@ _generate_patch = _mutate_code
 
 
 # ──────────────────────────── trace acquisition ─────────────────────────────
-async def fetch_recent_traces(n: int = 100) -> list[Trace]:
-    """Pop the newest *n* traces, logging decode errors and returning list."""
+async def fetch_recent_traces(n: int = 100) -> list[dict[str, Any]]:
+    """Pop the newest *n* traces, logging decode errors and returning list of dicts."""
     traces_raw: list[dict[str, Any]] = []
     try:
         raw_items: list[str] = []
@@ -159,11 +159,12 @@ async def fetch_recent_traces(n: int = 100) -> list[Trace]:
                 )
         decoded_count = len(traces_raw)
         traces = validate_traces(traces_raw)
+        trace_dicts = [t.to_dict() for t in traces]
 
-        if traces:
+        if trace_dicts:
             log.info(
-                "Fetched %s traces successfully, encountered %s decoding errors.",
-                len(traces),
+                "Fetched %s traces successfully as dicts, encountered %s decoding errors.",
+                len(trace_dicts),
                 len(raw_items) - decoded_count,
             )
         elif raw_items:
@@ -171,7 +172,7 @@ async def fetch_recent_traces(n: int = 100) -> list[Trace]:
                 "Fetched %s raw traces, but all failed to decode.",
                 len(raw_items),
             )
-        return traces
+        return trace_dicts
     except redis.exceptions.RedisError as exc:
         log.error("Redis error while fetching traces: %s", exc)
         return []
@@ -181,7 +182,7 @@ async def fetch_recent_traces(n: int = 100) -> list[Trace]:
 
 
 # ───────────────────────────── patch generation ─────────────────────────────
-async def generate_patch(traces: list[Trace]) -> PatchDict | None:
+async def generate_patch(traces: list[dict[str, Any]]) -> PatchDict | None:
     """
     Produce a JSON patch dict with keys ``target``, ``before``, ``after``.
     Returns *None* on failure so the caller can try another mutation.
@@ -239,7 +240,7 @@ async def _run_unit_tests(target: str, code: str) -> bool:
         tgt.write_text(original)
 
 
-async def _verify_patch(traces: list[Trace], patch: PatchDict) -> bool:
+async def _verify_patch(traces: list[dict[str, Any]], patch: PatchDict) -> bool:
     """Danger-string, ruff, shard-tests; returns *True* if patch passes."""
     code = patch.get("after", "")
     if not code:
@@ -368,7 +369,7 @@ async def loop_once() -> None:
 
         with tracer.start_as_current_span("sandbox"):
             # Unpack only the values you need
-            ok, _, exit_code, _, _ = run_patch_in_sandbox(patch)
+            ok, _, exit_code = run_patch_in_sandbox(patch)
         if not ok:
             return
 
