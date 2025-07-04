@@ -15,9 +15,10 @@ from __future__ import annotations
 
 import ast
 import random
-from typing import TYPE_CHECKING, Any, Mapping, Protocol, Sequence, Type
+from typing import Any, Mapping, Protocol, Sequence, Type, cast
 
 from prometheus_client import CollectorRegistry, REGISTRY as DEFAULT_REGISTRY
+from . import metrics
 
 __all__ = [
     "MutationStrategy",
@@ -27,12 +28,6 @@ __all__ = [
     "weighted_choice",
     "choose_mutation",
 ]
-
-if TYPE_CHECKING:  # pragma: no cover – static-type helpers only
-    # During static analysis we reference `metrics.DEFAULT_REGISTRY`
-    # (it may be monkey-patched in tests).  Import guarded to avoid
-    # a runtime circular dependency.
-    from dgm_kernel import metrics
 
 
 # --------------------------------------------------------------------------- #
@@ -77,14 +72,10 @@ class ASTRenameIdentifier(MutationStrategy):
 # Strategy selection helpers
 # --------------------------------------------------------------------------- #
 def _get_registry() -> CollectorRegistry:  # small helper for test monkey-patch
-    if TYPE_CHECKING:  # not executed at runtime
-        return metrics.DEFAULT_REGISTRY  # type: ignore[name-defined]
-    return getattr(
-        globals().get("metrics", None), "DEFAULT_REGISTRY", DEFAULT_REGISTRY
-    )
+    return cast(CollectorRegistry, getattr(metrics, "DEFAULT_REGISTRY"))
 
 
-def weighted_choice(strategies: list[MutationStrategy]) -> MutationStrategy:
+def weighted_choice(strategies: Sequence[Type[MutationStrategy]]) -> Type[MutationStrategy]:
     """Choose a mutation weighted by past success ratio (Prometheus counters)."""
     if not strategies:
         raise ValueError("No strategies provided")
@@ -93,23 +84,23 @@ def weighted_choice(strategies: list[MutationStrategy]) -> MutationStrategy:
 
     weights: list[float] = []
     for strat in strategies:
-        succ = (
-            registry.get_sample_value(
-                "dgm_mutation_success_total", labels={"strategy": strat.name}
-            )
-            or 0.0
+        succ_val = registry.get_sample_value(
+            "dgm_mutation_success_total", labels={"strategy": strat.name}
         )
-        fail = (
-            registry.get_sample_value(
-                "dgm_mutation_failure_total", labels={"strategy": strat.name}
-            )
-            or 0.0
+        fail_val = registry.get_sample_value(
+            "dgm_mutation_failure_total", labels={"strategy": strat.name}
         )
-        ratio = succ / (succ + fail + 1e-3)
+        if succ_val is None and fail_val is None:
+            ratio = 0.5
+        else:
+            succ = succ_val or 0.0
+            fail = fail_val or 0.0
+            ratio = succ / (succ + fail + 1e-3)
+
         # keep ratios within a reasonable band so every strategy has a chance
         weights.append(min(0.7, max(0.05, ratio)))
 
-    return random.choices(strategies, weights=weights, k=1)[0]
+    return random.choices(list(strategies), weights=weights, k=1)[0]
 
 
 def choose_mutation(
@@ -123,5 +114,4 @@ def choose_mutation(
         Currently unused placeholder for future adaptive selection logic.
     """
     _ = traces  # reserved for future use
-    selected_instance = weighted_choice([ASTInsertComment(), ASTRenameIdentifier()])
-    return type(selected_instance)
+    return weighted_choice([ASTInsertComment, ASTRenameIdentifier])

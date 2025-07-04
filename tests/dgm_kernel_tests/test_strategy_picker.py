@@ -37,7 +37,7 @@ def test_weighted_choice_distribution(monkeypatch: pytest.MonkeyPatch) -> None:
     for _ in range(80):
         metrics.increment_mutation_failure(strategy="ASTRenameIdentifier", registry=registry)
 
-    strategies = [ASTInsertComment(), ASTRenameIdentifier()]
+    strategies = [ASTInsertComment, ASTRenameIdentifier]
     counts: Counter[str] = Counter()
     random.seed(0)
     for _ in range(1000):
