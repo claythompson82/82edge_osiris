@@ -7,3 +7,4 @@ redis==6.2.0
 fakeredis>=2.19
 prometheus-client
 requests>=2
+psutil
