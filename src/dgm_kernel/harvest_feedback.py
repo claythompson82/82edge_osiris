@@ -3,52 +3,56 @@ from __future__ import annotations
 import datetime
 import json
 from pathlib import Path
-from typing import Any, Iterable, TypedDict, Iterator
+from typing import Any, Iterable, Iterator, TypedDict, cast
 
 import click
-import lancedb  # type: ignore
+import lancedb
 
 # Cached connection for internal helpers
-DB: lancedb.DBConnection | None = None  # type: ignore[attr-defined]
+DB: lancedb.DBConnection | None = None
 
 
 class FeedbackRow(TypedDict):
-    """Defines the structure for a row of feedback data."""
+    """Feedback row returned by LanceDB."""
 
-    when: int
-    text: str
-    # Add other fields from your table as needed
-    # example_field: str | None
+    id: str
+    payload: str
 
 
-def _load_rows(db: lancedb.DBConnection) -> Iterable[FeedbackRow]:
+def _load_rows(db: lancedb.DBConnection) -> Iterable[dict[str, Any]]:
     """Return all rows from the phi3_feedback table as dictionaries."""
-    table: lancedb.LanceTable  # type: ignore[attr-defined]
+    table: lancedb.LanceTable
     try:
-        table = db.table("phi3_feedback")  # type: ignore[attr-defined]
+        table = db.table("phi3_feedback")
     except Exception:
         try:
             table = db.open_table("phi3_feedback")
         except Exception:
             return []
-    return table.to_arrow().to_pylist()
+    data = table.to_arrow().to_pylist()
+    return list(cast(Iterable[dict[str, Any]], data))
 
 
-def _filter_recent(rows: Iterable[FeedbackRow], cutoff_ns: int) -> Iterable[FeedbackRow]:
+def _filter_recent(rows: Iterable[dict[str, Any]], cutoff_ns: int) -> Iterable[dict[str, Any]]:
     for row in rows:
         if row.get("when", 0) >= cutoff_ns:
             yield row
 
 
-def get_existing_ids() -> Iterator[dict[str, Any]]:
+def get_existing_ids() -> Iterable[FeedbackRow]:
     """Yield existing feedback rows from the cached DB connection."""
     if DB is None:
-        return iter([])
+        return []
     try:
-        table = DB.open_table("phi3_feedback")  # type: ignore[attr-defined]
+        table = DB.open_table("phi3_feedback")
     except Exception:
-        return iter([])
-    return iter(table.to_arrow().to_pylist())
+        return []
+
+    def _gen() -> Iterator[FeedbackRow]:
+        for r in table.to_arrow().to_pylist():
+            yield {"id": str(r["id"]), "payload": str(r["payload"])}
+
+    return _gen()
 
 
 @click.command()
