@@ -47,6 +47,7 @@ SAFE_BUILTINS: Dict[str, object] = {name: getattr(builtins, name) for name in [
     "str",
     "sum",
     "Exception",
+    "__import__",
 ]}
 
 
@@ -61,7 +62,12 @@ class Sandbox:
         """Return Python script that executes the patch."""
         names = list(SAFE_BUILTINS.keys())
         return f"""
-import resource, pathlib, sys, builtins
+import resource, pathlib, sys, builtins, asyncio
+
+async def _blocked_open_connection(*a, **k):
+    raise RuntimeError('egress blocked')
+
+asyncio.open_connection = _blocked_open_connection
 
 def _limits():
     try:
