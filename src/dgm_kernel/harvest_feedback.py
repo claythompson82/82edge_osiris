@@ -6,8 +6,10 @@ from pathlib import Path
 from typing import Any, Iterable, TypedDict, Iterator
 
 import click
-import lancedb
-import lancedb  # local stub
+import lancedb  # type: ignore
+
+# Cached connection for internal helpers
+DB: lancedb.DBConnection | None = None  # type: ignore[attr-defined]
 
 
 class FeedbackRow(TypedDict):
@@ -19,19 +21,16 @@ class FeedbackRow(TypedDict):
     # example_field: str | None
 
 
-def _load_rows(db: lancedb.LanceDBConnection) -> Iterable[FeedbackRow]:
+def _load_rows(db: lancedb.DBConnection) -> Iterable[FeedbackRow]:
     """Return all rows from the phi3_feedback table as dictionaries."""
-    table: Table
+    table: lancedb.LanceTable  # type: ignore[attr-defined]
     try:
-        table_names = db.table_names()
-        if "phi3_feedback" in table_names:
-            table = db.open_table("phi3_feedback")
-        else:
-            # Handle case where table does not exist, perhaps return empty list
-            return []
+        table = db.table("phi3_feedback")  # type: ignore[attr-defined]
     except Exception:
-        # Fallback for any other lancedb connection/table access errors
-        return []
+        try:
+            table = db.open_table("phi3_feedback")
+        except Exception:
+            return []
     return table.to_arrow().to_pylist()
 
 
@@ -39,6 +38,17 @@ def _filter_recent(rows: Iterable[FeedbackRow], cutoff_ns: int) -> Iterable[Feed
     for row in rows:
         if row.get("when", 0) >= cutoff_ns:
             yield row
+
+
+def get_existing_ids() -> Iterator[dict[str, Any]]:
+    """Yield existing feedback rows from the cached DB connection."""
+    if DB is None:
+        return iter([])
+    try:
+        table = DB.open_table("phi3_feedback")  # type: ignore[attr-defined]
+    except Exception:
+        return iter([])
+    return iter(table.to_arrow().to_pylist())
 
 
 @click.command()
