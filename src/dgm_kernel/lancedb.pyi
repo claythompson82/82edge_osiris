@@ -1,4 +1,4 @@
-from typing import Any, Protocol, Iterable, Self
+from typing import Any, Protocol, Iterable
 
 class LanceTable(Protocol):
     def to_arrow(self) -> Any: ...

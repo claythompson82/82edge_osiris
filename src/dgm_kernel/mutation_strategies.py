@@ -71,6 +71,7 @@ def weighted_choice(strategies: list[MutationStrategy]) -> MutationStrategy:
     from dgm_kernel import metrics
 
     registry: CollectorRegistry = metrics.DEFAULT_REGISTRY
+__all__ = ["MutationStrategy", "DEFAULT_REGISTRY"]
     weights = []
     for strat in strategies:
         succ = (

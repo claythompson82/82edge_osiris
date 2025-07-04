@@ -3,11 +3,11 @@ from __future__ import annotations
 import datetime
 import json
 from pathlib import Path
-from typing import Any, Iterable, TypedDict
+from typing import Any, Iterable, TypedDict, Iterator
 
 import click
 import lancedb
-from lancedb.table import Table
+import lancedb  # local stub
 
 
 class FeedbackRow(TypedDict):
