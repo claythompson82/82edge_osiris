@@ -22,6 +22,12 @@ patch_sig_invalid_total = Counter(
     "Number of patches rejected due to invalid signature",
 )
 
+# Counts validation failures for incoming traces
+trace_validation_fail_total = Counter(
+    "dgm_trace_validation_fail_total",
+    "Number of traces dropped due to schema validation errors",
+)
+
 _counters: Dict[CollectorRegistry, Dict[str, Counter]] = {}
 
 
