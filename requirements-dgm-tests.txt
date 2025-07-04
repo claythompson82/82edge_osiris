@@ -8,3 +8,5 @@ fakeredis>=2.19
 prometheus-client
 requests>=2
 psutil
+opentelemetry-api
+opentelemetry-sdk
