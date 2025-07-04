@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import List
 
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ValidationError
 
 from dgm_kernel import metrics
 
@@ -17,8 +17,6 @@ class Trace(BaseModel):
     timestamp: int
     pnl: float
     patch_id: str | None = None
-
-    model_config = ConfigDict(extra="ignore")
 
 
 def validate_traces(traces: List[dict]) -> List[Trace]:
