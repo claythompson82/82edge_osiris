@@ -16,11 +16,19 @@ Python source. Additional strategies can be plugged in via the
 from __future__ import annotations
 
 import ast
+import random
 from typing import Protocol
+
+from dgm_kernel import metrics
 
 
 class MutationStrategy(Protocol):
     """Strategy interface for code mutation."""
+
+    @property
+    def name(self) -> str:
+        """Human-readable name for the strategy."""
+        raise NotImplementedError
 
     def mutate(self, code: str) -> str:
         """Return a mutated version of ``code``."""
@@ -29,6 +37,8 @@ class MutationStrategy(Protocol):
 
 class ASTInsertComment:
     """Insert a string literal at the beginning of the module."""
+
+    name = "ASTInsertComment"
 
     def mutate(self, code: str) -> str:
         module = ast.parse(code)
@@ -40,6 +50,8 @@ class ASTInsertComment:
 class ASTRenameIdentifier:
     """Rename the first function definition found in the module."""
 
+    name = "ASTRenameIdentifier"
+
     def mutate(self, code: str) -> str:
         tree = ast.parse(code)
         for node in tree.body:
@@ -48,3 +60,32 @@ class ASTRenameIdentifier:
                 break
         ast.fix_missing_locations(tree)
         return ast.unparse(tree)
+
+
+def weighted_choice(strategies: list[MutationStrategy]) -> MutationStrategy:
+    """Choose a strategy based on past success/failure metrics."""
+
+    if not strategies:
+        raise ValueError("No strategies provided")
+
+    weights = []
+    for strat in strategies:
+        succ = (
+            metrics.DEFAULT_REGISTRY.get_sample_value(
+                "dgm_mutation_success_total", labels={"strategy": strat.name}
+            )
+            or 0.0
+        )
+        fail = (
+            metrics.DEFAULT_REGISTRY.get_sample_value(
+                "dgm_mutation_failure_total", labels={"strategy": strat.name}
+            )
+            or 0.0
+        )
+
+        val = succ / (succ + fail + 1e-3)
+        val = min(0.7, max(0.05, val))
+        weights.append(val)
+
+    chosen = random.choices(strategies, weights=weights, k=1)[0]
+    return chosen
