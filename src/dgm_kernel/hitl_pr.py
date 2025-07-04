@@ -2,6 +2,7 @@ from __future__ import annotations
 import os
 import time
 import difflib
+import argparse
 from github import Github
 
 
@@ -84,3 +85,40 @@ def create_hitl_pr(
         base=base_branch,
     )
     return pr.html_url
+
+
+def comment_on_pr(pr_number: int, body: str, repo_name: str | None = None) -> None:
+    """Post a comment to a pull request.
+
+    Parameters
+    ----------
+    pr_number : int
+        Pull request number.
+    body : str
+        Comment body.
+    repo_name : str, optional
+        GitHub repository in the form ``owner/repo``. If omitted,
+        ``GITHUB_REPOSITORY`` environment variable will be used.
+    """
+    token = os.environ.get("GITHUB_TOKEN")
+    repo_name = repo_name or os.environ.get("GITHUB_REPOSITORY")
+    if not token or not repo_name:
+        raise RuntimeError("GitHub environment not configured")
+
+    gh = Github(token)
+    repo = gh.get_repo(repo_name)
+    pr = repo.get_pull(pr_number)
+    pr.create_issue_comment(body)
+
+
+def cli(argv: list[str] | None = None) -> None:
+    """CLI entry-point for posting a HITL comment."""
+    parser = argparse.ArgumentParser(description="Post a comment to a PR")
+    parser.add_argument("--pr", type=int, required=True, help="pull request number")
+    parser.add_argument("--msg", required=True, help="comment body")
+    args = parser.parse_args(argv)
+    comment_on_pr(args.pr, args.msg)
+
+
+if __name__ == "__main__":  # pragma: no cover - manual CLI
+    cli()
