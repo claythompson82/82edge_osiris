@@ -31,6 +31,10 @@ class Trace(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
+    def to_dict(self) -> dict[str, Any]:
+        """Return a plain dictionary representation of the trace."""
+        return self.model_dump()
+
 
 def validate_traces(traces: list[dict[str, Any]]) -> list[Trace]:
     """Validate raw trace dicts, dropping invalid rows."""
@@ -49,4 +53,4 @@ def validate_traces(traces: list[dict[str, Any]]) -> list[Trace]:
     return valid
 
 
-__all__ = ["Trace", "validate_traces", "HistoryEntry"]
+__all__ = ["validate_traces", "HistoryEntry"]
