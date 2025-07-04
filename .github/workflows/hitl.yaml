@@ -1,0 +1,21 @@
+name: HITL PR Comment
+
+on:
+  pull_request:
+    types: [labeled]
+
+jobs:
+  hitl-comment:
+    if: contains(github.event.pull_request.labels.*.name, 'dgm-hitl')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Post HITL comment
+        run: |
+          python -m dgm_kernel.hitl_pr --pr ${{ github.event.pull_request.number }} --msg "Human-in-the-loop review requested"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
