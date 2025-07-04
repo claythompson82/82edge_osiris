@@ -17,7 +17,18 @@ from __future__ import annotations
 
 import ast
 import random
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Protocol, Sequence, Mapping, Any, Type
+
+from prometheus_client import CollectorRegistry, REGISTRY as DEFAULT_REGISTRY
+
+__all__ = [
+    "ASTInsertComment",
+    "ASTRenameIdentifier",
+    "MutationStrategy",
+    "DEFAULT_REGISTRY",
+    "weighted_choice",
+    "choose_mutation",
+]
 
 if TYPE_CHECKING:
     from prometheus_client import CollectorRegistry
@@ -67,13 +78,10 @@ def weighted_choice(strategies: list[MutationStrategy]) -> MutationStrategy:
     if not strategies:
         raise ValueError("No strategies provided")
 
-    # This import is deferred to avoid a circular dependency at runtime
-    from dgm_kernel import metrics
-
-    registry: CollectorRegistry = metrics.DEFAULT_REGISTRY
-__all__ = ["MutationStrategy", "DEFAULT_REGISTRY"]
-weights = []
-for strat in strategies:
+    # Metrics registry may be overridden in tests via monkeypatch
+    registry: CollectorRegistry = DEFAULT_REGISTRY
+    weights = []
+    for strat in strategies:
         succ = (
             registry.get_sample_value(
                 "dgm_mutation_success_total", labels={"strategy": strat.name}
@@ -93,3 +101,13 @@ for strat in strategies:
 
     chosen = random.choices(strategies, weights=weights, k=1)[0]
     return chosen
+
+
+def choose_mutation(
+    traces: Sequence[Mapping[str, Any]] | None = None,
+) -> Type[MutationStrategy]:
+    """Return the mutation class for the next patch."""
+
+    _ = traces  # currently unused
+    selected = weighted_choice([ASTInsertComment(), ASTRenameIdentifier()])
+    return type(selected)
