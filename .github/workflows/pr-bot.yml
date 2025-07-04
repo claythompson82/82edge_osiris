@@ -1,0 +1,19 @@
+name: PR Bot
+
+on:
+  workflow_dispatch:
+
+jobs:
+  pr-bot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run pr_bot
+        run: echo '{"patch_id":"demo","reward":0.0}' | python -m dgm_kernel.pr_bot
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
