@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import List, Optional, TypedDict
+from typing import TypedDict, cast
 
 import requests
 
@@ -31,10 +31,10 @@ def draft_patch(trace: list[Trace]) -> PatchDict | None:
     headers = {"Authorization": f"Bearer {CONFIG.api_key}"} if CONFIG.api_key else {}
 
     try:
-        trace_dicts = [t.model_dump() for t in trace]
+        trace_json = [t.model_dump_json() for t in trace]
         resp = requests.post(
             url,
-            json={"trace": trace_dicts},
+            json={"trace": trace_json},
             headers=headers,
             timeout=CONFIG.timeout,
         )
@@ -42,12 +42,14 @@ def draft_patch(trace: list[Trace]) -> PatchDict | None:
         log.error("draft_patch HTTP request failed: %s", exc)
         return None
 
-    if resp.status_code != 200:
-        log.error("draft_patch failed with status %s: %s", resp.status_code, resp.text)
+    if not 200 <= resp.status_code < 300:
+        log.error(
+            "draft_patch failed with status %s: %s", resp.status_code, resp.text
+        )
         return None
 
     try:
-        return resp.json()
+        return cast(PatchDict, resp.json())
     except Exception as exc:
         log.error("draft_patch JSON decode failed: %s", exc)
         return None
