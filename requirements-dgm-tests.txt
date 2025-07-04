@@ -1,12 +1,25 @@
+# ─── Core test stack ──────────────────────────────────────────────────────────
 pytest
 pytest-asyncio
 pytest-mock
 hypothesis
-pydantic>=2,<3  # pinned for tests
+
+# Pydantic v2 for schema tests
+pydantic>=2,<3
+
+# Redis shim + metrics
 redis==6.2.0
 fakeredis>=2.19
 prometheus-client
-requests>=2
-psutil
+
+# Misc utilities used by tests
+requests>=2               # + types-requests installed by CI
+psutil                    # sandbox CPU/RAM metrics
+click>=8.0                # CLI helpers
+cryptography>=42          # Ed25519 signing
+rich>=13,<14              # pretty-print history CLI
+pyyaml>=6                 # HitL bot YAML parser
+
+# OpenTelemetry smoke tests
 opentelemetry-api
 opentelemetry-sdk
