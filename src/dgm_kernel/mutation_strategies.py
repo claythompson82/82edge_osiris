@@ -1,15 +1,13 @@
-"""Mutation strategies for Darwin-Gödel Machine (DGM).
+"""Mutation strategies for the Darwin-Gödel Machine (DGM).
 
-This module implements two simple AST-based transformations from
-DGM design PDF § 2.3:
+DGM design PDF §2.3 describes two simple AST-based mutations:
 
-- ``ASTInsertComment`` inserts a no-op string literal at the start of a
-  module, effectively acting as a comment.
-- ``ASTRenameIdentifier`` renames the first function definition by
-  appending ``_renamed`` to its name.
+* ``ASTInsertComment`` – inserts a harmless string literal as the first
+  statement in a module (acts like a comment).
+* ``ASTRenameIdentifier`` – renames the first function it finds by
+  appending ``_renamed`` to the identifier.
 
-Both strategies parse the input code and return syntactically valid
-Python source. Additional strategies can be plugged in via the
+Additional strategies can be plugged-in at runtime by setting the
 ``DGM_MUTATION`` environment variable.
 """
 
@@ -17,26 +15,39 @@ from __future__ import annotations
 
 import ast
 import random
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, Mapping, Protocol, Sequence, Type
 
-if TYPE_CHECKING:
-    from prometheus_client import CollectorRegistry
+from prometheus_client import CollectorRegistry, REGISTRY as DEFAULT_REGISTRY
 
+__all__ = [
+    "MutationStrategy",
+    "ASTInsertComment",
+    "ASTRenameIdentifier",
+    "DEFAULT_REGISTRY",
+    "weighted_choice",
+    "choose_mutation",
+]
+
+if TYPE_CHECKING:  # pragma: no cover – static-type helpers only
+    # During static analysis we reference `metrics.DEFAULT_REGISTRY`
+    # (it may be monkey-patched in tests).  Import guarded to avoid
+    # a runtime circular dependency.
     from dgm_kernel import metrics
 
 
+# --------------------------------------------------------------------------- #
+# Strategy protocol & concrete AST strategies
+# --------------------------------------------------------------------------- #
 class MutationStrategy(Protocol):
     """Strategy interface for code mutation."""
 
     name: str
 
-    def mutate(self, code: str) -> str:
-        """Return a mutated version of ``code``."""
-        raise NotImplementedError
+    def mutate(self, code: str) -> str: ...
 
 
 class ASTInsertComment(MutationStrategy):
-    """Insert a string literal at the beginning of the module."""
+    """Insert a string literal at the start of the module (no-op)."""
 
     name = "ASTInsertComment"
 
@@ -48,7 +59,7 @@ class ASTInsertComment(MutationStrategy):
 
 
 class ASTRenameIdentifier(MutationStrategy):
-    """Rename the first function definition found in the module."""
+    """Rename the first *top-level* function definition."""
 
     name = "ASTRenameIdentifier"
 
@@ -62,16 +73,25 @@ class ASTRenameIdentifier(MutationStrategy):
         return ast.unparse(tree)
 
 
+# --------------------------------------------------------------------------- #
+# Strategy selection helpers
+# --------------------------------------------------------------------------- #
+def _get_registry() -> CollectorRegistry:  # small helper for test monkey-patch
+    if TYPE_CHECKING:  # not executed at runtime
+        return metrics.DEFAULT_REGISTRY  # type: ignore[name-defined]
+    return getattr(
+        globals().get("metrics", None), "DEFAULT_REGISTRY", DEFAULT_REGISTRY
+    )
+
+
 def weighted_choice(strategies: list[MutationStrategy]) -> MutationStrategy:
-    """Choose a strategy based on past success/failure metrics."""
+    """Choose a mutation weighted by past success ratio (Prometheus counters)."""
     if not strategies:
         raise ValueError("No strategies provided")
 
-    # This import is deferred to avoid a circular dependency at runtime
-    from dgm_kernel import metrics
+    registry = _get_registry()
 
-    registry: CollectorRegistry = metrics.DEFAULT_REGISTRY
-    weights = []
+    weights: list[float] = []
     for strat in strategies:
         succ = (
             registry.get_sample_value(
@@ -85,10 +105,23 @@ def weighted_choice(strategies: list[MutationStrategy]) -> MutationStrategy:
             )
             or 0.0
         )
+        ratio = succ / (succ + fail + 1e-3)
+        # keep ratios within a reasonable band so every strategy has a chance
+        weights.append(min(0.7, max(0.05, ratio)))
 
-        val = succ / (succ + fail + 1e-3)
-        val = min(0.7, max(0.05, val))
-        weights.append(val)
+    return random.choices(strategies, weights=weights, k=1)[0]
 
-    chosen = random.choices(strategies, weights=weights, k=1)[0]
-    return chosen
+
+def choose_mutation(
+    traces: Sequence[Mapping[str, Any]] | None = None,
+) -> Type[MutationStrategy]:
+    """Return the *class* of the mutation strategy to apply next.
+
+    Parameters
+    ----------
+    traces
+        Currently unused placeholder for future adaptive selection logic.
+    """
+    _ = traces  # reserved for future use
+    selected_instance = weighted_choice([ASTInsertComment(), ASTRenameIdentifier()])
+    return type(selected_instance)
