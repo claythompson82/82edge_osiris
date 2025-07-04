@@ -1,0 +1,56 @@
+{
+  "id": null,
+  "uid": "dgm-kernel",
+  "title": "DGM Kernel Metrics",
+  "schemaVersion": 9,
+  "version": 1,
+  "timezone": "browser",
+  "refresh": "5s",
+  "time": {"from": "now-6h", "to": "now"},
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Patch Apply Total",
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {
+        "defaults": {
+          "custom": {"drawStyle": "bars", "stacking": {"mode": "normal"}}
+        }
+      },
+      "targets": [
+        {"expr": "sum(rate(dgm_patch_apply_total{result=\"ok\"}[5m]))", "refId": "A", "legendFormat": "ok"},
+        {"expr": "sum(rate(dgm_patch_apply_total{result=\"fail\"}[5m]))", "refId": "B", "legendFormat": "fail"}
+      ],
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "Unsafe Token Found",
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "targets": [{"expr": "rate(dgm_unsafe_token_found_total[5m])", "refId": "A"}],
+      "gridPos": {"h": 6, "w": 8, "x": 0, "y": 8}
+    },
+    {
+      "type": "timeseries",
+      "title": "Invalid Patch Signature",
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "targets": [{"expr": "rate(dgm_patch_sig_invalid_total[5m])", "refId": "A"}],
+      "gridPos": {"h": 6, "w": 8, "x": 8, "y": 8}
+    },
+    {
+      "type": "stat",
+      "title": "Success Rate 1h",
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "targets": [{"expr": "sum(rate(dgm_patch_apply_total{result=\"ok\"}[1h])) / sum(rate(dgm_patch_apply_total[1h]))", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "percent"}},
+      "gridPos": {"h": 6, "w": 8, "x": 16, "y": 8}
+    },
+    {
+      "type": "heatmap",
+      "title": "Pylint Mean (placeholder)",
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "targets": [{"expr": "dgm_pylint_score_mean", "refId": "A"}],
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 14}
+    }
+  ]
+}
