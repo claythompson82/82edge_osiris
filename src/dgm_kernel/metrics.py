@@ -5,6 +5,8 @@ from prometheus_client import Counter, Gauge, CollectorRegistry, REGISTRY as DEF
 
 _PATCH_APPLIED = "dgm_patches_applied_total"
 _PATCH_GENERATION = "dgm_patch_generation_total"
+_MUTATION_SUCCESS = "dgm_mutation_success_total"
+_MUTATION_FAILURE = "dgm_mutation_failure_total"
 unsafe_token_found_total = Counter(
     "dgm_unsafe_token_found_total",
     "Number of patches rejected due to dangerous tokens",
@@ -59,3 +61,15 @@ def increment_patch_apply(*, mutation: str, result: str, registry: Optional[Coll
     reg = registry if registry is not None else DEFAULT_REGISTRY
     c = _get_or_create(_PATCH_APPLIED, ["mutation", "result"], "Total number of patches applied", reg)
     c.labels(mutation=mutation, result=result).inc()
+
+
+def increment_mutation_success(*, strategy: str, registry: Optional[CollectorRegistry] = None) -> None:
+    reg = registry if registry is not None else DEFAULT_REGISTRY
+    c = _get_or_create(_MUTATION_SUCCESS, ["strategy"], "Total successful mutations", reg)
+    c.labels(strategy=strategy).inc()
+
+
+def increment_mutation_failure(*, strategy: str, registry: Optional[CollectorRegistry] = None) -> None:
+    reg = registry if registry is not None else DEFAULT_REGISTRY
+    c = _get_or_create(_MUTATION_FAILURE, ["strategy"], "Total failed mutations", reg)
+    c.labels(strategy=strategy).inc()

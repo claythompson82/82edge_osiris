@@ -66,17 +66,35 @@ _recent_rewards: deque[float] = deque(maxlen=5)
 # ───────────────────────────── mutation helpers ──────────────────────────────
 def _load_mutation() -> MutationStrategy:
     mod = importlib.import_module("dgm_kernel.mutation_strategies")
-    if not hasattr(mod, _MUTATION_NAME) and _MUTATION_NAME == "ASTInsertCommentAndRename":
+    env_name = os.getenv("DGM_MUTATION", "ASTInsertComment")
+
+    if env_name == "auto":
+        candidates: list[MutationStrategy] = []
+        for attr in dir(mod):
+            cls = getattr(mod, attr)
+            if isinstance(cls, type) and hasattr(cls, "mutate") and hasattr(cls, "name"):
+                try:
+                    candidates.append(cast(MutationStrategy, cls()))
+                except Exception:
+                    pass
+        chosen = mod.weighted_choice(candidates)
+        globals()["_MUTATION_NAME"] = chosen.name
+        return chosen
+
+    if not hasattr(mod, env_name) and env_name == "ASTInsertCommentAndRename":
         from dgm_kernel.mutation_strategies import ASTInsertComment, ASTRenameIdentifier
 
         class ASTInsertCommentAndRename:
+            name = "ASTInsertCommentAndRename"
+
             def mutate(self, code: str) -> str:
                 code = ASTInsertComment().mutate(code)
                 return ASTRenameIdentifier().mutate(code)
 
         setattr(mod, "ASTInsertCommentAndRename", ASTInsertCommentAndRename)
 
-    cls = cast(type[MutationStrategy], getattr(mod, _MUTATION_NAME))
+    cls = cast(type[MutationStrategy], getattr(mod, env_name))
+    globals()["_MUTATION_NAME"] = env_name
     return cls()
 
 
@@ -278,6 +296,10 @@ def _apply_patch(patch: dict[str, Any]) -> bool:
         success = False
 
     metrics.increment_patch_apply(mutation=_MUTATION_NAME, result="success" if success else "failure")
+    if success:
+        metrics.increment_mutation_success(strategy=_MUTATION_NAME)
+    else:
+        metrics.increment_mutation_failure(strategy=_MUTATION_NAME)
     return success
 
 
