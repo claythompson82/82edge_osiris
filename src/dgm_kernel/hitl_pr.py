@@ -4,11 +4,14 @@ import argparse
 import difflib
 import os
 import time
-from typing import TypedDict
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, TypedDict, cast
 
 from github import Github
-from github.Repository import Repository
 from github.PullRequest import PullRequest
+
+if TYPE_CHECKING:
+    from github.Repository import Repository
 
 
 class PatchDict(TypedDict):
@@ -17,6 +20,15 @@ class PatchDict(TypedDict):
     target: str
     before: str
     after: str
+
+
+class TemplateVars(TypedDict, total=False):
+    pr_number: int
+    summary: str
+    score: float
+
+
+TEMPLATE_VARS: TemplateVars = {}
 
 
 def create_hitl_pr(
@@ -61,7 +73,7 @@ def create_hitl_pr(
     after = patch.get("after", "")
 
     try:
-        contents = repo.get_contents(file_path, ref=base_branch_name)
+        contents = cast(Any, repo.get_contents(file_path, ref=base_branch_name))
         repo.update_file(
             file_path,
             "Apply patch via HITL workflow",
@@ -97,7 +109,14 @@ def create_hitl_pr(
         head=branch_name,
         base=base_branch_name,
     )
-    return pr.html_url
+    return str(pr.html_url)
+
+
+def render_pr_comment(template_path: str, template_vars: TemplateVars) -> str:
+    """Return a formatted PR comment from a template file."""
+    template = Path(template_path).read_text()
+    comment = template.format(**template_vars)
+    return comment
 
 
 def comment_on_pr(pr_number: int, body: str, repo_name: str | None = None) -> None:
