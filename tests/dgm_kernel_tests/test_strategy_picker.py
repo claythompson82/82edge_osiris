@@ -90,3 +90,34 @@ def test_mutation_counters(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
         {"strategy": meta_loop._MUTATION_NAME},
     ) == before_fail + 1.0
 
+
+def test_weighted_choice_decay(monkeypatch: pytest.MonkeyPatch) -> None:
+    registry = CollectorRegistry(auto_describe=True)
+    monkeypatch.setattr(metrics, "DEFAULT_REGISTRY", registry)
+
+    for _ in range(80):
+        metrics.increment_mutation_success(strategy="ASTInsertComment", registry=registry)
+    for _ in range(20):
+        metrics.increment_mutation_failure(strategy="ASTInsertComment", registry=registry)
+    for _ in range(20):
+        metrics.increment_mutation_success(strategy="ASTRenameIdentifier", registry=registry)
+    for _ in range(80):
+        metrics.increment_mutation_failure(strategy="ASTRenameIdentifier", registry=registry)
+
+    strategies = [ASTInsertComment, ASTRenameIdentifier]
+    early: Counter[str] = Counter()
+    late: Counter[str] = Counter()
+    random.seed(1)
+    for i in range(6000):
+        strat = mutation_strategies.weighted_choice(strategies)
+        if i < 200:
+            early[strat.name] += 1
+        elif i >= 5800:
+            late[strat.name] += 1
+
+    early_ratio = early["ASTInsertComment"] / (early["ASTInsertComment"] + early["ASTRenameIdentifier"])
+    late_ratio = late["ASTInsertComment"] / (late["ASTInsertComment"] + late["ASTRenameIdentifier"])
+
+    assert early_ratio > 0.6
+    assert 0.4 <= late_ratio <= 0.6
+
