@@ -167,7 +167,7 @@ async def fetch_recent_traces(n: int = 100) -> list[dict[str, Any]]:
                 )
         decoded_count = len(traces_raw)
         traces = validate_traces(traces_raw)
-        trace_dicts = [t.to_dict() for t in traces]
+        trace_dicts = [t.model_dump() for t in traces]
 
         if trace_dicts:
             log.info(
@@ -379,9 +379,8 @@ async def loop_once() -> None:
             patch_dict = cast(dict[str, str], patch)
             timeout = suggest_timeout()
             start = time.perf_counter()
-            result = run_patch_in_sandbox(patch_dict, timeout=timeout)
+            ok, logs, exit_code, *_ = run_patch_in_sandbox(patch_dict, timeout=timeout)
             delta = time.perf_counter() - start
-            ok, logs, exit_code = result[0], result[1], result[2]
             if ok:
                 record_runtime(delta)
         if not ok:
