@@ -24,7 +24,7 @@ def main() -> None:
         return
 
     try:
-        from github import Github  # type: ignore
+        from github import Github
     except Exception as exc:  # pragma: no cover - optional dependency
         log.error("PyGithub not available: %s", exc)
         return
