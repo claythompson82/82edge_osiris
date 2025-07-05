@@ -1,7 +1,13 @@
 from __future__ import annotations
 
 from typing import Dict, List, Optional
-from prometheus_client import Counter, Gauge, CollectorRegistry, REGISTRY as DEFAULT_REGISTRY
+from prometheus_client import (
+    Counter,
+    Gauge,
+    Histogram,
+    CollectorRegistry,
+    REGISTRY as DEFAULT_REGISTRY,
+)
 
 _PATCH_APPLIED = "dgm_patches_applied_total"
 _PATCH_GENERATION = "dgm_patch_generation_total"
@@ -45,6 +51,13 @@ sandbox_cpu_ms_total = Counter(
 sandbox_ram_mb_total = Counter(
     "dgm_sandbox_ram_mb_total",
     "Total RAM megabytes consumed by sandboxed patches",
+)
+
+# Histogram of sandbox runtime durations
+sandbox_runtime_seconds = Histogram(
+    "dgm_sandbox_runtime_seconds",
+    "Runtime of successful sandbox executions in seconds",
+    buckets=(0.1, 0.3, 1.0, 3.0, 10.0, 30.0),
 )
 
 _counters: Dict[CollectorRegistry, Dict[str, Counter]] = {}

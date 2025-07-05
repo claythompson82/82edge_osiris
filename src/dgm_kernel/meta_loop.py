@@ -36,7 +36,11 @@ from dgm_kernel.mutation_strategies import (
 from dgm_kernel.otel import tracer
 from dgm_kernel.prover import _get_pylint_score as _prover_pylint_score
 from dgm_kernel.prover import prove_patch
-from dgm_kernel.sandbox import run_patch_in_sandbox
+from dgm_kernel.sandbox import (
+    run_patch_in_sandbox,
+    record_runtime,
+    suggest_timeout,
+)
 from dgm_kernel.trace_schema import HistoryEntry, validate_traces
 
 # Cast `draft_patch` to accept trace dictionaries for MyPy
@@ -373,8 +377,13 @@ async def loop_once() -> None:
 
         with tracer.start_as_current_span("sandbox"):
             patch_dict = cast(dict[str, str], patch)
-            result = run_patch_in_sandbox(patch_dict)
+            timeout = suggest_timeout()
+            start = time.perf_counter()
+            result = run_patch_in_sandbox(patch_dict, timeout=timeout)
+            delta = time.perf_counter() - start
             ok, logs, exit_code = result[0], result[1], result[2]
+            if ok:
+                record_runtime(delta)
         if not ok:
             return
 
