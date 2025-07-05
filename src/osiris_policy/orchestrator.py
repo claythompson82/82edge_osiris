@@ -86,6 +86,11 @@ TICK_BUFFER: List[Dict[str, Any]] = []
 MARKET_TICKS_CHANNEL = "market.ticks"  # Default, can be overridden by CLI
 # REDIS_URL will be set by CLI args
 
+# Simple intent handler for routing tests
+def handle_intent(intent: str, text: str) -> str:
+    """Return a minimal orchestrator response used for routing tests."""
+    return f"[ORCHESTRATOR] {text}"
+
 RISK_GATE_CONFIG = {
     "max_position_size_pct": 0.01,  # 1% of NAV
     "max_daily_loss_pct": 0.02,  # 2% of NAV
