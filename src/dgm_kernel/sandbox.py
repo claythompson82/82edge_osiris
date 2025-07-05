@@ -17,12 +17,18 @@ from __future__ import annotations
 import builtins
 import logging
 import resource
+import statistics
 import subprocess
 import tempfile
 from pathlib import Path
 from typing import Dict, Tuple
 
+import redis
+
 from dgm_kernel import metrics
+
+REDIS = redis.Redis(host="redis", port=6379, decode_responses=True)
+RUNTIMES_KEY = "dgm:sandbox_runtimes"
 
 log = logging.getLogger(__name__)
 
@@ -51,6 +57,29 @@ SAFE_BUILTINS: Dict[str, object] = {name: getattr(builtins, name) for name in [
     "Exception",
     "__import__",
 ]}
+
+
+def record_runtime(duration_s: float) -> None:
+    """Store sandbox runtime in Redis and histogram."""
+    try:
+        REDIS.lpush(RUNTIMES_KEY, str(duration_s))
+        REDIS.ltrim(RUNTIMES_KEY, 0, 199)
+    except redis.exceptions.RedisError as exc:  # pragma: no cover - redis fail
+        log.error("Redis error recording runtime: %s", exc)
+    metrics.sandbox_runtime_seconds.observe(duration_s)
+
+
+def suggest_timeout(default: float = 10.0) -> float:
+    """Return adaptive timeout based on recent runtimes."""
+    try:
+        raw = REDIS.lrange(RUNTIMES_KEY, 0, 99)
+        values = [float(x) for x in raw]
+    except redis.exceptions.RedisError:
+        return default
+    if not values:
+        return default
+    med = statistics.median(values)
+    return max(default, 4 * med)
 
 
 class Sandbox:
@@ -88,7 +117,7 @@ except Exception as e:
     sys.exit(1)
 """
 
-    def run(self, patch: Dict[str, str]) -> Tuple[bool, str, int]:
+    def run(self, patch: Dict[str, str], timeout: float | None = None) -> Tuple[bool, str, int]:
         """Run ``patch['after']`` in isolation.
 
         Returns ``(success, output, exit_code)`` without raising exceptions.
@@ -105,6 +134,7 @@ except Exception as e:
                     capture_output=True,
                     text=True,
                     cwd=tmp_path,
+                    timeout=timeout,
                 )
                 output = proc.stdout + proc.stderr
                 success = proc.returncode == 0
@@ -114,7 +144,9 @@ except Exception as e:
             return False, f"SandboxError: {e}", 1
 
 
-def run_patch_in_sandbox(patch: Dict[str, str]) -> Tuple[bool, str, int, float, float]:
+def run_patch_in_sandbox(
+    patch: Dict[str, str], timeout: float | None = None
+) -> Tuple[bool, str, int, float, float]:
     """Execute patch code and report resource usage.
 
     Returns ``(ok, logs, exit_code, cpu_ms, ram_mb)``.
@@ -123,7 +155,7 @@ def run_patch_in_sandbox(patch: Dict[str, str]) -> Tuple[bool, str, int, float, 
     """
 
     before = resource.getrusage(resource.RUSAGE_CHILDREN)
-    ok, logs, code = Sandbox().run(patch)
+    ok, logs, code = Sandbox().run(patch, timeout=timeout)
     after = resource.getrusage(resource.RUSAGE_CHILDREN)
 
     cpu_sec = (after.ru_utime + after.ru_stime) - (before.ru_utime + before.ru_stime)
