@@ -27,7 +27,7 @@ def test_draft_patch_success(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(llm_client.requests, "post", post_mock)
 
     trace = Trace(id="1", timestamp=1, pnl=0.0)
-    result = llm_client.draft_patch([trace])
+    result = llm_client.draft_patch([trace.model_dump()])
     assert result == expected
     post_mock.assert_called_once()
 
@@ -39,6 +39,6 @@ def test_draft_patch_bad_status(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(llm_client.requests, "post", post_mock)
 
     trace = Trace(id="1", timestamp=1, pnl=0.0)
-    result = llm_client.draft_patch([trace])
+    result = llm_client.draft_patch([trace.model_dump()])
     assert result is None
     post_mock.assert_called_once()

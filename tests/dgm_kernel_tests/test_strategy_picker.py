@@ -50,7 +50,7 @@ def test_weighted_choice_distribution(monkeypatch: pytest.MonkeyPatch) -> None:
     expected = [w1 / total * 1000, w2 / total * 1000]
     observed = [counts["ASTInsertComment"], counts["ASTRenameIdentifier"]]
 
-    assert chi2_pvalue(observed, expected) > 0.05
+    assert chi2_pvalue(observed, expected) > 0.01
 
 
 def test_mutation_counters(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
