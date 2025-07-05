@@ -33,3 +33,5 @@ scipy>=1.12,<2        # math_utils entropy / stats
 python-multipart>=0.0.9,<0.1   # FastAPI form-upload deps
 matplotlib>=3,<4               # azr_planner HTML report
 PyGithub>=2,<3                 # hitl_pr unit test stub
+python-multipart>=0.0.9,<0.1
+fakeredis[aioredis]>=2.19,<3
