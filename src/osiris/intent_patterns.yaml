@@ -1,0 +1,28 @@
+intents:
+  - name: TURN_LIGHT_ON
+    patterns:
+      - "turn on * light*"
+      - "lights on *"
+    route: ORCHESTRATOR
+  - name: TIMER_SET
+    patterns:
+      - "set a timer for *"
+      - "timer * minutes"
+    route: ORCHESTRATOR
+  - name: JOKE
+    patterns:
+      - "tell me a joke"
+      - "make me laugh"
+    route: ORCHESTRATOR
+  - name: GENERAL_QA
+    patterns:
+      - "who is *"
+      - "what is *"
+    route: ORCHESTRATOR
+  - name: QUICK_FACT
+    patterns:
+      - "give me a quick fact about *"
+    route: ORCHESTRATOR
+  - name: UNKNOWN
+    patterns: []
+    route: UNKNOWN
