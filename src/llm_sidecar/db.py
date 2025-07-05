@@ -12,7 +12,7 @@ import lancedb
 # environment variables DB_ROOT or OSIRIS_DB_ROOT may override the
 # default path, but we never append additional segments.
 _DEFAULT_ROOT = Path(__file__).resolve().parent.parent.parent / ".lancedb"
-DB_ROOT = Path(os.getenv("DB_ROOT") or os.getenv("OSIRIS_DB_ROOT") or _DEFAULT_ROOT)
+DB_ROOT = Path(globals().get("DB_ROOT") or os.getenv("DB_ROOT") or os.getenv("OSIRIS_DB_ROOT") or _DEFAULT_ROOT)
 _db = None
 _tables = {}
 
@@ -36,20 +36,27 @@ class HermesScoreSchema(BaseModel):
     score: float
     timestamp: str
 
+def _connect():
+    """Lazily connect to LanceDB using the current ``DB_ROOT``."""
+    global _db
+    if _db is None:
+        Path(DB_ROOT).mkdir(parents=True, exist_ok=True)
+        _db = lancedb.connect(DB_ROOT)
+    return _db
+
 def connect_db():
     global _db, _tables
-    DB_ROOT.mkdir(parents=True, exist_ok=True)
-    _db = lancedb.connect(DB_ROOT)
+    db = _connect()
     # Define and open tables with schemas
-    if "phi3_feedback" not in _db.table_names():
-        _db.create_table("phi3_feedback", data=[Phi3FeedbackSchema.model_json_schema()])
-    if "orchestrator_runs" not in _db.table_names():
-        _db.create_table("orchestrator_runs", data=[OrchestratorRunSchema.model_json_schema()])
-    if "hermes_scores" not in _db.table_names():
-        _db.create_table("hermes_scores", data=[HermesScoreSchema.model_json_schema()])
-    _tables["phi3_feedback"] = _db.open_table("phi3_feedback")
-    _tables["orchestrator_runs"] = _db.open_table("orchestrator_runs")
-    _tables["hermes_scores"] = _db.open_table("hermes_scores")
+    if "phi3_feedback" not in db.table_names():
+        db.create_table("phi3_feedback", data=[Phi3FeedbackSchema.model_json_schema()])
+    if "orchestrator_runs" not in db.table_names():
+        db.create_table("orchestrator_runs", data=[OrchestratorRunSchema.model_json_schema()])
+    if "hermes_scores" not in db.table_names():
+        db.create_table("hermes_scores", data=[HermesScoreSchema.model_json_schema()])
+    _tables["phi3_feedback"] = db.open_table("phi3_feedback")
+    _tables["orchestrator_runs"] = db.open_table("orchestrator_runs")
+    _tables["hermes_scores"] = db.open_table("hermes_scores")
 
 # Initialize DB on import
 connect_db()
