@@ -23,6 +23,9 @@ from types import ModuleType, SimpleNamespace
 import typing as _t
 from hypothesis import settings
 
+# Provide compatibility shim for fakeredis
+import tests._shims.fake_aioredis  # noqa: F401
+
 settings.register_profile("ci", deadline=None)
 settings.load_profile("ci")
 
