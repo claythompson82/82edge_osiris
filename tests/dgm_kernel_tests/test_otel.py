@@ -39,7 +39,7 @@ async def test_loop_once_spans(monkeypatch):
     monkeypatch.setattr(meta_loop, "generate_patch", AsyncMock(return_value={"target": "t.py", "before": "", "after": ""}))
     monkeypatch.setattr(meta_loop, "_verify_patch", AsyncMock(return_value=True))
     monkeypatch.setattr(meta_loop, "prove_patch", lambda diff: 1.0)
-    monkeypatch.setattr(meta_loop, "run_patch_in_sandbox", lambda patch: (True, "", 0))
+    monkeypatch.setattr(meta_loop, "run_patch_in_sandbox", lambda *_, **__: (True, "", 0))
     monkeypatch.setattr(meta_loop, "_apply_patch", lambda patch: True)
     monkeypatch.setattr(meta_loop, "_record_patch_history", lambda entry: None)
 
