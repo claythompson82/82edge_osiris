@@ -36,7 +36,7 @@ def draft_patch(trace: list[dict[str, Any]] | list[Trace]) -> PatchDict | None:
             if isinstance(row, Trace):
                 trace_payload.append(row.model_dump())
             else:
-                trace_payload.append(cast(dict[str, Any], row))
+                trace_payload.append(row)
 
         resp = requests.post(
             url,

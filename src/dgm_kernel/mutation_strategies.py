@@ -20,7 +20,7 @@ from typing import Any, Mapping, Protocol, Sequence, Type, cast
 from prometheus_client import CollectorRegistry, Counter
 from . import metrics
 
-DEFAULT_REGISTRY = metrics.DEFAULT_REGISTRY
+DEFAULT_REGISTRY: CollectorRegistry = metrics.DEFAULT_REGISTRY  # type: ignore[attr-defined]
 
 DECAY = 0.995
 
