@@ -12,7 +12,12 @@ import lancedb
 # environment variables DB_ROOT or OSIRIS_DB_ROOT may override the
 # default path, but we never append additional segments.
 _DEFAULT_ROOT = Path(__file__).resolve().parent.parent.parent / ".lancedb"
-DB_ROOT = Path(globals().get("DB_ROOT") or os.getenv("DB_ROOT") or os.getenv("OSIRIS_DB_ROOT") or _DEFAULT_ROOT)
+DB_ROOT = Path(
+    globals().get("DB_ROOT")
+    or os.getenv("DB_ROOT")
+    or os.getenv("OSIRIS_DB_ROOT")
+    or _DEFAULT_ROOT
+)
 _db = None
 _tables = {}
 
@@ -36,12 +41,22 @@ class HermesScoreSchema(BaseModel):
     score: float
     timestamp: str
 
+def _resolve_root() -> Path:
+    """Return the LanceDB root honoring runtime patches."""
+    candidate = globals().get("DB_ROOT")
+    if candidate:
+        return Path(str(candidate))
+    env = os.getenv("DB_ROOT") or os.getenv("OSIRIS_DB_ROOT")
+    return Path(env) if env else _DEFAULT_ROOT
+
+
 def _connect():
     """Lazily connect to LanceDB using the current ``DB_ROOT``."""
-    global _db
+    global _db, DB_ROOT
     if _db is None:
-        Path(DB_ROOT).mkdir(parents=True, exist_ok=True)
-        _db = lancedb.connect(DB_ROOT)
+        DB_ROOT = _resolve_root()
+        DB_ROOT.mkdir(parents=True, exist_ok=True)
+        _db = lancedb.connect(str(DB_ROOT))
     return _db
 
 def connect_db():
