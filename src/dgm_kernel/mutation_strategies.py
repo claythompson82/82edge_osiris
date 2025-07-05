@@ -17,8 +17,10 @@ import ast
 import random
 from typing import Any, Mapping, Protocol, Sequence, Type, cast
 
-from prometheus_client import CollectorRegistry, REGISTRY as DEFAULT_REGISTRY, Counter
+from prometheus_client import CollectorRegistry, Counter
 from . import metrics
+
+DEFAULT_REGISTRY = metrics.DEFAULT_REGISTRY
 
 DECAY = 0.995
 
