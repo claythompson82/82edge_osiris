@@ -22,6 +22,9 @@ from pathlib import Path
 from types import ModuleType, SimpleNamespace
 import typing as _t
 from hypothesis import settings
+import sys, pathlib
+_shim_path = pathlib.Path(__file__).parent / "_shims"
+sys.path.insert(0, str(_shim_path))
 
 # Provide compatibility shim for fakeredis
 import tests._shims.fake_aioredis  # noqa: F401

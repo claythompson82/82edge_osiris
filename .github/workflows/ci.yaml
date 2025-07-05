@@ -218,6 +218,9 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install -r requirements-tests.txt
+      - name: Run MyPy
+        run: |
+          PYTHONPATH=$PWD/src python -m mypy --strict -p dgm_kernel
       - name: Run Pytest
         run: |
           pytest -n auto --cov --cov-report=xml --junitxml=pytest-results.xml tests/test_harvest.py
