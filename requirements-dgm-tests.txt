@@ -35,3 +35,5 @@ matplotlib>=3,<4               # azr_planner HTML report
 PyGithub>=2,<3                 # hitl_pr unit test stub
 python-multipart>=0.0.9,<0.1
 fakeredis[aioredis]>=2.19,<3
+fake-aioredis>=1.8,<2
+lancedb==0.4.4
