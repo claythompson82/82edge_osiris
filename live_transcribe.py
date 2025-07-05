@@ -6,6 +6,10 @@ import whisper
 import torch
 import webrtcvad
 
+import intent_router
+from osiris import tts
+from typing import Any, Dict
+
 # ── CONFIG ───────────────────────────────────────────────────────────
 SAMPLE_RATE       = 16000    # must be 16000 for WebRTC VAD
 BLOCK_DURATION_MS = 30       # 30 ms per frame for VAD
@@ -23,6 +27,7 @@ model = whisper.load_model(MODEL_NAME, device=device).to(device)
 vad = webrtcvad.Vad(VAD_AGGRESSIVENESS)
 
 audio_q = queue.Queue()
+ctx: Dict[str, Any] = {}
 
 # ── AUDIO CALLBACK ───────────────────────────────────────────────────
 def audio_callback(indata, frames, time, status):
@@ -76,6 +81,8 @@ def transcribe_worker():
                 text = res["text"].strip()
                 if text:
                     print(text)
+                    response = intent_router.route_and_respond(text, ctx)
+                    tts.speak(response)
 
     # flush any remaining speech
     if speech_buffer:
@@ -92,6 +99,8 @@ def transcribe_worker():
         text = res["text"].strip()
         if text:
             print(text)
+            response = intent_router.route_and_respond(text, ctx)
+            tts.speak(response)
 
 # ── MAIN ──────────────────────────────────────────────────────────────
 def main():
