@@ -29,3 +29,16 @@ def text_to_speech(text: str) -> bytes:
     audio_resp = requests.get(audio_url)
     audio_resp.raise_for_status()
     return audio_resp.content
+
+
+def speak(text: str) -> None:
+    """Send ``text`` to the sidecar ``/speak`` endpoint."""
+    base_url = os.environ.get("OSIRIS_SIDECAR_URL", "http://localhost:8000").rstrip("/")
+    try:
+        requests.post(f"{base_url}/speak", json={"text": text}, timeout=5).raise_for_status()
+    except requests.RequestException as exc:  # pragma: no cover - network failure
+        if os.getenv("OSIRIS_TEST") == "1":
+            # In tests the sidecar may not be running.
+            print(f"[tts] Chatterbox unavailable: {exc}")
+        else:
+            raise
