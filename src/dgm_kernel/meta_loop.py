@@ -37,9 +37,9 @@ from dgm_kernel.otel import tracer
 from dgm_kernel.prover import _get_pylint_score as _prover_pylint_score
 from dgm_kernel.prover import prove_patch
 from dgm_kernel.sandbox import (
-    run_patch_in_sandbox,
+    run_patch_in_sandbox as _run_patch_in_sandbox,
     record_runtime,
-    suggest_timeout,
+    suggest_timeout as _suggest_timeout,
 )
 from dgm_kernel.trace_schema import HistoryEntry, validate_traces
 
@@ -48,6 +48,13 @@ draft_patch: Callable[[list[dict[str, Any]]], PatchDict | None] = cast(
     Callable[[list[dict[str, Any]]], PatchDict | None],
     _draft_patch,
 )
+
+# Typed wrappers for sandbox helpers
+suggest_timeout: Callable[..., float] = _suggest_timeout
+run_patch_in_sandbox: Callable[
+    [dict[str, str], float | None],
+    tuple[bool, str, int, float, float],
+] = _run_patch_in_sandbox
 from llm_sidecar.reward import proofable_reward
 
 # ─────────────────────────────── globals & config ────────────────────────────
@@ -379,7 +386,10 @@ async def loop_once() -> None:
             patch_dict = cast(dict[str, str], patch)
             timeout = suggest_timeout()
             start = time.perf_counter()
-            ok, logs, exit_code, *_ = run_patch_in_sandbox(patch_dict, timeout=timeout)
+            ok, logs, exit_code, cpu_ms, ram_mb = run_patch_in_sandbox(
+                patch_dict, timeout
+            )
+            _ = cpu_ms, ram_mb  # currently unused
             delta = time.perf_counter() - start
             if ok:
                 record_runtime(delta)

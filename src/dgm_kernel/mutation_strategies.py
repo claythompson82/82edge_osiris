@@ -20,7 +20,9 @@ from typing import Any, Mapping, Protocol, Sequence, Type, cast
 from prometheus_client import CollectorRegistry, Counter
 from . import metrics
 
-DEFAULT_REGISTRY = metrics.DEFAULT_REGISTRY
+DEFAULT_REGISTRY: CollectorRegistry = cast(
+    CollectorRegistry, getattr(metrics, "DEFAULT_REGISTRY")
+)
 
 DECAY = 0.995
 
@@ -94,6 +96,7 @@ def weighted_choice(strategies: Sequence[Type[MutationStrategy]]) -> Type[Mutati
         fail_val = registry.get_sample_value(
             "dgm_mutation_failure_total", labels={"strategy": strat.name}
         )
+
         succ = (succ_val or 0.0) * DECAY
         fail = (fail_val or 0.0) * DECAY
 
@@ -109,10 +112,14 @@ def weighted_choice(strategies: Sequence[Type[MutationStrategy]]) -> Type[Mutati
         else:
             ratio = succ / (succ + fail + 1e-3)
 
-        # keep ratios within a reasonable band so every strategy has a chance
         weights.append(min(0.7, max(0.05, ratio)))
 
-    return random.choices(list(strategies), weights=weights, k=1)[0]
+    total = sum(weights)
+    if total <= 0:
+        return random.choice(list(strategies))
+
+    norm = [w / total for w in weights]
+    return random.choices(list(strategies), weights=norm, k=1)[0]
 
 
 def choose_mutation(

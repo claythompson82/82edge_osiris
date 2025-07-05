@@ -21,7 +21,7 @@ class PatchDict(TypedDict):
     sig: str
 
 
-def draft_patch(trace: list[dict[str, Any]] | list[Trace]) -> PatchDict | None:
+def draft_patch(trace: list[dict[str, Any]]) -> PatchDict | None:
     """Request a patch from the external LLM service."""
     if not trace:
         log.warning("draft_patch called with no traces, returning None.")
@@ -33,10 +33,13 @@ def draft_patch(trace: list[dict[str, Any]] | list[Trace]) -> PatchDict | None:
     try:
         trace_payload: list[dict[str, Any]] = []
         for row in trace:
-            if isinstance(row, Trace):
-                trace_payload.append(row.model_dump())
-            else:
-                trace_payload.append(cast(dict[str, Any], row))
+            if hasattr(row, "model_dump"):
+                try:
+                    trace_payload.append(cast(Any, row).model_dump())
+                    continue
+                except Exception:
+                    pass
+            trace_payload.append(row)
 
         resp = requests.post(
             url,
