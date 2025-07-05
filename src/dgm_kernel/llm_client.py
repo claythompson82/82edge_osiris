@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TypedDict, cast
+from typing import Any, TypedDict, cast
 
 import requests
 
@@ -21,7 +21,7 @@ class PatchDict(TypedDict):
     sig: str
 
 
-def draft_patch(trace: list[Trace]) -> PatchDict | None:
+def draft_patch(trace: list[dict[str, Any]] | list[Trace]) -> PatchDict | None:
     """Request a patch from the external LLM service."""
     if not trace:
         log.warning("draft_patch called with no traces, returning None.")
@@ -31,10 +31,16 @@ def draft_patch(trace: list[Trace]) -> PatchDict | None:
     headers = {"Authorization": f"Bearer {CONFIG.api_key}"} if CONFIG.api_key else {}
 
     try:
-        trace_json = [t.model_dump_json() for t in trace]
+        trace_payload: list[dict[str, Any]] = []
+        for row in trace:
+            if isinstance(row, Trace):
+                trace_payload.append(row.model_dump())
+            else:
+                trace_payload.append(cast(dict[str, Any], row))
+
         resp = requests.post(
             url,
-            json={"trace": trace_json},
+            json={"trace": trace_payload},
             headers=headers,
             timeout=CONFIG.timeout,
         )
