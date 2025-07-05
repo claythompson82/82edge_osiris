@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 import asyncio
 import json
 import time
@@ -11,6 +13,23 @@ from typing import Any, AsyncIterator, Dict, List
 
 from pydantic import Field
 from pydantic.dataclasses import dataclass
+
+if os.getenv("OSIRIS_TEST") == "1":
+    try:
+        import fake_aioredis  # provided only in tests
+    except ModuleNotFoundError:
+        import types, fakeredis, redis
+
+        class _FakeRedis(fakeredis.FakeRedis):  # type: ignore[misc]
+            @classmethod
+            def from_server(cls, server, **kw):
+                return cls(decode_responses=kw.get("decode_responses", False))
+
+        fake_aioredis = types.ModuleType("fake_aioredis")
+        fake_aioredis.FakeRedis = _FakeRedis  # type: ignore[attr-defined]
+        import sys
+
+        sys.modules["fake_aioredis"] = fake_aioredis
 
 
 class RedisError(Exception):

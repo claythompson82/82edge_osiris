@@ -1,5 +1,6 @@
 import os
 import json
+from pathlib import Path
 from typing import Optional, Dict, Any
 from pydantic import BaseModel, Field
 from datetime import datetime
@@ -7,7 +8,11 @@ from datetime import datetime
 # LanceDB setup (assuming lancedb is imported elsewhere)
 import lancedb
 
-DB_ROOT = os.getenv("OSIRIS_DB_ROOT", "osiris_db")
+# Honour DB_ROOT exactly – tests patch this variable directly.  The
+# environment variables DB_ROOT or OSIRIS_DB_ROOT may override the
+# default path, but we never append additional segments.
+_DEFAULT_ROOT = Path(__file__).resolve().parent.parent.parent / ".lancedb"
+DB_ROOT = Path(os.getenv("DB_ROOT") or os.getenv("OSIRIS_DB_ROOT") or _DEFAULT_ROOT)
 _db = None
 _tables = {}
 
@@ -33,6 +38,7 @@ class HermesScoreSchema(BaseModel):
 
 def connect_db():
     global _db, _tables
+    DB_ROOT.mkdir(parents=True, exist_ok=True)
     _db = lancedb.connect(DB_ROOT)
     # Define and open tables with schemas
     if "phi3_feedback" not in _db.table_names():
